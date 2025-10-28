@@ -1,0 +1,18 @@
+# Node modules
+node_modules/
+
+# WhatsApp auth/session data
+auth/
+session/
+auth_info/
+
+# Environment variables
+.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Vercel build cache
+.vercel/
