@@ -4,6 +4,7 @@ node_modules/
 # WhatsApp auth/session data
 auth/
 session/
+sessions/
 auth_info/
 
 # Environment variables
