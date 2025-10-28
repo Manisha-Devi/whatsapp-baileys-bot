@@ -11,6 +11,7 @@ import fs from "fs";
 import qrcode from "qrcode";
 import { handleIncomingMessage } from "./message.js";
 
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -108,7 +109,7 @@ async function connectToWhatsApp() {
       }
     }
   });
-
+  
   sock.ev.on("creds.update", saveCreds);
 
   // Import external message handler
