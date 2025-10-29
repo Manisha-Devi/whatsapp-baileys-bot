@@ -1,5 +1,6 @@
 // server.js
 import express from "express";
+
 import makeWASocket, {
   useMultiFileAuthState,
   DisconnectReason,
@@ -170,7 +171,15 @@ app.get("/logout", async (req, res) => {
 app.get("/", (req, res) => {
   res.redirect("/login-qr");
 });
-
+app.get("/daily_data.json", (req, res) => {
+  try {
+    const data = fs.readFileSync("daily_data.json", "utf8");
+    res.setHeader("Content-Type", "application/json");
+    res.send(data);
+  } catch (err) {
+    res.status(500).json({ error: "❌ Cannot read daily_data.json" });
+  }
+});
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

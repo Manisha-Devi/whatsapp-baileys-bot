@@ -22,41 +22,32 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
       return;
     }
 
-    // ✅ Initialize user session
-    if (!global.userData) global.userData = {};
-    if (!global.userData[sender]) {
-      const today = new Date();
-      const todayDate = format(today, "EEEE, dd MMMM yyyy");
-      const day = String(today.getDate()).padStart(2, "0");
-      const month = String(today.getMonth() + 1).padStart(2, "0");
-      const year = today.getFullYear();
-      const primaryKey = `${day}${month}${year}`;
+   // ✅ Initialize user session (no auto date, wait for user to enter)
+if (!global.userData) global.userData = {};
+if (!global.userData[sender]) {
+  global.userData[sender] = {
+    Dated: null,
+    Diesel: null,
+    Adda: null,
+    Union: null,
+    TotalCashCollection: null,
+    Online: null,
+    CashHandover: null,
+    ExtraExpenses: [],
+    waitingForUpdate: null,
+    waitingForSubmit: false,
+    editingExisting: false,
+    confirmingFetch: false,
+    awaitingCancelChoice: false,
+    confirmingUpdate: false,
+    pendingPrimaryKey: null,
+  };
 
-      global.userData[sender] = {
-        Dated: todayDate,
-        Diesel: null,
-        Adda: null,
-        Union: null,
-        TotalCashCollection: null,
-        Online: null,
-        CashHandover: null,
-        ExtraExpenses: [],
-        waitingForUpdate: null,
-        waitingForSubmit: false,
-        editingExisting: false,
-        pendingPrimaryKey: primaryKey,
-      };
+  await sock.sendMessage(sender, {
+    text: "👋 Please enter date first in format: Dated DD/MM/YYYY",
+  });
+}
 
-      // ✅ AUTO DATE CHECK
-      await db.read();
-      if (db.data[primaryKey]) {
-        global.userData[sender].confirmingFetch = true;
-        await sock.sendMessage(sender, {
-          text: `⚠️ Data for ${day}/${month}/${year} already exists.\nDo you want to fetch and update it? (yes/no)`,
-        });
-        return;
-      }
-    }
 
     const user = global.userData[sender];
 
@@ -160,20 +151,139 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
       }
     }
 
-    /* ============================================================
-       🆕 DAILY COMMAND — Show current summary
-    ============================================================ */
-    if (/^daily$/i.test(text)) {
-      recalculateCashHandover(user);
-      const completenessMsg = getCompletionMessage(user);
-      await sendSummary(
-        sock,
-        sender,
-        `📋 Here's your current entered data:\n${completenessMsg}`,
-        user
-      );
+   /* ============================================================
+   🆕 DAILY COMMAND — Show summary, fetch by date, or recent days
+============================================================ */
+const dailyPattern = /^daily(?:\s+([\w\/\-]+)(?:\s+(\d+)\s+days)?)?$/i;
+const dailyMatch = text.match(dailyPattern);
+
+if (dailyMatch) {
+  await db.read();
+  const param1 = dailyMatch[1]?.toLowerCase() || "";
+  const daysCount = parseInt(dailyMatch[2]) || null;
+
+  // Helper to format and send fetched record
+  async function sendFetchedRecord(record, title = "✅ Data Fetched") {
+    const extraList =
+      record.ExtraExpenses && record.ExtraExpenses.length > 0
+        ? record.ExtraExpenses
+            .map(
+              (e) =>
+                `🧾 ${capitalize(e.name)}: ₹${e.amount}${
+                  e.mode === "online" ? " 💳" : ""
+                }`
+            )
+            .join("\n")
+        : "";
+
+    const dieselAmt = record.Diesel?.amount || record.Diesel || "0";
+    const addaAmt = record.Adda?.amount || record.Adda || "0";
+    const unionAmt = record.Union?.amount || record.Union || "0";
+
+    const msg = [
+      `${title}`,
+      `📅 Dated: ${record.Dated || "___"}`,
+      ``,
+      `💰 *Expenses (Outflow):*`,
+      `⛽ Diesel: ₹${dieselAmt}${record.Diesel?.mode === "online" ? " 💳" : ""}`,
+      `🚌 Adda : ₹${addaAmt}${record.Adda?.mode === "online" ? " 💳" : ""}`,
+      `🤝 Union Fees: ₹${unionAmt}${record.Union?.mode === "online" ? " 💳" : ""}`,
+      extraList ? `${extraList}` : "",
+      ``,
+      `💵 *Total Collection (Inflow):*`,
+      `💸 Total Cash Collection: ₹${record.TotalCashCollection || "0"}`,
+      `💳 Online Collection: ₹${record.Online || "0"}`,
+      ``,
+      `✨ *Total Hand Over:*`,
+      `💵 Cash Hand Over: ₹${record.CashHandover || "0"}`,
+      ``,
+      `✅ Data Fetched successfully!`,
+    ].join("\n");
+
+    await sock.sendMessage(sender, { text: msg });
+  }
+
+  // --- DAILY TODAY ---
+  if (param1 === "today") {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const year = now.getFullYear();
+    const key = `${day}${month}${year}`;
+    const record = db.data[key];
+
+    if (!record) {
+      await sock.sendMessage(sender, { text: `⚠️ No record found for today.` });
       return;
     }
+
+    await sendFetchedRecord(record, "✅ Today's Data");
+    return;
+  }
+
+  // --- DAILY LAST N DAYS ---
+  if (param1 === "last" && daysCount) {
+    const now = new Date();
+
+    for (let i = 0; i < daysCount; i++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      const key = `${day}${month}${year}`;
+      const record = db.data[key];
+      if (!record) continue;
+
+      await sendFetchedRecord(
+        record,
+        i === 0 ? "✅ Today's Data" : i === 1 ? "✅ Yesterday's Data" : `✅ ${i} Days Ago`
+      );
+
+      // Simulate typing between messages
+      if (i < daysCount - 1) {
+        await sock.presenceSubscribe(sender);
+        await sock.sendPresenceUpdate("composing", sender);
+        await new Promise((r) => setTimeout(r, 2000));
+        await sock.sendPresenceUpdate("paused", sender);
+      }
+    }
+
+    return;
+  }
+
+  // --- DAILY DD/MM/YYYY ---
+  const dateMatch = param1.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (dateMatch) {
+    const [_, day, month, year] = dateMatch;
+    const key = `${day.padStart(2, "0")}${month.padStart(2, "0")}${year}`;
+    const record = db.data[key];
+
+    if (!record) {
+      await sock.sendMessage(sender, {
+        text: `⚠️ No record found for ${day}/${month}/${year}.`,
+      });
+      return;
+    }
+
+    await sendFetchedRecord(record);
+    return;
+  }
+
+  // --- DEFAULT "DAILY" (CURRENT SESSION) ---
+  if (/^daily$/i.test(text)) {
+    recalculateCashHandover(user);
+    const completenessMsg = getCompletionMessage(user);
+    await sendSummary(
+      sock,
+      sender,
+      `📋 Here's your current entered data:\n${completenessMsg}`,
+      user
+    );
+    return;
+  }
+}
+
 
     /* ============================================================
        🧹 EXPENSE DELETE COMMAND
@@ -203,6 +313,163 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
     }
 
     /* ============================================================
+       🧠 FIELD EXTRACTION (Includes Dated fetch + mode detection)
+    ============================================================ */
+    const fieldPatterns = {
+      Dated: /date(?:d)?\s*[:\-]?\s*([\w\s,\/\-]+)/gi,
+
+      Diesel: /diesel\s*[:\-]?\s*(\d+)(?:\s*(online))?/gi,
+      Adda: /adda\s*[:\-]?\s*(\d+)(?:\s*(online))?/gi,
+      Union: /union\s*[:\-]?\s*(\d+)(?:\s*(online))?/gi,
+      TotalCashCollection: /total\s*cash\s*collection\s*[:\-]?\s*(\d+)/gi,
+      Online: /online\s*[:\-]?\s*(\d+)/gi,
+    };
+
+    let anyFieldFound = false;
+    let pendingUpdates = [];
+
+    for (const [key, regex] of Object.entries(fieldPatterns)) {
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        anyFieldFound = true;
+if (key === "Dated") {
+  let value = match[1].trim().toLowerCase();
+
+  // 🧠 Natural word detection (today, yesterday, tomorrow)
+  let targetDate;
+  const now = new Date();
+
+  if (value === "today") {
+    targetDate = now;
+  } else if (value === "yesterday") {
+    targetDate = new Date(now);
+    targetDate.setDate(now.getDate() - 1);
+  } else if (value === "tomorrow") {
+    targetDate = new Date(now);
+    targetDate.setDate(now.getDate() + 1);
+  }
+
+  // 📅 If numeric date given, parse it
+  if (!targetDate) {
+    const dateMatch = value.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (dateMatch) {
+      const [_, day, month, year] = dateMatch;
+      const parsed = parse(`${day}/${month}/${year}`, "dd/MM/yyyy", new Date());
+      if (isValid(parsed)) targetDate = parsed;
+    }
+  }
+
+  // ❌ If still not valid
+  if (!targetDate || !isValid(targetDate)) {
+    await sock.sendMessage(sender, {
+      text: "⚠️ Please enter a valid date (e.g. Dated 30/10/2025, or Dated today).",
+    });
+    return;
+  }
+
+  // ✅ Format date and check DB
+  const formatted = format(targetDate, "EEEE, dd MMMM yyyy");
+  const day = String(targetDate.getDate()).padStart(2, "0");
+  const month = String(targetDate.getMonth() + 1).padStart(2, "0");
+  const year = targetDate.getFullYear();
+  const primaryKey = `${day}${month}${year}`;
+
+  user.Dated = formatted;
+  user.pendingPrimaryKey = primaryKey;
+
+  await db.read();
+  if (db.data[primaryKey]) {
+    user.confirmingFetch = true;
+    await sock.sendMessage(sender, {
+      text: `⚠️ Data for ${day}/${month}/${year} already exists.\nDo you want to fetch and update it? (yes/no)`,
+    });
+    return;
+  }
+
+  await sock.sendMessage(sender, {
+    text: `📅 Date set to ${formatted}`,
+  });
+  continue;
+}
+
+         else if (["Diesel", "Adda", "Union"].includes(key)) {
+          // amount & mode extraction
+          const amount = match[1].trim();
+          const mode = match[2] ? "online" : "cash";
+          const newVal = { amount, mode };
+
+          // if existing and different, push pending update
+          const existing = user[key];
+          if (
+            existing &&
+            ((typeof existing === "object" && (existing.amount !== amount || existing.mode !== mode)) ||
+              (typeof existing !== "object" && String(existing) !== amount))
+          ) {
+            const label = key;
+            pendingUpdates.push({
+              field: key,
+              value: newVal,
+              message: `⚠️ ${label} already has value *${formatExistingForMessage(existing)}*.\nDo you want to update it to *${amount} (${mode})*? (yes/no)`,
+            });
+          } else {
+            user[key] = newVal;
+          }
+          continue;
+        } else {
+          // generic fields (TotalCashCollection, Online)
+          const value = match[1].trim();
+          if (user[key] && user[key] !== value) {
+            const label = key.replace(/([A-Z])/g, " $1").trim();
+            pendingUpdates.push({
+              field: key,
+              value,
+              message: `⚠️ ${label} already has value *${user[key]}*.\nDo you want to update it to *${value}*? (yes/no)`,
+            });
+          } else {
+            user[key] = value;
+          }
+        }
+      }
+    }
+
+    // 🧾 Extra Expenses
+    const expenseMatches = [
+      ...text.matchAll(/expense\s+([a-zA-Z]+)\s*[:\-]?\s*(\d+)(?:\s*(online))?/gi),
+    ];
+    for (const match of expenseMatches) {
+      const expenseName = match[1].trim();
+      const amount = match[2].trim();
+      const mode = match[3] ? "online" : "cash";
+      anyFieldFound = true;
+
+      const existing = user.ExtraExpenses.find(
+        (e) => e.name.toLowerCase() === expenseName.toLowerCase()
+      );
+
+      if (existing && (existing.amount !== amount || existing.mode !== mode)) {
+        pendingUpdates.push({
+          field: expenseName,
+          value: { amount, mode },
+          type: "extra",
+          message: `⚠️ Expense *${expenseName}* already has *${existing.amount} (${existing.mode})*.\nUpdate to *${amount} (${mode})*? (yes/no)`,
+        });
+      } else if (!existing) {
+        user.ExtraExpenses.push({ name: expenseName, amount, mode });
+      }
+    }
+
+    if (pendingUpdates.length > 0) {
+      const first = pendingUpdates[0];
+      user.waitingForUpdate = {
+        field: first.field,
+        value: first.value,
+        type: first.type || "normal",
+      };
+      await sock.sendMessage(sender, { text: first.message });
+      return;
+    }
+
+    /* ============================================================
        🟢 HANDLE SUBMISSION CONFIRMATION (YES / NO)
     ============================================================ */
     if (user.waitingForSubmit === true) {
@@ -227,6 +494,7 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
             editingExisting,
             confirmingFetch,
             awaitingCancelChoice,
+            pendingPrimaryKey,
             ...cleanUser
           } = user;
 
@@ -288,13 +556,28 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
     if (user.waitingForUpdate) {
       if (/^yes$/i.test(text)) {
         const { field, value, type } = user.waitingForUpdate;
+
         if (type === "extra") {
+          // value may be an object {amount, mode}
           const idx = user.ExtraExpenses.findIndex(
             (e) => e.name.toLowerCase() === field.toLowerCase()
           );
-          if (idx >= 0) user.ExtraExpenses[idx].amount = value;
+          if (idx >= 0) {
+            if (typeof value === "object") {
+              user.ExtraExpenses[idx].amount = value.amount;
+              user.ExtraExpenses[idx].mode = value.mode;
+            } else {
+              user.ExtraExpenses[idx].amount = value;
+              // keep existing mode
+            }
+          }
         } else {
-          user[field] = value;
+          // normal field; value may be object for Diesel/Adda/Union
+          if (typeof value === "object") {
+            user[field] = value; // assign {amount, mode}
+          } else {
+            user[field] = value;
+          }
         }
 
         user.waitingForUpdate = null;
@@ -303,7 +586,7 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
         await sendSummary(
           sock,
           sender,
-          `✅ ${field} updated successfully!\n${completenessMsg}`,
+          `✅ ${capitalize(field)} updated successfully!\n${completenessMsg}`,
           user
         );
         return;
@@ -315,103 +598,6 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
         });
         return;
       }
-    }
-
-    /* ============================================================
-       🧠 FIELD EXTRACTION (Includes Dated fetch check)
-    ============================================================ */
-    const fieldPatterns = {
-      Dated: /dated\s*[:\-]?\s*([\w\s,\/\-]+)/gi,
-      Diesel: /diesel\s*[:\-]?\s*(\d+)/gi,
-      Adda: /adda\s*[:\-]?\s*(\d+)/gi,
-      Union: /union\s*[:\-]?\s*(\d+)/gi,
-      TotalCashCollection: /total\s*cash\s*collection\s*[:\-]?\s*(\d+)/gi,
-      Online: /online\s*[:\-]?\s*(\d+)/gi,
-    };
-
-    let anyFieldFound = false;
-    let pendingUpdates = [];
-
-    for (const [key, regex] of Object.entries(fieldPatterns)) {
-      let match;
-      while ((match = regex.exec(text)) !== null) {
-        let value = match[1].trim();
-        anyFieldFound = true;
-
-        if (key === "Dated") {
-          const dateMatch = value.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-          if (dateMatch) {
-            const [_, day, month, year] = dateMatch;
-            const parsed = parse(`${day}/${month}/${year}`, "dd/MM/yyyy", new Date());
-            if (isValid(parsed)) {
-              value = format(parsed, "EEEE, dd MMMM yyyy");
-              const primaryKey = `${day.padStart(2, "0")}${month.padStart(2, "0")}${year}`;
-              await db.read();
-              if (db.data[primaryKey]) {
-                user.pendingPrimaryKey = primaryKey;
-                user.confirmingFetch = true;
-                await sock.sendMessage(sender, {
-                  text: `⚠️ Data for ${day}/${month}/${year} already exists.\nDo you want to fetch and update it? (yes/no)`
-                });
-                return;
-              }
-            } else {
-              await sock.sendMessage(sender, {
-                text: "⚠️ Invalid date. Please enter a real date (DD/MM/YYYY).",
-              });
-              return;
-            }
-          } else {
-            await sock.sendMessage(sender, {
-              text: "⚠️ Please enter date in DD/MM/YYYY format.",
-            });
-            return;
-          }
-        }
-
-        if (user[key] && user[key] !== value) {
-          const label = key.replace(/([A-Z])/g, " $1").trim();
-          pendingUpdates.push({
-            field: key,
-            value,
-            message: `⚠️ ${label} already has value *${user[key]}*.\nDo you want to update it to *${value}*? (yes/no)`,
-          });
-        } else {
-          user[key] = value;
-        }
-      }
-    }
-
-    // 🧾 Extra Expenses
-    const expenseMatches = [...text.matchAll(/expense\s+([a-zA-Z]+)\s*[:\-]?\s*(\d+)/gi)];
-    for (const match of expenseMatches) {
-      const expenseName = match[1].trim();
-      const amount = match[2].trim();
-      anyFieldFound = true;
-      const existing = user.ExtraExpenses.find(
-        (e) => e.name.toLowerCase() === expenseName.toLowerCase()
-      );
-      if (existing && existing.amount !== amount) {
-        pendingUpdates.push({
-          field: expenseName,
-          value: amount,
-          type: "extra",
-          message: `⚠️ Expense *${expenseName}* already has value *${existing.amount}*.\nDo you want to update it to *${amount}*? (yes/no)`,
-        });
-      } else if (!existing) {
-        user.ExtraExpenses.push({ name: expenseName, amount });
-      }
-    }
-
-    if (pendingUpdates.length > 0) {
-      const first = pendingUpdates[0];
-      user.waitingForUpdate = {
-        field: first.field,
-        value: first.value,
-        type: first.type || "normal",
-      };
-      await sock.sendMessage(sender, { text: first.message });
-      return;
     }
 
     if (!anyFieldFound) return;
@@ -429,39 +615,41 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
 ============================================================ */
 
 function recalculateCashHandover(user) {
-  const diesel = parseFloat(user.Diesel) || 0;
-  const adda = parseFloat(user.Adda) || 0;
-  const union = parseFloat(user.Union) || 0;
+  const diesel = user.Diesel?.mode === "cash" ? parseFloat(user.Diesel?.amount || 0) : 0;
+  const adda = user.Adda?.mode === "cash" ? parseFloat(user.Adda?.amount || 0) : 0;
+  const union = user.Union?.mode === "cash" ? parseFloat(user.Union?.amount || 0) : 0;
+
   const totalCollection = parseFloat(user.TotalCashCollection) || 0;
+
   const extraTotal = (user.ExtraExpenses || []).reduce(
-    (sum, e) => sum + (parseFloat(e.amount) || 0),
+    (sum, e) => sum + (e.mode === "cash" ? parseFloat(e.amount) || 0 : 0),
     0
   );
+
   const autoHandover = totalCollection - (diesel + adda + union + extraTotal);
   user.CashHandover = autoHandover.toFixed(0);
   return user.CashHandover;
 }
 
+
 function getCompletionMessage(user) {
-  const allFields = [
-    "Dated",
-    "Diesel",
-    "Adda",
-    "Union",
-    "TotalCashCollection",
-    "Online",
-  ];
-  const missing = allFields.filter(
-    (f) => user[f] === null || user[f] === undefined || user[f] === ""
-  );
+  const allFields = ["Dated", "Diesel", "Adda", "Union", "TotalCashCollection", "Online"];
+  const missing = allFields.filter((f) => {
+    const v = user[f];
+    if (v === null || v === undefined || v === "") return true;
+    // if it's object ensure amount present
+    if (typeof v === "object") {
+      return !v.amount || String(v.amount).trim() === "";
+    }
+    return false;
+  });
+
   if (missing.length === 0) {
     if (!user.waitingForSubmit) user.waitingForSubmit = true;
     return "⚠️ All Data Entered.\nDo you want to Submit now? (yes/no)";
   } else {
     if (user.waitingForSubmit) user.waitingForSubmit = false;
-    return `🟡 Data Entering! Please provide remaining data.\nMissing fields: ${missing.join(
-      ", "
-    )}`;
+    return `🟡 Data Entering! Please provide remaining data.\nMissing fields: ${missing.join(", ")}`;
   }
 }
 
@@ -469,17 +657,25 @@ async function sendSummary(sock, jid, title, userData = {}) {
   const extraList =
     userData.ExtraExpenses && userData.ExtraExpenses.length > 0
       ? userData.ExtraExpenses
-          .map((e) => `🧾 ${capitalize(e.name)}: ₹${e.amount}`)
+          .map(
+            (e) =>
+              `🧾 ${capitalize(e.name)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`
+          )
           .join("\n")
       : "";
+
+  const dieselAmt = userData.Diesel?.amount || userData.Diesel || "___";
+  const addaAmt = userData.Adda?.amount || userData.Adda || "___";
+  const unionAmt = userData.Union?.amount || userData.Union || "___";
+
   const msg = [
     `✅ *Daily Data Entry*${userData.editingExisting ? " (Editing Existing Record)" : ""}`,
-    `📅 Dated: ${userData.Dated}`,
+    `📅 Dated: ${userData.Dated || "___"}`,
     ``,
     `💰 *Expenses (Outflow):*`,
-    `⛽ Diesel: ₹${userData.Diesel || "___"}`,
-    `🚌 Adda : ₹${userData.Adda || "___"}`,
-    `🤝 Union Fees: ₹${userData.Union || "___"}`,
+    `⛽ Diesel: ₹${dieselAmt}${userData.Diesel?.mode === "online" ? " 💳" : ""}`,
+    `🚌 Adda : ₹${addaAmt}${userData.Adda?.mode === "online" ? " 💳" : ""}`,
+    `🤝 Union Fees: ₹${unionAmt}${userData.Union?.mode === "online" ? " 💳" : ""}`,
     extraList ? `${extraList}` : "",
     ``,
     `💵 *Total Collection (Inflow):*`,
@@ -498,31 +694,50 @@ async function sendSubmittedSummary(sock, jid, userData = {}) {
   const extraList =
     userData.ExtraExpenses && userData.ExtraExpenses.length > 0
       ? userData.ExtraExpenses
-          .map((e) => `🧾 ${capitalize(e.name)}: ₹${e.amount}`)
+          .map(
+            (e) =>
+              `🧾 ${capitalize(e.name)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`
+          )
           .join("\n")
       : "";
+
+  const dieselAmt = userData.Diesel?.amount || userData.Diesel || "0";
+  const addaAmt = userData.Adda?.amount || userData.Adda || "0";
+  const unionAmt = userData.Union?.amount || userData.Union || "0";
+
   const msg = [
     `✅ *Data Submitted*${userData.editingExisting ? " (Updated Existing Record)" : ""}`,
-    `📅 Dated: ${userData.Dated}`,
+    `📅 Dated: ${userData.Dated || "___"}`,
     ``,
     `💰 *Expenses (Outflow):*`,
-    `⛽ Diesel: ₹${userData.Diesel}`,
-    `🚌 Adda : ₹${userData.Adda}`,
-    `🤝 Union Fees: ₹${userData.Union}`,
+    `⛽ Diesel: ₹${dieselAmt}${userData.Diesel?.mode === "online" ? " 💳" : ""}`,
+    `🚌 Adda : ₹${addaAmt}${userData.Adda?.mode === "online" ? " 💳" : ""}`,
+    `🤝 Union Fees: ₹${unionAmt}${userData.Union?.mode === "online" ? " 💳" : ""}`,
     extraList ? `${extraList}` : "",
     ``,
     `💵 *Total Collection (Inflow):*`,
-    `💸 Total Cash Collection: ₹${userData.TotalCashCollection}`,
-    `💳 Online Collection: ₹${userData.Online}`,
+    `💸 Total Cash Collection: ₹${userData.TotalCashCollection || "0"}`,
+    `💳 Online Collection: ₹${userData.Online || "0"}`,
     ``,
     `✨ *Total Hand Over:*`,
-    `💵 Cash Hand Over: ₹${userData.CashHandover}`,
+    `💵 Cash Hand Over: ₹${userData.CashHandover || "0"}`,
     ``,
     `✅ Data Submitted successfully!`,
   ].join("\n");
+
   await sock.sendMessage(jid, { text: msg });
 }
 
 function capitalize(str = "") {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+function formatExistingForMessage(existing) {
+  if (!existing && existing !== 0) return "___";
+  if (typeof existing === "object") {
+    const amt = existing.amount || "___";
+    const mode = existing.mode || "cash";
+    return `${amt} (${mode})`;
+  }
+  return String(existing);
 }
