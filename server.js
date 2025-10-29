@@ -12,7 +12,7 @@ import fs from "fs";
 import qrcode from "qrcode";
 import { handleIncomingMessageFromDaily } from "./daily.js";
 
-
+app.use(express.json({ limit: "10mb" }));
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -171,6 +171,8 @@ app.get("/logout", async (req, res) => {
 app.get("/", (req, res) => {
   res.redirect("/login-qr");
 });
+
+// ✅ Fetch existing data (for Google to pull)
 app.get("/daily_data.json", (req, res) => {
   try {
     const data = fs.readFileSync("daily_data.json", "utf8");
@@ -180,6 +182,38 @@ app.get("/daily_data.json", (req, res) => {
     res.status(500).json({ error: "❌ Cannot read daily_data.json" });
   }
 });
+
+// ✅ Receive updated data (for Google to push)
+app.post("/update-daily-data", (req, res) => {
+  try {
+    const incoming = req.body;
+    if (!incoming || typeof incoming !== "object") {
+      return res.status(400).json({ error: "Invalid JSON" });
+    }
+
+    let existing = {};
+    try {
+      existing = JSON.parse(fs.readFileSync("daily_data.json", "utf8"));
+    } catch {}
+
+    // 🔁 Merge logic: Update only changed or new entries
+    let updatedCount = 0;
+    for (const [key, record] of Object.entries(incoming)) {
+      if (!existing[key] || existing[key].submittedAt < record.submittedAt) {
+        existing[key] = record;
+        updatedCount++;
+      }
+    }
+
+    fs.writeFileSync("daily_data.json", JSON.stringify(existing, null, 2));
+    console.log(`✅ Synced ${updatedCount} new/updated records from Google Sheet`);
+    res.json({ success: true, updated: updatedCount });
+  } catch (err) {
+    console.error("❌ Error saving data:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

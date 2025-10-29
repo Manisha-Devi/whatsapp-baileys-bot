@@ -1,112 +1,90 @@
-// data_sync.js
-import { google } from "googleapis";
-import fs from "fs";
-import db from "./daily_db.js";
+/**
+ * 🔁 Smart Two-Way Sync between Google Sheet ↔ Node.js
+ * Author: Pankaj’s Bot System
+ */
 
-// === CONFIGURATION ===
-// Your Google Sheet ID (replace this with your own)
-const SHEET_ID = "YOUR_GOOGLE_SHEET_ID";
-const SHEET_NAME = "DailyData";
+function syncBothWays() {
+  const SHEET_NAME = "DailyData";
+  const SERVER_GET = "https://bot.sukoononline.com/daily_data.json";
+  const SERVER_POST = "https://bot.sukoononline.com/update-daily-data";
 
-// === AUTHENTICATION ===
-// Make sure you have credentials.json from Google Cloud Console
-// and token.json after initial OAuth setup
-async function authorize() {
-  const credentials = JSON.parse(fs.readFileSync("credentials.json", "utf-8"));
-  const { client_secret, client_id, redirect_uris } = credentials.installed;
-  const oAuth2Client = new google.auth.OAuth2(
-    client_id,
-    client_secret,
-    redirect_uris[0]
-  );
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  if (!sheet) return Logger.log("❌ Sheet not found.");
 
-  const token = JSON.parse(fs.readFileSync("token.json", "utf-8"));
-  oAuth2Client.setCredentials(token);
-  return oAuth2Client;
-}
+  // --- Load Google Sheet Data ---
+  const values = sheet.getDataRange().getValues();
+  const headers = values.shift();
+  const sheetData = {};
 
-// === SYNC FUNCTION ===
-export async function syncDailyDataToSheet() {
-  const auth = await authorize();
-  const sheets = google.sheets({ version: "v4", auth });
-
-  await db.read();
-  const data = db.data;
-
-  const rows = [];
-
-  for (const [key, record] of Object.entries(data)) {
-    const diesel = record.Diesel?.amount || "";
-    const adda = record.Adda?.amount || "";
-    const union = record.Union?.amount || "";
-    const extraList = (record.ExtraExpenses || [])
-      .map((e) => `${e.name}: ${e.amount} (${e.mode})`)
-      .join(", ");
-
-    rows.push([
-      key, // PrimaryKey
-      record.submittedAt || "",
-      record.sender || "",
-      record.Dated || "",
-      diesel,
-      adda,
-      union,
-      record.TotalCashCollection || "",
-      record.Online || "",
-      record.CashHandover || "",
-      extraList,
-    ]);
+  for (const row of values) {
+    const record = {};
+    headers.forEach((h, i) => (record[h] = row[i]));
+    sheetData[record.PrimaryKey] = record;
   }
 
-  // === WRITE HEADER + DATA ===
-  const header = [
-    [
-      "PrimaryKey",
-      "SubmittedAt",
-      "Sender",
-      "Dated",
-      "Diesel",
-      "Adda",
-      "Union",
-      "TotalCashCollection",
-      "Online",
-      "CashHandover",
-      "ExtraExpenses",
-    ],
-  ];
+  // --- Load Server Data ---
+  let serverData = {};
+  try {
+    const response = UrlFetchApp.fetch(SERVER_GET);
+    serverData = JSON.parse(response.getContentText());
+  } catch (err) {
+    return Logger.log("❌ Failed to fetch server data: " + err);
+  }
+
+  // --- Compare & Merge ---
+  const merged = { ...serverData }; // start from server version
+  let newToServer = 0, newToSheet = 0;
+
+  for (const [key, sheetRec] of Object.entries(sheetData)) {
+    const serverRec = serverData[key];
+    if (!serverRec) {
+      // New in Sheet only
+      merged[key] = sheetRec;
+      newToServer++;
+    } else if (sheetRec.submittedAt > serverRec.submittedAt) {
+      // Updated in Sheet
+      merged[key] = sheetRec;
+      newToServer++;
+    }
+  }
+
+  for (const [key, serverRec] of Object.entries(serverData)) {
+    const sheetRec = sheetData[key];
+    if (!sheetRec) {
+      // New in Server only
+      merged[key] = serverRec;
+      newToSheet++;
+    }
+  }
+
+  // --- Push merged data back to server ---
+  const options = {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(merged),
+    muteHttpExceptions: true,
+  };
 
   try {
-    // Clear the sheet first
-    await sheets.spreadsheets.values.clear({
-      spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAME}!A:Z`,
-    });
-
-    // Write header
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
-      range: `${SHEET_NAME}!A1`,
-      valueInputOption: "RAW",
-      resource: { values: header },
-    });
-
-    // Write all data
-    if (rows.length > 0) {
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: SHEET_ID,
-        range: `${SHEET_NAME}!A2`,
-        valueInputOption: "RAW",
-        resource: { values: rows },
-      });
-    }
-
-    console.log(`✅ Synced ${rows.length} records to Google Sheet.`);
+    UrlFetchApp.fetch(SERVER_POST, options);
+    Logger.log(`✅ Pushed ${newToServer} new/updated records to server`);
   } catch (err) {
-    console.error("❌ Failed to sync data:", err.message);
+    Logger.log("❌ Failed to push to server: " + err);
   }
-}
 
-// === RUN DIRECTLY ===
-if (process.argv[1].includes("data_sync.js")) {
-  syncDailyDataToSheet();
+  // --- Update Google Sheet with new-from-server ---
+  if (newToSheet > 0) {
+    const headersList = Object.keys(Object.values(merged)[0] || {});
+    const rows = Object.entries(merged).map(([key, rec]) =>
+      headersList.map((h) => rec[h] || "")
+    );
+    sheet.clearContents();
+    sheet.getRange(1, 1, 1, headersList.length).setValues([headersList]);
+    sheet.getRange(2, 1, rows.length, headersList.length).setValues(rows);
+  }
+
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    `✅ Sync complete. → ${newToServer} updates to server, ← ${newToSheet} updates to sheet.`,
+    "Two-Way Sync"
+  );
 }
