@@ -9,7 +9,7 @@ import makeWASocket, {
 import pino from "pino";
 import fs from "fs";
 import qrcode from "qrcode";
-import { handleIncomingMessage } from "./message.js";
+import { handleIncomingMessage } from "./daily.js";
 
 
 const app = express();
