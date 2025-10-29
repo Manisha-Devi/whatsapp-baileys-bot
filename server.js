@@ -12,8 +12,11 @@ import fs from "fs";
 import qrcode from "qrcode";
 import { handleIncomingMessageFromDaily } from "./daily.js";
 
-app.use(express.json({ limit: "10mb" }));
+
 const app = express();
+
+app.use(express.json({ limit: "10mb" }));
+
 const PORT = process.env.PORT || 3000;
 
 let sock;
