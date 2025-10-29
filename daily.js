@@ -1,6 +1,7 @@
 import { format, parse, isValid } from "date-fns";
+import db from "./daily_db.js";
 
-export async function handleIncomingMessage(sock, msg) {
+export async function handleIncomingMessageFromDaily(sock, msg) {
   try {
     const sender = msg.key.remoteJid;
     const messageContent =
@@ -8,10 +9,29 @@ export async function handleIncomingMessage(sock, msg) {
     if (!messageContent) return;
     if (msg.key.fromMe) return;
 
+    const text = messageContent.trim().toLowerCase();
+
+    /* ============================================================
+       🧹 CLEAR COMMAND — reset local user session
+    ============================================================ */
+    if (/^clear$/i.test(text)) {
+      delete global.userData?.[sender];
+      await sock.sendMessage(sender, {
+        text: "🧹 Local data cleared successfully! You can start fresh now.",
+      });
+      return;
+    }
+
     // ✅ Initialize user session
     if (!global.userData) global.userData = {};
     if (!global.userData[sender]) {
-      const todayDate = format(new Date(), "EEEE, dd MMMM yyyy");
+      const today = new Date();
+      const todayDate = format(today, "EEEE, dd MMMM yyyy");
+      const day = String(today.getDate()).padStart(2, "0");
+      const month = String(today.getMonth() + 1).padStart(2, "0");
+      const year = today.getFullYear();
+      const primaryKey = `${day}${month}${year}`;
+
       global.userData[sender] = {
         Dated: todayDate,
         Diesel: null,
@@ -23,14 +43,125 @@ export async function handleIncomingMessage(sock, msg) {
         ExtraExpenses: [],
         waitingForUpdate: null,
         waitingForSubmit: false,
+        editingExisting: false,
+        pendingPrimaryKey: primaryKey,
       };
+
+      // ✅ AUTO DATE CHECK
+      await db.read();
+      if (db.data[primaryKey]) {
+        global.userData[sender].confirmingFetch = true;
+        await sock.sendMessage(sender, {
+          text: `⚠️ Data for ${day}/${month}/${year} already exists.\nDo you want to fetch and update it? (yes/no)`,
+        });
+        return;
+      }
     }
 
     const user = global.userData[sender];
-    const text = messageContent.trim();
 
     /* ============================================================
-       🆕 DAILY COMMAND — Show current summary + completeness check
+       🧠 FETCH EXISTING RECORD CONFIRMATION
+    ============================================================ */
+    if (user.confirmingFetch) {
+      if (text === "yes") {
+        const key = user.pendingPrimaryKey;
+        await db.read();
+        const oldRecord = db.data[key];
+        if (oldRecord) {
+          Object.assign(user, oldRecord);
+          user.confirmingFetch = false;
+          user.waitingForSubmit = false;
+          user.editingExisting = true;
+          recalculateCashHandover(user);
+          await sendSummary(
+            sock,
+            sender,
+            "📋 Fetched existing record. You can now update any field and re-submit.\n\nDo you want to Cancel? (yes/no)",
+            user
+          );
+          user.awaitingCancelChoice = true;
+        }
+        return;
+      } else if (text === "no") {
+        user.confirmingFetch = false;
+        user.pendingPrimaryKey = null;
+        user.editingExisting = false;
+        await sock.sendMessage(sender, {
+          text: "🆕 Starting a fresh entry. Please continue entering new data.",
+        });
+        return;
+      }
+    }
+
+    /* ============================================================
+       🧠 HANDLE CANCEL CHOICE AFTER FETCH
+    ============================================================ */
+    if (user.awaitingCancelChoice) {
+      if (text === "yes") {
+        delete global.userData[sender];
+        await sock.sendMessage(sender, {
+          text: "✅ Existing record discarded. Starting fresh entry.",
+        });
+        return;
+      } else if (text === "no") {
+        user.awaitingCancelChoice = false;
+        await sock.sendMessage(sender, {
+          text: "📋 Please start updating by confirming above data.",
+        });
+        return;
+      }
+    }
+
+    /* ============================================================
+       ⚙️ HANDLE EXISTING RECORD UPDATE CONFIRMATION (on Submit)
+    ============================================================ */
+    if (user.confirmingUpdate) {
+      const cleanText = text.trim().toLowerCase();
+      if (cleanText === "yes") {
+        const key = user.pendingPrimaryKey;
+        await db.read();
+
+        // 🧼 Clean temp session fields before saving
+        const {
+          waitingForUpdate,
+          waitingForSubmit,
+          editingExisting,
+          confirmingFetch,
+          awaitingCancelChoice,
+          pendingPrimaryKey,
+          ...cleanUser
+        } = user;
+
+        db.data[key] = {
+          sender,
+          ...cleanUser,
+          submittedAt: new Date().toISOString(),
+        };
+        await db.write();
+
+        await sock.sendMessage(sender, {
+          text: "✅ Existing record updated successfully!",
+        });
+
+        delete user.confirmingUpdate;
+        delete user.pendingPrimaryKey;
+        delete global.userData[sender];
+        return;
+      } else if (cleanText === "no") {
+        await sock.sendMessage(sender, {
+          text: "❌ Update cancelled. Old record kept as is.",
+        });
+
+        delete user.confirmingUpdate;
+        delete user.pendingPrimaryKey;
+        delete global.userData[sender];
+        return;
+      }
+    }
+
+    /* ============================================================
+       🆕 DAILY COMMAND — Show current summary
     ============================================================ */
     if (/^daily$/i.test(text)) {
       recalculateCashHandover(user);
@@ -45,7 +176,7 @@ export async function handleIncomingMessage(sock, msg) {
     }
 
     /* ============================================================
-       🧹 EXPENSE DELETE COMMAND — Remove a dynamic expense
+       🧹 EXPENSE DELETE COMMAND
     ============================================================ */
     const deleteMatch = text.match(/expense\s+delete\s+([a-zA-Z]+)/i);
     if (deleteMatch) {
@@ -53,7 +184,6 @@ export async function handleIncomingMessage(sock, msg) {
       const index = user.ExtraExpenses.findIndex(
         (e) => e.name.toLowerCase() === deleteName.toLowerCase()
       );
-
       if (index !== -1) {
         user.ExtraExpenses.splice(index, 1);
         recalculateCashHandover(user);
@@ -77,11 +207,68 @@ export async function handleIncomingMessage(sock, msg) {
     ============================================================ */
     if (user.waitingForSubmit === true) {
       const cleanText = text.trim().toLowerCase().replace(/[.!?]/g, "");
-
       if (cleanText === "yes") {
         try {
           recalculateCashHandover(user);
           await sendSubmittedSummary(sock, sender, user);
+
+          const now = new Date();
+          const day = String(now.getDate()).padStart(2, "0");
+          const month = String(now.getMonth() + 1).padStart(2, "0");
+          const year = now.getFullYear();
+          const primaryKey = `${day}${month}${year}`;
+
+          await db.read();
+
+          // ✅ Clean temp fields before saving
+          const {
+            waitingForUpdate,
+            waitingForSubmit,
+            editingExisting,
+            confirmingFetch,
+            awaitingCancelChoice,
+            ...cleanUser
+          } = user;
+
+          // ✅ If editingExisting → update same record
+          if (user.editingExisting === true) {
+            db.data[primaryKey] = {
+              sender,
+              ...cleanUser,
+              submittedAt: new Date().toISOString(),
+            };
+            await db.write();
+            await sock.sendMessage(sender, {
+              text: "✅ Existing record updated successfully! Thank you.",
+            });
+            delete global.userData[sender];
+            return;
+          }
+
+          // ⚠️ If record already exists
+          if (db.data[primaryKey] && !user.confirmingUpdate) {
+            user.confirmingUpdate = true;
+            user.pendingPrimaryKey = primaryKey;
+            await sock.sendMessage(sender, {
+              text: `⚠️ Data for ${day}/${month}/${year} already exists.\nDo you want to update it? (yes/no)`,
+            });
+            return;
+          }
+
+          // ✅ Save new record
+          db.data[primaryKey] = {
+            sender,
+            ...cleanUser,
+            submittedAt: new Date().toISOString(),
+          };
+          await db.write();
+
+          await sock.sendMessage(sender, {
+            text: "✅ Data submitted and saved successfully! Thank you.",
+          });
+
+          delete user.confirmingUpdate;
+          delete user.pendingPrimaryKey;
           delete global.userData[sender];
           return;
         } catch (err) {
@@ -92,12 +279,6 @@ export async function handleIncomingMessage(sock, msg) {
           });
           return;
         }
-      } else if (cleanText === "no") {
-        user.waitingForSubmit = false;
-        await sock.sendMessage(sender, {
-          text: "🕓 Submission cancelled. You can review or edit data anytime.",
-        });
-        return;
       }
     }
 
@@ -107,7 +288,6 @@ export async function handleIncomingMessage(sock, msg) {
     if (user.waitingForUpdate) {
       if (/^yes$/i.test(text)) {
         const { field, value, type } = user.waitingForUpdate;
-
         if (type === "extra") {
           const idx = user.ExtraExpenses.findIndex(
             (e) => e.name.toLowerCase() === field.toLowerCase()
@@ -138,7 +318,7 @@ export async function handleIncomingMessage(sock, msg) {
     }
 
     /* ============================================================
-       🧠 FIELD EXTRACTION (MULTI-FIELD SUPPORT + DATE VALIDATION)
+       🧠 FIELD EXTRACTION (Includes Dated fetch check)
     ============================================================ */
     const fieldPatterns = {
       Dated: /dated\s*[:\-]?\s*([\w\s,\/\-]+)/gi,
@@ -147,7 +327,6 @@ export async function handleIncomingMessage(sock, msg) {
       Union: /union\s*[:\-]?\s*(\d+)/gi,
       TotalCashCollection: /total\s*cash\s*collection\s*[:\-]?\s*(\d+)/gi,
       Online: /online\s*[:\-]?\s*(\d+)/gi,
-      // 🟡 Cash Hand Over removed — now auto-calculated
     };
 
     let anyFieldFound = false;
@@ -159,7 +338,6 @@ export async function handleIncomingMessage(sock, msg) {
         let value = match[1].trim();
         anyFieldFound = true;
 
-        // 🧠 Handle Dated: convert DD/MM/YYYY → formatted
         if (key === "Dated") {
           const dateMatch = value.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
           if (dateMatch) {
@@ -167,6 +345,16 @@ export async function handleIncomingMessage(sock, msg) {
             const parsed = parse(`${day}/${month}/${year}`, "dd/MM/yyyy", new Date());
             if (isValid(parsed)) {
               value = format(parsed, "EEEE, dd MMMM yyyy");
+              const primaryKey = `${day.padStart(2, "0")}${month.padStart(2, "0")}${year}`;
+              await db.read();
+              if (db.data[primaryKey]) {
+                user.pendingPrimaryKey = primaryKey;
+                user.confirmingFetch = true;
+                await sock.sendMessage(sender, {
+                  text: `⚠️ Data for ${day}/${month}/${year} already exists.\nDo you want to fetch and update it? (yes/no)`
+                });
+                return;
+              }
             } else {
               await sock.sendMessage(sender, {
                 text: "⚠️ Invalid date. Please enter a real date (DD/MM/YYYY).",
@@ -194,17 +382,15 @@ export async function handleIncomingMessage(sock, msg) {
       }
     }
 
-    // 🧾 Dynamic "Expense <Name>: <Amount>"
+    // 🧾 Extra Expenses
     const expenseMatches = [...text.matchAll(/expense\s+([a-zA-Z]+)\s*[:\-]?\s*(\d+)/gi)];
     for (const match of expenseMatches) {
       const expenseName = match[1].trim();
       const amount = match[2].trim();
       anyFieldFound = true;
-
       const existing = user.ExtraExpenses.find(
         (e) => e.name.toLowerCase() === expenseName.toLowerCase()
       );
-
       if (existing && existing.amount !== amount) {
         pendingUpdates.push({
           field: expenseName,
@@ -217,7 +403,6 @@ export async function handleIncomingMessage(sock, msg) {
       }
     }
 
-    // 🟡 If updates detected, ask first one
     if (pendingUpdates.length > 0) {
       const first = pendingUpdates[0];
       user.waitingForUpdate = {
@@ -231,12 +416,11 @@ export async function handleIncomingMessage(sock, msg) {
 
     if (!anyFieldFound) return;
 
-    // ✅ After all fields processed
     recalculateCashHandover(user);
     const completenessMsg = getCompletionMessage(user);
     await sendSummary(sock, sender, completenessMsg, user);
   } catch (err) {
-    console.error("❌ Error in handleIncomingMessage:", err);
+    console.error("❌ Error in handleIncomingMessageFromDaily:", err);
   }
 }
 
@@ -253,7 +437,6 @@ function recalculateCashHandover(user) {
     (sum, e) => sum + (parseFloat(e.amount) || 0),
     0
   );
-
   const autoHandover = totalCollection - (diesel + adda + union + extraTotal);
   user.CashHandover = autoHandover.toFixed(0);
   return user.CashHandover;
@@ -268,11 +451,9 @@ function getCompletionMessage(user) {
     "TotalCashCollection",
     "Online",
   ];
-
   const missing = allFields.filter(
     (f) => user[f] === null || user[f] === undefined || user[f] === ""
   );
-
   if (missing.length === 0) {
     if (!user.waitingForSubmit) user.waitingForSubmit = true;
     return "⚠️ All Data Entered.\nDo you want to Submit now? (yes/no)";
@@ -284,7 +465,6 @@ function getCompletionMessage(user) {
   }
 }
 
-// 🧾 WhatsApp Summary Message
 async function sendSummary(sock, jid, title, userData = {}) {
   const extraList =
     userData.ExtraExpenses && userData.ExtraExpenses.length > 0
@@ -292,9 +472,8 @@ async function sendSummary(sock, jid, title, userData = {}) {
           .map((e) => `🧾 ${capitalize(e.name)}: ₹${e.amount}`)
           .join("\n")
       : "";
-
   const msg = [
-    `✅ *Daily Data Entry*`,
+    `✅ *Daily Data Entry*${userData.editingExisting ? " (Editing Existing Record)" : ""}`,
     `📅 Dated: ${userData.Dated}`,
     ``,
     `💰 *Expenses (Outflow):*`,
@@ -312,11 +491,9 @@ async function sendSummary(sock, jid, title, userData = {}) {
     ``,
     title ? `\n${title}` : "",
   ].join("\n");
-
   await sock.sendMessage(jid, { text: msg });
 }
 
-// ✅ Final Submitted Summary
 async function sendSubmittedSummary(sock, jid, userData = {}) {
   const extraList =
     userData.ExtraExpenses && userData.ExtraExpenses.length > 0
@@ -324,9 +501,8 @@ async function sendSubmittedSummary(sock, jid, userData = {}) {
           .map((e) => `🧾 ${capitalize(e.name)}: ₹${e.amount}`)
           .join("\n")
       : "";
-
   const msg = [
-    `✅ *Data Submitted*`,
+    `✅ *Data Submitted*${userData.editingExisting ? " (Updated Existing Record)" : ""}`,
     `📅 Dated: ${userData.Dated}`,
     ``,
     `💰 *Expenses (Outflow):*`,
@@ -344,7 +520,6 @@ async function sendSubmittedSummary(sock, jid, userData = {}) {
     ``,
     `✅ Data Submitted successfully!`,
   ].join("\n");
-
   await sock.sendMessage(jid, { text: msg });
 }
 

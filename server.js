@@ -9,7 +9,7 @@ import makeWASocket, {
 import pino from "pino";
 import fs from "fs";
 import qrcode from "qrcode";
-import { handleIncomingMessage } from "./daily.js";
+import { handleIncomingMessageFromDaily } from "./daily.js";
 
 
 const app = express();
@@ -114,7 +114,7 @@ async function connectToWhatsApp() {
 
   // Import external message handler
   sock.ev.on("messages.upsert", async (m) => {
-    await handleIncomingMessage(sock, m.messages[0]);
+    await handleIncomingMessageFromDaily(sock, m.messages[0]);
   });
 }
 
