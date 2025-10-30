@@ -1,6 +1,14 @@
-// server.js
-import express from "express";
+// ============================================================
+// server.js — Production-Ready WhatsApp Automation Server
+// ------------------------------------------------------------
+// Features:
+//  - Express server for managing QR login, pairing, and syncing
+//  - Safe Baileys socket lifecycle with automatic reconnect
+//  - External daily.js handler for message automation
+//  - Full error handling, logging, and graceful recovery
+// ============================================================
 
+import express from "express";
 import makeWASocket, {
   useMultiFileAuthState,
   DisconnectReason,
@@ -12,47 +20,48 @@ import fs from "fs";
 import qrcode from "qrcode";
 import { handleIncomingMessageFromDaily } from "./daily.js";
 
-
 const app = express();
-
 app.use(express.json({ limit: "10mb" }));
 
 const PORT = process.env.PORT || 3000;
 
-let sock;
-let qrCodeData = "";
+// Global state
+let sock;               // Baileys socket
+let qrCodeData = "";    // Data URL for QR display
 let isRestarting = false;
 let isLoggedIn = false;
 
-// ✅ HTML for QR Page
+/* ============================================================
+   HTML Template for QR Display
+   ============================================================ */
 const htmlTemplate = (qr) => `
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>WhatsApp Login</title>
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      background: #f2f2f2;
-    }
-    h1 { color: #075E54; }
-    img {
-      border: 10px solid #25D366;
-      border-radius: 10px;
-      background: white;
-    }
-    p {
-      font-size: 14px;
-      color: #333;
-      margin-top: 20px;
-    }
-  </style>
+<meta charset="UTF-8" />
+<title>WhatsApp Login</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: #f2f2f2;
+  }
+  h1 { color: #075E54; }
+  img {
+    border: 10px solid #25D366;
+    border-radius: 10px;
+    background: white;
+  }
+  p {
+    font-size: 14px;
+    color: #333;
+    margin-top: 20px;
+  }
+</style>
 </head>
 <body>
   <h1>${qr ? "Scan QR to Login" : "No QR Available"}</h1>
@@ -62,74 +71,124 @@ const htmlTemplate = (qr) => `
 </html>
 `;
 
+/* ============================================================
+   Function: connectToWhatsApp()
+   - Creates and manages Baileys socket connection
+   - Handles QR, reconnect, logout, and message routing
+   ============================================================ */
 async function connectToWhatsApp() {
-  const { state, saveCreds } = await useMultiFileAuthState("auth_info");
-  const { version } = await fetchLatestBaileysVersion();
+  try {
+    const { state, saveCreds } = await useMultiFileAuthState("auth_info");
+    const { version } = await fetchLatestBaileysVersion();
 
-  sock = makeWASocket({
-    version,
-    printQRInTerminal: true,
-    auth: {
-      creds: state.creds,
-      keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
-    },
-    logger: pino({ level: "silent" }),
-    shouldIgnoreJid: (jid) => jid.endsWith("@broadcast"),
-    syncFullHistory: false, // Lightweight mode
-    getMessage: async () => null,
-  });
+    // Create WhatsApp socket
+    sock = makeWASocket({
+      version,
+      printQRInTerminal: true,
+      auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
+      },
+      logger: pino({ level: "silent" }),
+      shouldIgnoreJid: (jid) => jid.endsWith("@broadcast"),
+      syncFullHistory: false,
+      getMessage: async () => null,
+    });
 
-  sock.ev.on("connection.update", async (update) => {
-    const { connection, lastDisconnect, qr } = update;
+    /* ---------------------------------
+       Event: Connection state updates
+       --------------------------------- */
+    sock.ev.on("connection.update", async (update) => {
+      const { connection, lastDisconnect, qr } = update;
 
-    if (qr) {
-      qrCodeData = await qrcode.toDataURL(qr);
-      console.log("📱 Scan QR to login");
-    }
-
-    if (connection === "open") {
-      console.log("✅ WhatsApp Connected Successfully!");
-      qrCodeData = "";
-      isLoggedIn = true;
-    } else if (connection === "close") {
-      const reason = lastDisconnect?.error?.output?.statusCode;
-      console.log(`❌ Connection closed. Reason: ${reason}`);
-      isLoggedIn = false;
-
-      if (reason === DisconnectReason.loggedOut) {
-        console.log("🚪 Logged out. Clearing old session...");
-        fs.rmSync("auth_info", { recursive: true, force: true });
-        if (!isRestarting) {
-          isRestarting = true;
-          console.log("♻️ Restarting for re-login...");
-          setTimeout(() => {
-            isRestarting = false;
-            connectToWhatsApp();
-          }, 3000);
+      try {
+        // Generate QR for new login
+        if (qr) {
+          qrCodeData = await qrcode.toDataURL(qr);
+          console.log("📱 Scan the QR displayed in terminal or /login-qr page.");
         }
-      } else {
-        console.log("🔁 Attempting reconnect...");
-        connectToWhatsApp();
-      }
-    }
-  });
-  
-  sock.ev.on("creds.update", saveCreds);
 
-  // Import external message handler
-  sock.ev.on("messages.upsert", async (m) => {
-    await handleIncomingMessageFromDaily(sock, m.messages[0]);
-  });
+        // Connected successfully
+        if (connection === "open") {
+          console.log("✅ WhatsApp connected successfully!");
+          qrCodeData = "";
+          isLoggedIn = true;
+        }
+
+        // Connection closed
+        else if (connection === "close") {
+          const reason = lastDisconnect?.error?.output?.statusCode;
+          console.log(`❌ Connection closed. Reason code: ${reason || "unknown"}`);
+          isLoggedIn = false;
+
+          // Logged out: remove old session folder
+          if (reason === DisconnectReason.loggedOut) {
+            console.log("🚪 Logged out. Clearing session folder...");
+            fs.rmSync("auth_info", { recursive: true, force: true });
+            if (!isRestarting) {
+              isRestarting = true;
+              console.log("♻️ Restarting for re-login in 3s...");
+              setTimeout(() => {
+                isRestarting = false;
+                connectToWhatsApp();
+              }, 3000);
+            }
+          } else {
+            // Other disconnect → auto reconnect
+            console.log("🔁 Attempting automatic reconnect...");
+            connectToWhatsApp();
+          }
+        }
+      } catch (err) {
+        console.error("❌ Error inside connection.update handler:", err);
+      }
+    });
+
+    /* ---------------------------------
+       Event: Credentials update
+       --------------------------------- */
+    sock.ev.on("creds.update", async () => {
+      try {
+        await saveCreds();
+      } catch (err) {
+        console.error("❌ Error saving credentials:", err);
+      }
+    });
+
+    /* ---------------------------------
+       Event: Incoming message handler
+       --------------------------------- */
+    sock.ev.on("messages.upsert", async (m) => {
+      try {
+        const msg = m.messages?.[0];
+        if (msg) await handleIncomingMessageFromDaily(sock, msg);
+      } catch (err) {
+        console.error("❌ Error processing incoming message:", err);
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Fatal error in connectToWhatsApp():", err);
+    console.log("Retrying connection in 5 seconds...");
+    setTimeout(connectToWhatsApp, 5000);
+  }
 }
 
-// --- ROUTES ---
+/* ============================================================
+   ROUTES
+   ============================================================ */
 
-// QR Login Page
-app.get("/login-qr", async (req, res) => {
-  res.send(htmlTemplate(qrCodeData));
+// 1️⃣ QR Login Page
+app.get("/login-qr", (req, res) => {
+  try {
+    res.send(htmlTemplate(qrCodeData));
+  } catch (err) {
+    console.error("❌ Error serving QR page:", err);
+    res.status(500).send("Server error");
+  }
 });
 
-// QR Status
+// 2️⃣ QR Status API
 app.get("/login-qr/status", (req, res) => {
   res.json({
     loggedIn: isLoggedIn,
@@ -137,7 +196,7 @@ app.get("/login-qr/status", (req, res) => {
   });
 });
 
-// Pairing Code (for API access)
+// 3️⃣ Pairing Code API
 app.get("/login-pair", async (req, res) => {
   try {
     if (sock?.ws?.readyState === 1) {
@@ -147,11 +206,12 @@ app.get("/login-pair", async (req, res) => {
       res.status(400).json({ error: "Socket not ready or already logged in." });
     }
   } catch (err) {
+    console.error("❌ Error generating pairing code:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Logout
+// 4️⃣ Logout Endpoint
 app.get("/logout", async (req, res) => {
   try {
     if (sock) {
@@ -166,40 +226,45 @@ app.get("/logout", async (req, res) => {
       res.status(400).json({ error: "Not connected." });
     }
   } catch (err) {
+    console.error("❌ Logout error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Default route
-app.get("/", (req, res) => {
-  res.redirect("/login-qr");
-});
+// 5️⃣ Root Redirect
+app.get("/", (req, res) => res.redirect("/login-qr"));
 
-// ✅ Fetch existing data (for Google to pull)
+// 6️⃣ Fetch daily_data.json (GET)
 app.get("/daily_data.json", (req, res) => {
   try {
     const data = fs.readFileSync("daily_data.json", "utf8");
     res.setHeader("Content-Type", "application/json");
     res.send(data);
   } catch (err) {
-    res.status(500).json({ error: "❌ Cannot read daily_data.json" });
+    console.error("❌ Cannot read daily_data.json:", err);
+    res.status(500).json({ error: "Cannot read daily_data.json" });
   }
 });
 
-// ✅ Receive updated data (for Google to push)
+// 7️⃣ Update daily_data.json (POST)
 app.post("/update-daily-data", (req, res) => {
   try {
     const incoming = req.body;
     if (!incoming || typeof incoming !== "object") {
-      return res.status(400).json({ error: "Invalid JSON" });
+      return res.status(400).json({ error: "Invalid JSON body." });
     }
 
+    // Read existing data
     let existing = {};
     try {
-      existing = JSON.parse(fs.readFileSync("daily_data.json", "utf8"));
-    } catch {}
+      if (fs.existsSync("daily_data.json")) {
+        existing = JSON.parse(fs.readFileSync("daily_data.json", "utf8"));
+      }
+    } catch (readErr) {
+      console.warn("⚠️ Could not parse existing daily_data.json:", readErr);
+    }
 
-    // 🔁 Merge logic: Update only changed or new entries
+    // Merge updates
     let updatedCount = 0;
     for (const [key, record] of Object.entries(incoming)) {
       if (!existing[key] || existing[key].submittedAt < record.submittedAt) {
@@ -209,16 +274,18 @@ app.post("/update-daily-data", (req, res) => {
     }
 
     fs.writeFileSync("daily_data.json", JSON.stringify(existing, null, 2));
-    console.log(`✅ Synced ${updatedCount} new/updated records from Google Sheet`);
+    console.log(`✅ Synced ${updatedCount} record(s) from Google Sheet`);
     res.json({ success: true, updated: updatedCount });
   } catch (err) {
-    console.error("❌ Error saving data:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("❌ Error updating daily_data.json:", err);
+    res.status(500).json({ error: "Server error while updating data" });
   }
 });
 
-// Start server
+/* ============================================================
+   START SERVER + INIT SOCKET
+   ============================================================ */
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  connectToWhatsApp();
+  connectToWhatsApp(); // Start WhatsApp session when server starts
 });

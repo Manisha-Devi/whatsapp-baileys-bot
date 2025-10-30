@@ -1,6 +1,6 @@
 # Node modules
 node_modules/
-
+daily_data.json
 # WhatsApp auth/session data
 auth/
 session/
