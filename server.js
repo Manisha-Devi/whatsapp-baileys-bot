@@ -1,13 +1,7 @@
 // server.js
 // =============================================
 // WhatsApp Daily Bot Server (Production Ready)
-// ---------------------------------------------
-// Includes:
-//  ✅ Express API Server
-//  ✅ Baileys WhatsApp Connection
-//  ✅ QR Login Page
-//  ✅ Secure API Key Authentication (Bearer token)
-//  ✅ Error handling & safe restarts
+// Secure QR Login (Short-Lived Signed URL)
 // =============================================
 
 import express from "express";
@@ -15,6 +9,8 @@ import dotenv from "dotenv";
 import fs from "fs";
 import qrcode from "qrcode";
 import pino from "pino";
+import crypto from "crypto";
+
 import makeWASocket, {
   useMultiFileAuthState,
   DisconnectReason,
@@ -31,10 +27,9 @@ dotenv.config();
 const app = express();
 app.use(express.json({ limit: "10mb" }));
 
-// ✅ Port from .env (fallback: 3000)
 const PORT = process.env.PORT || 3000;
 
-// ✅ Global State Variables
+// ✅ Global State
 let sock;
 let qrCodeData = "";
 let isRestarting = false;
@@ -52,6 +47,48 @@ function verifyApiKey(req, res, next) {
   }
 
   next();
+}
+
+// --------------------------------------------------
+// ✅ Short-lived Signed Token System
+// --------------------------------------------------
+const QR_TOKEN_SECRET = process.env.QR_TOKEN_SECRET || "SET_A_STRONG_SECRET";
+const QR_TOKEN_TTL = Number(process.env.QR_TOKEN_TTL_SECONDS || 300); // 5 minutes
+
+
+function signToken(payload) {
+  const data = JSON.stringify(payload);
+  const sig = crypto
+    .createHmac("sha256", QR_TOKEN_SECRET)
+    .update(data)
+    .digest("base64url");
+
+  return `${Buffer.from(data).toString("base64url")}.${sig}`;
+}
+
+function verifyToken(token) {
+  try {
+    const [dataB64, sig] = token.split(".");
+    if (!dataB64 || !sig) return false;
+
+    const data = Buffer.from(dataB64, "base64url").toString();
+    const expectedSig = crypto
+      .createHmac("sha256", QR_TOKEN_SECRET)
+      .update(data)
+      .digest("base64url");
+
+    if (!crypto.timingSafeEqual(Buffer.from(expectedSig), Buffer.from(sig)))
+      return false;
+
+    const payload = JSON.parse(data);
+
+    const now = Math.floor(Date.now() / 1000);
+    if (now - payload.ts > QR_TOKEN_TTL) return false; // expired
+
+    return payload;
+  } catch {
+    return false;
+  }
 }
 
 // --------------------------------------------------
@@ -115,7 +152,7 @@ async function connectToWhatsApp() {
       getMessage: async () => null,
     });
 
-    // 🧩 Connection Updates (QR, open, close)
+    // QR + Connection Updates
     sock.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
@@ -152,10 +189,8 @@ async function connectToWhatsApp() {
       }
     });
 
-    // 🔄 Update credentials
     sock.ev.on("creds.update", saveCreds);
 
-    // 💬 Incoming message handler
     sock.ev.on("messages.upsert", async (m) => {
       try {
         await handleIncomingMessageFromDaily(sock, m.messages[0]);
@@ -165,7 +200,7 @@ async function connectToWhatsApp() {
     });
   } catch (err) {
     console.error("❌ WhatsApp connection error:", err);
-    setTimeout(connectToWhatsApp, 5000); // Auto-retry after 5s
+    setTimeout(connectToWhatsApp, 5000);
   }
 }
 
@@ -173,35 +208,50 @@ async function connectToWhatsApp() {
 // 🌐 ROUTES
 // --------------------------------------------------
 
-// 🖼️ QR Login Page
-app.get("/login-qr", async (req, res) => {
+// ✅ DEFAULT: Redirect to home
+app.get("/", (req, res) => {
+  res.send("✅ WhatsApp Bot Server Running");
+});
+
+// ✅ Protected: Get signed token for QR page
+app.get("/token-for-qr", verifyApiKey, (req, res) => {
+  const payload = { ts: Math.floor(Date.now() / 1000) };
+  const token = signToken(payload);
+
+  res.json({
+    token,
+    url: `/login-qr?token=${token}`,
+    expiresIn: QR_TOKEN_TTL,
+  });
+});
+
+// ✅ Secure: QR Login Page (token required)
+app.get("/login-qr", (req, res) => {
+  const token = req.query.token;
+
+  if (!token || !verifyToken(token)) {
+    return res.status(401).send("<h2>Unauthorized / Token Expired</h2>");
+  }
+
   res.send(htmlTemplate(qrCodeData));
 });
 
-// 🧾 QR Status JSON
+// ✅ Secure: QR Status
 app.get("/login-qr/status", (req, res) => {
+  const token = req.query.token;
+  if (!token || !verifyToken(token)) {
+    return res.status(401).json({ error: "Unauthorized or expired token" });
+  }
+
   res.json({
     loggedIn: isLoggedIn,
     qrAvailable: !!qrCodeData,
   });
 });
 
-// 🔑 Pairing Code (Protected)
-app.get("/login-pair", verifyApiKey, async (req, res) => {
-  try {
-    if (sock?.ws?.readyState === 1) {
-      const code = await sock.requestPairingCode();
-      res.json({ pairingCode: code });
-    } else {
-      res.status(400).json({ error: "Socket not ready or already logged in." });
-    }
-  } catch (err) {
-    console.error("❌ Pairing code error:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
 
-// 🚪 Logout (Protected)
+
+// ✅ Logout (Protected)
 app.get("/logout", verifyApiKey, async (req, res) => {
   try {
     if (sock) {
@@ -210,41 +260,30 @@ app.get("/logout", verifyApiKey, async (req, res) => {
       qrCodeData = "";
       isLoggedIn = false;
       res.json({ message: "✅ Logged out successfully." });
-      console.log("🗑️ Session cleared. Ready for re-login.");
       connectToWhatsApp();
     } else {
       res.status(400).json({ error: "Not connected." });
     }
   } catch (err) {
-    console.error("❌ Logout error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// 📄 Default redirect to QR login
-app.get("/", (req, res) => {
-  res.redirect("/login-qr");
-});
-
-// 📦 Fetch existing daily data (Public)
-app.get("/daily_data.json", (req, res) => {
+// ✅ daily_data.json public fetch
+app.get("/daily_data.json",verifyApiKey, (req, res) => {
   try {
     const data = fs.readFileSync("daily_data.json", "utf8");
     res.setHeader("Content-Type", "application/json");
     res.send(data);
-  } catch (err) {
-    console.error("❌ Cannot read daily_data.json:", err);
+  } catch {
     res.status(500).json({ error: "Cannot read daily_data.json" });
   }
 });
 
-// 📝 Update daily data (Protected)
+// ✅ Update daily data (Protected)
 app.post("/update-daily-data", verifyApiKey, (req, res) => {
   try {
     const incoming = req.body;
-    if (!incoming || typeof incoming !== "object") {
-      return res.status(400).json({ error: "Invalid JSON" });
-    }
 
     let existing = {};
     try {
@@ -260,16 +299,14 @@ app.post("/update-daily-data", verifyApiKey, (req, res) => {
     }
 
     fs.writeFileSync("daily_data.json", JSON.stringify(existing, null, 2));
-    console.log(`✅ Synced ${updatedCount} new/updated records from Google Sheet`);
     res.json({ success: true, updated: updatedCount });
   } catch (err) {
-    console.error("❌ Error saving daily data:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
 // --------------------------------------------------
-// 🚀 Start Express Server
+// 🚀 Start Server
 // --------------------------------------------------
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
