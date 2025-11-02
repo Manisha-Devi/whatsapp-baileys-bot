@@ -291,12 +291,23 @@ app.post("/update-daily-data", verifyApiKey, (req, res) => {
     } catch {}
 
     let updatedCount = 0;
-    for (const [key, record] of Object.entries(incoming)) {
+    // 🩹 Normalizes malformed 7-digit date keys like "1112025" → "01112025"
+    function normalizeKey(key) {
+      if (/^\d{7}$/.test(key)) {
+        return key.padStart(8, "0"); // adds a leading zero
+      }
+      return key;
+    }
+
+    for (const [rawKey, record] of Object.entries(incoming)) {
+      const key = normalizeKey(rawKey);   // 🧠 fix the key before using it
+
       if (!existing[key] || existing[key].submittedAt < record.submittedAt) {
         existing[key] = record;
         updatedCount++;
       }
     }
+
 
     fs.writeFileSync("daily_data.json", JSON.stringify(existing, null, 2));
     res.json({ success: true, updated: updatedCount });

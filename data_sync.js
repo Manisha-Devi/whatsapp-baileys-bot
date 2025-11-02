@@ -1,19 +1,20 @@
 /**
- * 🔁 Smart Two-Way Sync between Google Sheet ↔ Node.js Server
- * ------------------------------------------------------------
+ * 🔁 Smart Two-Way Sync between Google Sheet ↔ Node.js Server (Secured)
+ * ---------------------------------------------------------------------
  * Author: Pankaj’s Bot System
- * Security: Includes API Key authentication (Bearer token)
+ * Security: Uses Bearer Token (API Key) authentication for both GET + POST
  * Features:
- *  ✅ Compares both sides (Google Sheet + Server)
+ *  ✅ Compares both Sheet & Server sides
  *  ✅ Syncs only newer or missing records
- *  ✅ Auto-updates both sheet and server safely
+ *  ✅ Auto-updates both safely
+ *  ✅ Logs detailed sync summary
  */
 
 function syncBothWays() {
   const SHEET_NAME = "DailyData";
   const SERVER_GET = "https://bot.sukoononline.com/daily_data.json";
   const SERVER_POST = "https://bot.sukoononline.com/update-daily-data";
-  const API_KEY = "MySuperSecretKey12345"; // 🔐 same as in your .env file
+  const API_KEY = "MySuperSecretKey12345"; // 🔐 must match .env API_KEY on server
 
   // --- STEP 1: Get Sheet Reference ---
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
@@ -30,17 +31,20 @@ function syncBothWays() {
     if (record.PrimaryKey) sheetData[record.PrimaryKey] = record;
   }
 
-  // --- STEP 3: Load Server Data (GET) ---
+  // --- STEP 3: Load Server Data (GET + Auth) ---
   let serverData = {};
   try {
     const response = UrlFetchApp.fetch(SERVER_GET, {
       method: "get",
       muteHttpExceptions: true,
+      headers: {
+        Authorization: "Bearer " + API_KEY, // ✅ FIXED: Auth added
+      },
     });
     if (response.getResponseCode() === 200) {
       serverData = JSON.parse(response.getContentText() || "{}");
     } else {
-      Logger.log("⚠️ Server responded with: " + response.getResponseCode());
+      Logger.log("⚠️ Server GET responded with: " + response.getResponseCode());
     }
   } catch (err) {
     return Logger.log("❌ Failed to fetch server data: " + err);
@@ -76,7 +80,7 @@ function syncBothWays() {
     }
   }
 
-  // --- STEP 5: Push Merged Data Back to Server (POST + API KEY) ---
+  // --- STEP 5: Push Merged Data Back to Server (POST + Auth) ---
   try {
     const options = {
       method: "post",
@@ -84,13 +88,13 @@ function syncBothWays() {
       payload: JSON.stringify(merged),
       muteHttpExceptions: true,
       headers: {
-        Authorization: "Bearer " + API_KEY, // 🔑 Secure Auth Header
+        Authorization: "Bearer " + API_KEY, // ✅ Secure Auth Header
       },
     };
 
     const resp = UrlFetchApp.fetch(SERVER_POST, options);
     Logger.log(
-      `✅ Pushed ${newToServer} records to server. Response: ${resp.getResponseCode()}`
+      `✅ Pushed ${newToServer} record(s) to server. Response: ${resp.getResponseCode()}`
     );
   } catch (err) {
     Logger.log("❌ Failed to push to server: " + err);
