@@ -1,4 +1,4 @@
-import db from "../daily_db.js";
+import db from "../../../data/db.js";
 import { safeSendMessage, safeDbRead } from "../utils/helpers.js";
 import { recalculateCashHandover } from "../utils/calculations.js";
 import { sendSummary } from "../utils/messages.js";

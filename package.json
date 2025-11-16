@@ -2,10 +2,10 @@
   "name": "whatsapp-baileys-bot",
   "version": "1.0.0",
   "description": "",
-  "main": "server.js",
+  "main": "src/server/index.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
+    "start": "node src/server/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

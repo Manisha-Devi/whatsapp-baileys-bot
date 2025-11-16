@@ -1,14 +1,14 @@
 # Node modules
 node_modules/
-daily_data.json
-qr.json
+
 # WhatsApp auth/session data
 auth/
 session/
 sessions/
 auth_info/
-daily/data/daily_data.json
-daily/data/daily_status.json
+
+# Storage folder (runtime data)
+storage/
 
 # Environment variables
 .env

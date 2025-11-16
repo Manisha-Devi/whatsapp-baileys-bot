@@ -14,23 +14,24 @@ Preferred communication style: Simple, everyday language.
 - **Communication Pattern**: Event-driven message handling with conversational state machines per user session
 
 ## Application Structure
-The application follows a modular handler-based architecture (refactored November 2025):
+The application follows a modular src-based architecture (restructured November 2025):
 
-- **Server Layer** (`server.js`): Express.js REST API server managing WhatsApp socket lifecycle, QR code generation, and authentication state
-- **Message Orchestrator** (`daily/daily.js`): ~110 lines - Clean orchestrator that routes incoming WhatsApp messages to appropriate handlers
-- **Handler Modules** (`daily/handlers/*`): Specialized handlers for different conversation flows:
+- **Server Layer** (`src/server/index.js`): Express.js REST API server managing WhatsApp socket lifecycle, QR code generation, and authentication state
+- **Message Orchestrator** (`src/features/daily/daily.js`): ~110 lines - Clean orchestrator that routes incoming WhatsApp messages to appropriate handlers
+- **Handler Modules** (`src/features/daily/handlers/*`): Specialized handlers for different conversation flows:
   - `command-handler.js`: Clear command and daily data fetch commands (today, last N days, specific dates)
   - `date-handler.js`: Date parsing and validation with multiple format support (DD/MM/YYYY, today, yesterday, textual dates)
   - `expense-handler.js`: Expense tracking with cash/online mode support and deletion
   - `fetch-handler.js`: Fetch existing record confirmation and cancel choice workflows
   - `field-handler.js`: Field extraction, validation, and update confirmation logic
   - `submit-handler.js`: Submit and update confirmation workflows with conflict resolution
-- **Utility Modules** (`daily/utils/*`): Reusable business logic:
+- **Utility Modules** (`src/features/daily/utils/*`): Reusable business logic:
   - `helpers.js`: Safe wrappers for messaging and database operations (safeSendMessage, safeDbRead, safeDbWrite)
   - `formatters.js`: Text formatting utilities (capitalize, formatExistingForMessage)
   - `calculations.js`: Business calculations (recalculateCashHandover, getCompletionMessage)
   - `messages.js`: Message template functions (sendSummary, sendSubmittedSummary)
-- **Status Handlers** (`daily/daily_status.js`, `daily/daily_status_update.js`): Standalone handlers for status queries and updates
+- **Status Handlers** (`src/features/daily/daily_status.js`, `daily_status_update.js`): Standalone handlers for status queries and updates
+- **Data Layer** (`src/data/db.js`): LowDB adapter for JSON-based storage
 
 ## State Management
 - **Session State**: In-memory global object (`global.userData`) tracking conversation state per WhatsApp sender
@@ -38,12 +39,12 @@ The application follows a modular handler-based architecture (refactored Novembe
 - **State Properties**: User sessions store form fields (Dated, Diesel, Adda, Union, TotalCashCollection, Online, ExtraExpenses, CashHandover, Remarks, Status)
 
 ## Data Persistence
-- **Database**: LowDB with JSONFile adapter for lightweight JSON-based storage
+- **Database**: LowDB with JSONFile adapter for lightweight JSON-based storage (src/data/db.js)
 - **Schema**: Flat key-value structure using date-based primary keys (DDMMYYYY format)
-- **Files**:
-  - `daily/data/daily_data.json`: Main transaction records indexed by date
-  - `daily/data/daily_status.json`: Status update logs tracking record lifecycle (Initiated, Collected, Deposited)
-  - `admin/data/*.json`: Reference data for buses, employees, and users
+- **Runtime Data** (git-ignored under `storage/`):
+  - `storage/daily_data.json`: Main transaction records indexed by date
+  - `storage/daily_status.json`: Status update logs tracking record lifecycle (Initiated, Collected, Deposited)
+- **Archived Data**: `archive/admin/data/*.json`: Reference data for buses, employees, and users (not used in runtime)
 
 ## Business Logic
 - **Auto-calculation**: Cash handover automatically computed as: `TotalCashCollection - (cash_expenses + cash_extra_expenses)`
@@ -51,10 +52,10 @@ The application follows a modular handler-based architecture (refactored Novembe
 - **Validation**: Multi-stage validation ensuring all required fields present before submission
 - **Conflict Resolution**: Detects existing records and prompts user for update confirmation
 
-## Message Flow Architecture (Refactored Nov 2025)
+## Message Flow Architecture (Restructured Nov 2025)
 1. User sends WhatsApp message
-2. `server.js` receives via Baileys and calls `handleIncomingMessageFromDaily`
-3. `daily.js` orchestrator normalizes text and routes to handlers in sequence:
+2. `src/server/index.js` receives via Baileys and calls `handleIncomingMessageFromDaily`
+3. `src/features/daily/daily.js` orchestrator normalizes text and routes to handlers in sequence:
    - Status commands (daily status, update status)
    - Session management (clear, initialization)
    - Confirmation workflows (fetch, cancel, update, submit)
@@ -70,9 +71,11 @@ The application follows a modular handler-based architecture (refactored Novembe
 7. State persisted to LowDB when submitting via `safeDbWrite` wrapper
 
 ## Recent Changes (November 2025)
+- **Src-based Architecture**: Reorganized entire codebase into src/ directory with clear separation (server, features, data)
 - **Modular Refactoring**: Broke down monolithic 1154-line `daily.js` into focused modules for better maintainability
-- **Separation of Concerns**: Utilities, handlers, and orchestration logic now clearly separated
-- **Improved Message Flow**: Single consolidated summary message after field extraction (no duplicate messages)
+- **Separation of Concerns**: Server, features, data, scripts, and storage are now clearly separated
+- **Runtime Data Isolation**: Mutable JSON files moved to git-ignored storage/ directory
+- **Improved Documentation**: Added comprehensive paths.md documenting folder structure and import paths
 - **Preserved Functionality**: All original business logic, validation, and error handling maintained
 
 ## API Security
@@ -81,7 +84,7 @@ The application follows a modular handler-based architecture (refactored Novembe
 - Middleware validation (`verifyApiKey`) protecting sensitive routes
 
 ## Google Sheets Integration
-- **Sync Scripts** (`daily/gs/*`): Google Apps Script files for bidirectional sync
+- **Sync Scripts** (`scripts/google/*`): Google Apps Script files for bidirectional sync
 - **Endpoints**: Server exposes JSON endpoints (`/daily_data.json`, `/daily_status.json`) for sheet consumption
 - **Update API**: POST endpoints (`/update-daily-data`, `/update-daily-status`) accepting sheet modifications
 - **Normalization**: Automatic PrimaryKey padding (7-digit to 8-digit) and JSON parsing
@@ -120,7 +123,8 @@ The application follows a modular handler-based architecture (refactored Novembe
 
 ## Database
 - **Storage**: File-based JSON storage via LowDB (no traditional database server required)
-- **Location**: `./daily/data/` directory containing operational data files
+- **Adapter**: `src/data/db.js` - LowDB adapter managing JSON file operations
+- **Runtime Location**: `./storage/` directory (git-ignored) containing operational data files
 - **Backup/Sync**: Google Sheets acts as secondary data store and reporting interface
 
 ## Authentication
@@ -129,6 +133,8 @@ The application follows a modular handler-based architecture (refactored Novembe
 
 ## Deployment Considerations
 - No external database server required (LowDB uses local filesystem)
-- Requires persistent storage for `auth_info` directory and `daily/data` JSON files
+- Requires persistent storage for `auth_info` directory and `storage/` JSON files
+- Entry point: `src/server/index.js` (configured in package.json)
 - Port configuration via `PORT` environment variable (default: 3000)
-- Google Sheets sync requires separate deployment of Apps Script files with server URL configuration
+- Google Sheets sync requires separate deployment of Apps Script files (located in `scripts/google/`) with server URL configuration
+- All runtime data in `storage/` should be backed up regularly (not in git)

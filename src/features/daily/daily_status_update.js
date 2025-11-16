@@ -1,12 +1,12 @@
 // daily_status_update.js
-import db from "./daily_db.js";
+import db from "../../data/db.js";
 import { safeSendMessage } from "./utils/helpers.js";
 import fs from "fs";
 import path from "path";
 
 // Path to files (consistent with server.js)
-const logFile = path.join(".", "daily", "data", "daily_status.json");
-const dataFileFallback = path.join(".", "daily", "data", "daily_data.json");
+const logFile = path.join(".", "storage", "daily_status.json");
+const dataFileFallback = path.join(".", "storage", "daily_data.json");
 
 // Ensure folder & log file exist
 try {

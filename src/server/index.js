@@ -18,7 +18,7 @@ import makeWASocket, {
   makeCacheableSignalKeyStore,
 } from "@whiskeysockets/baileys";
 
-import { handleIncomingMessageFromDaily } from "./daily/daily.js";
+import { handleIncomingMessageFromDaily } from "../features/daily/daily.js";
 
 // 🧭 Load environment variables
 dotenv.config();
@@ -272,7 +272,7 @@ app.get("/logout", verifyApiKey, async (req, res) => {
 // ✅ daily_data.json (Protected)
 app.get("/daily_data.json",verifyApiKey, (req, res) => {
   try {
-    const data = fs.readFileSync("./daily/data/daily_data.json", "utf8");
+    const data = fs.readFileSync("./storage/daily_data.json", "utf8");
     res.setHeader("Content-Type", "application/json");
     res.send(data);
   } catch {
@@ -287,7 +287,7 @@ app.post("/update-daily-data", verifyApiKey, (req, res) => {
 
     let existing = {};
     try {
-      existing = JSON.parse(fs.readFileSync("./daily/data/daily_data.json", "utf8"));
+      existing = JSON.parse(fs.readFileSync("./storage/daily_data.json", "utf8"));
     } catch {}
 
     let updatedCount = 0;
@@ -309,7 +309,7 @@ app.post("/update-daily-data", verifyApiKey, (req, res) => {
     }
 
 
-    fs.writeFileSync("./daily/data/daily_data.json", JSON.stringify(existing, null, 2));
+    fs.writeFileSync("./storage/daily_data.json", JSON.stringify(existing, null, 2));
     res.json({ success: true, updated: updatedCount });
   } catch (err) {
     res.status(500).json({ error: "Server error" });
@@ -318,7 +318,7 @@ app.post("/update-daily-data", verifyApiKey, (req, res) => {
 // Get daily_status.json
 app.get("/daily_status.json", verifyApiKey, (req, res) => {
   try {
-    const data = fs.readFileSync("./daily/data/daily_status.json", "utf8");
+    const data = fs.readFileSync("./storage/daily_status.json", "utf8");
     res.setHeader("Content-Type", "application/json");
     res.send(data);
   } catch {
@@ -330,7 +330,7 @@ app.post("/update-daily-status", verifyApiKey, (req, res) => {
   try {
     const incoming = req.body; // new data from sheet or external app
 
-    const filePath = "./daily/data/daily_status.json";
+    const filePath = "./storage/daily_status.json";
 
     // If file does not exist, create empty array
     if (!fs.existsSync(filePath)) {

@@ -1,5 +1,5 @@
 // daily_status.js
-import db from "./daily_db.js";
+import db from "../../data/db.js";
 import { safeSendMessage } from "./utils/helpers.js";
 
 // 🧮 Convert safely to number
