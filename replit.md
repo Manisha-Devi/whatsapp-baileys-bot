@@ -30,8 +30,8 @@ The application follows a modular src-based architecture (restructured November 
   - `formatters.js`: Text formatting utilities (capitalize, formatExistingForMessage)
   - `calculations.js`: Business calculations (recalculateCashHandover, getCompletionMessage)
   - `messages.js`: Message template functions (sendSummary, sendSubmittedSummary)
-- **Status Handlers** (`src/features/daily/daily_status.js`, `daily_status_update.js`): Standalone handlers for status queries and updates
-- **Data Layer** (`src/data/db.js`): LowDB adapter for JSON-based storage
+- **Status Handlers** (`src/features/daily/daily_status.js`): Unified handler for status queries and updates (merged from separate files)
+- **Data Layer** (`src/data/db.js`): LowDB adapter for JSON-based storage managing both daily_data.json and daily_status.json
 
 ## State Management
 - **Session State**: In-memory global object (`global.userData`) tracking conversation state per WhatsApp sender
@@ -73,6 +73,8 @@ The application follows a modular src-based architecture (restructured November 
 ## Recent Changes (November 2025)
 - **Src-based Architecture**: Reorganized entire codebase into src/ directory with clear separation (server, features, data)
 - **Modular Refactoring**: Broke down monolithic 1154-line `daily.js` into focused modules for better maintainability
+- **Status Handler Consolidation**: Merged `daily_status_update.js` into `daily_status.js` for cleaner status management
+- **Database Layer Enhancement**: Updated `db.js` to manage both daily_data.json and daily_status.json with separate LowDB adapters
 - **Separation of Concerns**: Server, features, data, scripts, and storage are now clearly separated
 - **Runtime Data Isolation**: Mutable JSON files moved to git-ignored storage/ directory
 - **Improved Documentation**: Added comprehensive paths.md documenting folder structure and import paths
@@ -123,7 +125,9 @@ The application follows a modular src-based architecture (restructured November 
 
 ## Database
 - **Storage**: File-based JSON storage via LowDB (no traditional database server required)
-- **Adapter**: `src/data/db.js` - LowDB adapter managing JSON file operations
+- **Adapters**: `src/data/db.js` - Exports two LowDB adapters:
+  - `db` (default export): Manages daily_data.json for transaction records
+  - `statusDb` (named export): Manages daily_status.json for status update logs
 - **Runtime Location**: `./storage/` directory (git-ignored) containing operational data files
 - **Backup/Sync**: Google Sheets acts as secondary data store and reporting interface
 
