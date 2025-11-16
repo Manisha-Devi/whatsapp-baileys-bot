@@ -8,7 +8,8 @@ sessions/
 auth_info/
 
 # Storage folder (runtime data)
-storage/
+storage/daily_data.json
+storage/daily_status.json
 
 # Environment variables
 .env
