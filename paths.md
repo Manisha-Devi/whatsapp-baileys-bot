@@ -18,4 +18,9 @@ root folder
         daily_status_update.js
         daily_status.js
         daily.js
+    admin folder
+        data folder
+            buses.json
+            employee.json
+            users.json
 

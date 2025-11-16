@@ -1,0 +1,34 @@
+{
+  "buses": [
+    {
+      "busCode": "BUS101",
+      "registrationNumber": "JK06C-4907",
+      "type": "Mini Bus",
+      "capacity": 27,
+      "ownerName": "Pancham Kumar",
+      "purchaseYear": 2025,
+      "status": "Active",
+      "remarks": "Main route bus - Ghuraka to Thathri Via Doda City"
+    },
+    {
+      "busCode": "BUS102",
+      "registrationNumber": "JK06B-4556",
+      "type": "Mini Bus",
+      "capacity": 22,
+      "ownerName": "Rajesh Singh",
+      "purchaseYear": 2021,
+      "status": "Under Maintenance",
+      "remarks": "Engine work going on - expected next week"
+    },
+    {
+      "busCode": "BUS103",
+      "registrationNumber": "JK02A-9988",
+      "type": "Mini Bus",
+      "capacity": 22,
+      "ownerName": "Ravinder Singh",
+      "purchaseYear": 2018,
+      "status": "Active",
+      "remarks": "Assigned for special bookings"
+    }
+  ]
+}

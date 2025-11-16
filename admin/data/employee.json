@@ -1,0 +1,36 @@
+{
+  "employees": [
+    {
+      "id": "EMP001",
+      "firstName": "Rahul",
+      "middleName": "",
+      "lastName": "Kumar",
+      "phone": "9876543210",
+      "role": "Driver",
+      "daily":0,
+      "salary": 18000,
+      "joiningDate": "2023-05-20",
+      "resignDate": null,
+      "busCode": "BUS101",
+      "address": "Village Bhaderkashi, District Doda",
+      "status": "Active",
+      "remarks": "Very punctual and responsible"
+    },
+    {
+      "id": "EMP002",
+      "firstName": "Ravi",
+      "middleName": "",
+      "lastName": "Singh",
+      "phone": "9123456780",
+      "role": "Conductor",
+      "daily":0,
+      "salary": 12000,
+      "joiningDate": "2024-01-10",
+      "resignDate": "2025-02-01",
+      "busCode": "BUS103",
+      "address": "Kishtwar, J&K",
+      "status": "Resigned",
+      "remarks": "Resigned due to personal reasons"
+    }
+  ]
+}
