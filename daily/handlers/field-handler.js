@@ -60,10 +60,6 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
               });
               return { handled: true, anyFieldFound };
             }
-
-            await safeSendMessage(sock, sender, {
-              text: `📅 Date set to ${formatted}`,
-            });
           } catch (err) {
             console.error("❌ Error parsing/storing Dated field for", sender, ":", err);
             await safeSendMessage(sock, sender, {
