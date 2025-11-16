@@ -7,7 +7,8 @@ auth/
 session/
 sessions/
 auth_info/
-daily/data/
+daily/data/daily_data.json
+daily/data/daily_status.json
 
 # Environment variables
 .env
