@@ -1,6 +1,10 @@
 # Overview
 
-This is a WhatsApp bot application built with Baileys (WhatsApp Web API) that manages daily business operations for a bus transportation company. The bot enables users to submit daily reports including expenses (diesel, adda fees, union fees), collections (cash and online), and calculates cash handover amounts. It provides a conversational interface for data entry, validation, and retrieval, with data persistence using LowDB (JSON-based database) and integration with Google Sheets for reporting.
+This is a WhatsApp bot application built with Baileys (WhatsApp Web API) that manages business operations for a bus transportation company. The bot provides two main features:
+1. **Daily Reports**: Submit daily operational reports including expenses (diesel, adda fees, union fees), collections (cash and online), and automatic cash handover calculations
+2. **Bookings Management**: Handle customer bookings with passenger details, routes, vehicle assignments, and payment tracking
+
+The bot provides conversational interfaces for data entry, validation, and retrieval, with data persistence using LowDB (JSON-based database) and integration with Google Sheets for reporting.
 
 # User Preferences
 
@@ -31,12 +35,27 @@ The application follows a modular src-based architecture (restructured November 
   - `calculations.js`: Business calculations (recalculateCashHandover, getCompletionMessage)
   - `messages.js`: Message template functions (sendSummary, sendSubmittedSummary)
 - **Status Handlers** (`src/features/daily/daily_status.js`): Unified handler for status queries and updates (merged from separate files)
+
+### Bookings Feature
+- **Message Orchestrator** (`src/features/bookings/booking.js`): Clean orchestrator that routes booking-related WhatsApp messages to appropriate handlers
+- **Handler Modules** (`src/features/bookings/handlers/*`): Specialized handlers for booking workflows:
+  - `command-handler.js`: Clear command and booking fetch commands by ID, date, or phone
+  - `field-handler.js`: Field extraction for booking details (customer info, route, vehicle, fare)
+  - `submit-handler.js`: Booking submission workflow with validation and ID generation
+- **Utility Modules** (`src/features/bookings/utils/*`): Reusable booking logic:
+  - `helpers.js`: Safe wrappers for messaging and database operations
+  - `messages.js`: Booking summary and completion message functions
+- **Status Handlers** (`src/features/bookings/booking_status.js`): Handlers for booking status queries and updates
 - **Data Layer** (`src/data/db.js`): LowDB adapter for JSON-based storage managing both daily_data.json and daily_status.json
 
 ## State Management
-- **Session State**: In-memory global object (`global.userData`) tracking conversation state per WhatsApp sender
+- **Session State**: In-memory global objects tracking conversation state per WhatsApp sender:
+  - `global.userData`: Daily reports session state
+  - `global.bookingData`: Bookings session state
 - **Conversation State Machine**: Each user session maintains flags like `waitingForSubmit`, `confirmingFetch`, `editingExisting`, `confirmingUpdate` to manage multi-step workflows
-- **State Properties**: User sessions store form fields (Dated, Diesel, Adda, Union, TotalCashCollection, Online, ExtraExpenses, CashHandover, Remarks, Status)
+- **State Properties**: 
+  - Daily sessions store: Dated, Diesel, Adda, Union, TotalCashCollection, Online, ExtraExpenses, CashHandover, Remarks, Status
+  - Booking sessions store: BookingDate, CustomerName, CustomerPhone, PickupLocation, DropLocation, TravelDate, VehicleType, NumberOfPassengers, TotalFare, AdvancePaid, BalanceAmount, Status, Remarks
 
 ## Data Persistence
 - **Database**: LowDB with JSONFile adapter for lightweight JSON-based storage (src/data/db.js)
@@ -75,9 +94,10 @@ The application follows a modular src-based architecture (restructured November 
 - **Modular Refactoring**: Broke down monolithic 1154-line `daily.js` into focused modules for better maintainability
 - **Status Handler Consolidation**: Merged `daily_status_update.js` into `daily_status.js` for cleaner status management
 - **Database Layer Enhancement**: Updated `db.js` to manage both daily_data.json and daily_status.json with separate LowDB adapters
+- **Bookings Feature Added**: Created complete bookings module mirroring daily feature structure with field extraction, validation, and submission workflows
 - **Separation of Concerns**: Server, features, data, scripts, and storage are now clearly separated
 - **Runtime Data Isolation**: Mutable JSON files moved to git-ignored storage/ directory
-- **Improved Documentation**: Added comprehensive paths.md documenting folder structure and import paths
+- **Improved Documentation**: Added comprehensive WHATSAPP_COMMANDS_GUIDE.md and paths.md documenting structure and commands
 - **Preserved Functionality**: All original business logic, validation, and error handling maintained
 
 ## API Security
