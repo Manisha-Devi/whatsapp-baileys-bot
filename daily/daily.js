@@ -1,5 +1,7 @@
 import { format, parse, isValid } from "date-fns";
 import db from "./daily_db.js";
+import { handleDailyStatus } from "./daily_status.js";
+import { handleStatusUpdate } from "./daily_status_update.js";
 
 /**
  * Production-ready handler for daily data entry via WhatsApp (Baileys socket).
@@ -110,6 +112,12 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
     }
 
     const sender = msg.key.remoteJid;
+// 🛑 Ignore group messages
+  if (sender && sender.endsWith("@g.us")) {
+    console.log("🚫 Ignored group message from:", sender);
+    return;
+  }
+
     const messageContent =
       msg.message?.conversation || msg.message?.extendedTextMessage?.text;
     if (!messageContent) return; // nothing to do
@@ -118,6 +126,13 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
     const textRaw = String(messageContent);
     const normalizedText = textRaw.trim();
     const text = normalizedText.toLowerCase();
+// ============================================================
+// 🟩 DAILY STATUS COMMAND HANDLER
+// ============================================================
+    const handled = await handleDailyStatus(sock, sender, normalizedText);
+    if (handled) return; // stop here if it's a "Daily Status" command
+    const statusUpdated = await handleStatusUpdate(sock, sender, normalizedText);
+    if (statusUpdated) return;
 
     /* ============================================================
        🧹 CLEAR COMMAND — reset local user session
@@ -150,6 +165,8 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
           Online: null,
           CashHandover: null,
           ExtraExpenses: [],
+          Remarks: null,             // ✅ new
+          Status: "Initiated",       // ✅ new
           waitingForUpdate: null,
           waitingForSubmit: false,
           editingExisting: false,
@@ -189,6 +206,9 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
           if (oldRecord) {
             // Merge the stored record into the session user object
             Object.assign(user, oldRecord);
+            if (!user.Remarks) user.Remarks = null;
+            if (!user.Status) user.Status = "Initiated";
+
             user.confirmingFetch = false;
             user.waitingForSubmit = false;
             user.editingExisting = true;
@@ -697,6 +717,38 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
     } catch (err) {
       console.error("❌ Error during field extraction for", sender, ":", err);
     }
+// ============================================================
+// 📝 REMARKS COMMAND (optional field)
+// ============================================================
+  try {
+    const remarksMatch = normalizedText.match(/^remarks\s*(.*)$/i);
+    if (remarksMatch) {
+      const remarkText = remarksMatch[1].trim();
+
+      // ✅ Store remark locally (null if empty)
+      user.Remarks = remarkText || null;
+
+      // ✅ Send confirmation first
+      await safeSendMessage(sock, sender, {
+        text: remarkText
+          ? `📝 Remark added: "${remarkText}"`
+          : `🧹 Remarks cleared.`,
+      });
+
+      // ✅ Immediately show updated summary
+    const completenessMsg = getCompletionMessage(user);
+    await sendSummary(
+                sock,
+                sender,
+                `📋 Here's your current entered data:\n${completenessMsg}`,
+                user
+              );
+      return; // stop further processing
+    }
+  } catch (err) {
+    console.error("❌ Error handling remarks for", sender, ":", err);
+  }
+
 
     // Extra expenses parsing: "expense <name> : <amount> [online]"
     try {
@@ -792,6 +844,8 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
               db.data[primaryKey] = {
                 sender,
                 ...cleanUser,
+                Status: cleanUser.Status || db.data[primaryKey]?.Status || "Initiated", // ✅ ensures consistency
+                Remarks: cleanUser.Remarks ?? null,
                 submittedAt: new Date().toISOString(),
               };
               const w = await safeDbWrite();
@@ -824,6 +878,8 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
             db.data[primaryKey] = {
               sender,
               ...cleanUser,
+              Status: cleanUser.Status || db.data[primaryKey]?.Status || "Initiated", // ✅ ensures consistency
+              Remarks: cleanUser.Remarks ?? null,
               submittedAt: new Date().toISOString(),
             };
             const w2 = await safeDbWrite();
@@ -1035,6 +1091,8 @@ async function sendSummary(sock, jid, title, userData = {}) {
       ``,
       `✨ *Total Hand Over:*`,
       `💵 Cash Hand Over: ₹${userData.CashHandover || "___"}`,
+      // ✅ Add remarks only if not null
+      ...(userData.Remarks ? [`📝 *Remarks:* ${userData.Remarks}`] : []),
       ``,
       title ? `\n${title}` : "",
     ].join("\n");
@@ -1081,9 +1139,12 @@ async function sendSubmittedSummary(sock, jid, userData = {}) {
       ``,
       `✨ *Total Hand Over:*`,
       `💵 Cash Hand Over: ₹${userData.CashHandover || "0"}`,
+      // ✅ Add remarks only if not null
+      ...(userData.Remarks ? [`📝 *Remarks: ${userData.Remarks}*`] : []),
       ``,
       `✅ Data Submitted successfully!`,
     ].join("\n");
+    
 
     await safeSendMessage(sock, jid, { text: msg });
   } catch (err) {

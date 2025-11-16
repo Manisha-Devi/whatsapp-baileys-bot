@@ -18,7 +18,7 @@ import makeWASocket, {
   makeCacheableSignalKeyStore,
 } from "@whiskeysockets/baileys";
 
-import { handleIncomingMessageFromDaily } from "./daily.js";
+import { handleIncomingMessageFromDaily } from "./daily/daily.js";
 
 // 🧭 Load environment variables
 dotenv.config();
@@ -269,10 +269,10 @@ app.get("/logout", verifyApiKey, async (req, res) => {
   }
 });
 
-// ✅ daily_data.json public fetch
+// ✅ daily_data.json (Protected)
 app.get("/daily_data.json",verifyApiKey, (req, res) => {
   try {
-    const data = fs.readFileSync("daily_data.json", "utf8");
+    const data = fs.readFileSync("./daily/data/daily_data.json", "utf8");
     res.setHeader("Content-Type", "application/json");
     res.send(data);
   } catch {
@@ -287,7 +287,7 @@ app.post("/update-daily-data", verifyApiKey, (req, res) => {
 
     let existing = {};
     try {
-      existing = JSON.parse(fs.readFileSync("daily_data.json", "utf8"));
+      existing = JSON.parse(fs.readFileSync("./daily/data/daily_data.json", "utf8"));
     } catch {}
 
     let updatedCount = 0;
@@ -309,9 +309,85 @@ app.post("/update-daily-data", verifyApiKey, (req, res) => {
     }
 
 
-    fs.writeFileSync("daily_data.json", JSON.stringify(existing, null, 2));
+    fs.writeFileSync("./daily/data/daily_data.json", JSON.stringify(existing, null, 2));
     res.json({ success: true, updated: updatedCount });
   } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+// Get daily_status.json
+app.get("/daily_status.json", verifyApiKey, (req, res) => {
+  try {
+    const data = fs.readFileSync("./daily/data/daily_status.json", "utf8");
+    res.setHeader("Content-Type", "application/json");
+    res.send(data);
+  } catch {
+    res.status(500).json({ error: "Cannot read daily_status.json" });
+  }
+});
+// ✅ Update daily_status.json (Protected)
+app.post("/update-daily-status", verifyApiKey, (req, res) => {
+  try {
+    const incoming = req.body; // new data from sheet or external app
+
+    const filePath = "./daily/data/daily_status.json";
+
+    // If file does not exist, create empty array
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, JSON.stringify([], null, 2));
+    }
+
+    let existing = [];
+    try {
+      existing = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      if (!Array.isArray(existing)) existing = [];
+    } catch {
+      existing = [];
+    }
+
+    let updatedCount = 0;
+
+    // 🧠 Normalize 7-digit date keys inside updatedKeys array
+    function normalizeKey(key) {
+      if (/^\d{7}$/.test(key)) {
+        return key.padStart(8, "0"); // Example: 5112025 → 05112025
+      }
+      return key;
+    }
+
+    // incoming must be an array of objects
+    if (!Array.isArray(incoming)) {
+      return res.status(400).json({ error: "Incoming payload must be an array" });
+    }
+
+    for (const record of incoming) {
+      if (!record.updatedKeys || !record.updatedOn) continue;
+
+      // Normalize all keys
+      const normalizedKeys =
+        record.updatedKeys.map((key) => normalizeKey(key));
+
+      const newLog = {
+        updatedOn: record.updatedOn,
+        updatedKeys: normalizedKeys,
+        remarks: record.remarks || null,
+      };
+
+      // Avoid duplicates: only keep logs that have different updatedOn
+      const exists = existing.find((e) => e.updatedOn === newLog.updatedOn);
+
+      if (!exists) {
+        existing.push(newLog);
+        updatedCount++;
+      }
+    }
+
+    // Save updated status log
+    fs.writeFileSync(filePath, JSON.stringify(existing, null, 2));
+
+    res.json({ success: true, updated: updatedCount });
+  } catch (err) {
+    console.error("❌ Error updating daily_status.json:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

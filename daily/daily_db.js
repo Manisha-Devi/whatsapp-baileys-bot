@@ -3,7 +3,7 @@ import { Low } from "lowdb";
 import { JSONFile } from "lowdb/node";
 import fs from "fs";
 
-const file = "daily_data.json";
+const file = "./daily/data/daily_data.json";
 
 // ✅ Create file if missing or empty
 if (!fs.existsSync(file) || fs.statSync(file).size === 0) {
