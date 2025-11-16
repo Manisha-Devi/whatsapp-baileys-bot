@@ -1,6 +1,6 @@
 // daily_status_update.js
 import db from "./daily_db.js";
-import { safeSendMessage } from "../helpers.js";
+import { safeSendMessage } from "./utils/helpers.js";
 import fs from "fs";
 import path from "path";
 
