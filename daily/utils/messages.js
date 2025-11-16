@@ -1,0 +1,90 @@
+import { safeSendMessage } from "./helpers.js";
+import { capitalize } from "./formatters.js";
+
+export async function sendSummary(sock, jid, title, userData = {}) {
+  try {
+    const extraList =
+      userData.ExtraExpenses && userData.ExtraExpenses.length > 0
+        ? userData.ExtraExpenses
+            .map(
+              (e) =>
+                `🧾 ${capitalize(e.name)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`
+            )
+            .join("\n")
+        : "";
+
+    const dieselAmt = userData.Diesel?.amount || userData.Diesel || "___";
+    const addaAmt = userData.Adda?.amount || userData.Adda || "___";
+    const unionAmt = userData.Union?.amount || userData.Union || "___";
+
+    const msg = [
+      `✅ *Daily Data Entry*${userData.editingExisting ? " (Editing Existing Record)" : ""}`,
+      `📅 Dated: ${userData.Dated || "___"}`,
+      ``,
+      `💰 *Expenses (Outflow):*`,
+      `⛽ Diesel: ₹${dieselAmt}${userData.Diesel?.mode === "online" ? " 💳" : ""}`,
+      `🚌 Adda : ₹${addaAmt}${userData.Adda?.mode === "online" ? " 💳" : ""}`,
+      `🤝 Union Fees: ₹${unionAmt}${userData.Union?.mode === "online" ? " 💳" : ""}`,
+      extraList ? `${extraList}` : "",
+      ``,
+      `💵 *Total Collection (Inflow):*`,
+      `💸 Total Cash Collection: ₹${userData.TotalCashCollection || "___"}`,
+      `💳 Online Collection: ₹${userData.Online || "___"}`,
+      ``,
+      `✨ *Total Hand Over:*`,
+      `💵 Cash Hand Over: ₹${userData.CashHandover || "___"}`,
+      ...(userData.Remarks ? [`📝 *Remarks:* ${userData.Remarks}`] : []),
+      ``,
+      title ? `\n${title}` : "",
+    ].join("\n");
+
+    await safeSendMessage(sock, jid, { text: msg });
+  } catch (err) {
+    console.error("❌ sendSummary error:", err);
+    await safeSendMessage(sock, jid, { text: "❌ Failed to send summary. Try again." });
+  }
+}
+
+export async function sendSubmittedSummary(sock, jid, userData = {}) {
+  try {
+    const extraList =
+      userData.ExtraExpenses && userData.ExtraExpenses.length > 0
+        ? userData.ExtraExpenses
+            .map(
+              (e) =>
+                `🧾 ${capitalize(e.name)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`
+            )
+            .join("\n")
+        : "";
+
+    const dieselAmt = userData.Diesel?.amount || userData.Diesel || "0";
+    const addaAmt = userData.Adda?.amount || userData.Adda || "0";
+    const unionAmt = userData.Union?.amount || userData.Union || "0";
+
+    const msg = [
+      `✅ *Data Submitted*${userData.editingExisting ? " (Updated Existing Record)" : ""}`,
+      `📅 Dated: ${userData.Dated || "___"}`,
+      ``,
+      `💰 *Expenses (Outflow):*`,
+      `⛽ Diesel: ₹${dieselAmt}${userData.Diesel?.mode === "online" ? " 💳" : ""}`,
+      `🚌 Adda : ₹${addaAmt}${userData.Adda?.mode === "online" ? " 💳" : ""}`,
+      `🤝 Union Fees: ₹${unionAmt}${userData.Union?.mode === "online" ? " 💳" : ""}`,
+      extraList ? `${extraList}` : "",
+      ``,
+      `💵 *Total Collection (Inflow):*`,
+      `💸 Total Cash Collection: ₹${userData.TotalCashCollection || "0"}`,
+      `💳 Online Collection: ₹${userData.Online || "0"}`,
+      ``,
+      `✨ *Total Hand Over:*`,
+      `💵 Cash Hand Over: ₹${userData.CashHandover || "0"}`,
+      ...(userData.Remarks ? [`📝 *Remarks: ${userData.Remarks}*`] : []),
+      ``,
+      `✅ Data Submitted successfully!`,
+    ].join("\n");
+
+    await safeSendMessage(sock, jid, { text: msg });
+  } catch (err) {
+    console.error("❌ sendSubmittedSummary error:", err);
+    await safeSendMessage(sock, jid, { text: "❌ Failed to send submitted summary." });
+  }
+}
