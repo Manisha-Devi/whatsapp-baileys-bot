@@ -1,5 +1,4 @@
-import { handleDailyStatus } from "./daily_status.js";
-import { handleStatusUpdate } from "./daily_status_update.js";
+import { handleDailyStatus, handleStatusUpdate } from "./daily_status.js";
 import { safeSendMessage } from "./utils/helpers.js";
 import { handleClearCommand, handleDailyCommand } from "./handlers/command-handler.js";
 import { handleExpenseCommand, handleExpenseDelete } from "./handlers/expense-handler.js";
