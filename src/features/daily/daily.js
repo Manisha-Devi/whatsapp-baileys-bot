@@ -167,9 +167,6 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     const handledRemarks = await handleRemarksCommand(sock, sender, normalizedText, user);
     if (handledRemarks) return;
 
-    const handledExpenseCmd = await handleExpenseCommand(sock, sender, normalizedText, user);
-    if (handledExpenseCmd) return;
-
     const fieldResult = await handleFieldExtraction(sock, sender, normalizedText, user);
     if (fieldResult.handled) return;
 

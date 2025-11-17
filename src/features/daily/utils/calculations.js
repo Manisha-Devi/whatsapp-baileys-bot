@@ -9,10 +9,10 @@ export function recalculateCashHandover(user) {
       ? parseFloat(user.TotalCashCollection?.amount || 0)
       : parseFloat(user.TotalCashCollection || 0);
 
-    const extraTotal = (user.ExtraExpenses || []).reduce(
+    const extraTotal = Number((user.ExtraExpenses || []).reduce(
       (sum, e) => sum + (e.mode === "cash" ? parseFloat(e.amount) || 0 : 0),
       0
-    );
+    ));
 
     const autoHandover = totalCollection - (diesel + adda + union + extraTotal);
     const handoverAmount = isFinite(autoHandover) ? autoHandover.toFixed(0) : "0";
