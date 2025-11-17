@@ -203,10 +203,13 @@ async function connectToWhatsApp() {
         
         const text = String(messageContent).trim().toLowerCase();
         
-        // Route based on prefix
-        if (text.startsWith('booking') || text.includes('booking status') || text.includes('update booking')) {
+        // Route based on strict prefix requirement (case-insensitive)
+        const isBookingCommand = /^booking\b/i.test(text);
+        const isDailyCommand = /^daily\b/i.test(text);
+        
+        if (isBookingCommand) {
           await handleIncomingMessageFromBooking(sock, msg);
-        } else if (text.startsWith('daily') || text.includes('daily status') || text.includes('update status')) {
+        } else if (isDailyCommand) {
           await handleIncomingMessageFromDaily(sock, msg);
         } else {
           // Send help message if no valid prefix

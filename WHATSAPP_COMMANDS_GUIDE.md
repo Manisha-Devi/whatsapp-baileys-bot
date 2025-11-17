@@ -151,8 +151,8 @@ daily 10/11/2025 to 15/11/2025
 
 #### Delete Extra Expense
 ```
-expense delete 1
-expense delete mechanic
+daily expense delete 1
+daily expense delete mechanic
 ```
 
 ---

@@ -31,13 +31,12 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
     let normalizedText = textRaw.trim();
     let text = normalizedText.toLowerCase();
     
-    // Strip "daily" prefix
-    if (text.startsWith('daily ')) {
-      normalizedText = normalizedText.substring(6).trim(); // Remove "daily "
-      text = text.substring(6).trim();
-    } else if (text === 'daily') {
-      normalizedText = normalizedText.substring(5).trim(); // Remove "daily"
-      text = text.substring(5).trim();
+    // Strip "daily" prefix (handles space, newline, tab, colon, hyphen after the keyword)
+    const dailyPrefixMatch = normalizedText.match(/^daily[\s\-:]*/i);
+    if (dailyPrefixMatch) {
+      const prefixLength = dailyPrefixMatch[0].length;
+      normalizedText = normalizedText.substring(prefixLength).trim();
+      text = text.substring(prefixLength).trim();
     }
     
     // Handle help command
@@ -64,11 +63,11 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
               `• daily status collected\n` +
               `• daily status deposited\n\n` +
               `4️⃣ *Update Status*\n` +
-              `• update status 15/11/2025 collected\n` +
-              `• update status 10/11/2025 to 15/11/2025 deposited\n\n` +
+              `• daily update status 15/11/2025 collected\n` +
+              `• daily update status 10/11/2025 to 15/11/2025 deposited\n\n` +
               `5️⃣ *Other Commands*\n` +
               `• daily clear - clear session\n` +
-              `• expense delete [name] - delete expense\n\n` +
+              `• daily expense delete [name] - delete expense\n\n` +
               `For detailed guide, see documentation.`
       });
       return;

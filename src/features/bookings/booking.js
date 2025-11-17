@@ -28,13 +28,12 @@ export async function handleIncomingMessageFromBooking(sock, msg) {
     let normalizedText = textRaw.trim();
     let text = normalizedText.toLowerCase();
     
-    // Strip "booking" prefix
-    if (text.startsWith('booking ')) {
-      normalizedText = normalizedText.substring(8).trim(); // Remove "booking "
-      text = text.substring(8).trim();
-    } else if (text === 'booking') {
-      normalizedText = normalizedText.substring(7).trim(); // Remove "booking"
-      text = text.substring(7).trim();
+    // Strip "booking" prefix (handles space, newline, tab, colon, hyphen after the keyword)
+    const bookingPrefixMatch = normalizedText.match(/^booking[\s\-:]*/i);
+    if (bookingPrefixMatch) {
+      const prefixLength = bookingPrefixMatch[0].length;
+      normalizedText = normalizedText.substring(prefixLength).trim();
+      text = text.substring(prefixLength).trim();
     }
     
     // Handle help command
@@ -63,8 +62,8 @@ export async function handleIncomingMessageFromBooking(sock, msg) {
               `• booking status confirmed\n` +
               `• booking status completed\n\n` +
               `4️⃣ *Update Status*\n` +
-              `• update booking status BK001 confirmed\n` +
-              `• update booking status BK002 completed\n\n` +
+              `• booking update status BK001 confirmed\n` +
+              `• booking update status BK002 completed\n\n` +
               `5️⃣ *Other Commands*\n` +
               `• booking clear - clear session\n\n` +
               `For detailed guide, see documentation.`
