@@ -4,6 +4,7 @@ import { formatExistingForMessage, capitalize } from "../utils/formatters.js";
 import { parseDate, formatDate, getDateKey } from "./date-handler.js";
 import { recalculateCashHandover, getCompletionMessage } from "../utils/calculations.js";
 import { sendSummary } from "../utils/messages.js";
+import { resolveCommand } from "../../../utils/menu-handler.js";
 
 export async function handleFieldExtraction(sock, sender, normalizedText, user) {
   const fieldPatterns = {
@@ -175,7 +176,9 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
   if (!user.waitingForUpdate) return false;
 
   try {
-    if (/^yes$/i.test(text)) {
+    const resolved = resolveCommand(text);
+    
+    if (resolved === "yes") {
       const { field, value, type } = user.waitingForUpdate;
 
       if (type === "extra") {
@@ -206,7 +209,7 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
         user
       );
       return true;
-    } else if (/^no$/i.test(text)) {
+    } else if (resolved === "no") {
       user.waitingForUpdate = null;
       const completenessMsg = getCompletionMessage(user);
       await safeSendMessage(sock, sender, {
