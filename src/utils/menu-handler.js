@@ -282,10 +282,25 @@ export async function handleMenuNavigation(sock, sender, text) {
   const resolvedCommand = resolveCommand(text, state);
 
   if (resolvedCommand === 'menu') {
-    const currentPath = getCurrentMenuPath(state);
-    const menuInfo = `📍 *Current Location:*\n${currentPath}\n\n💡 *Quick Actions:*\n• Send *Entry* to go to Main Menu\n• Send *Exit* or *E* to go back one level\n• Send *Help* or *H* for commands in current menu`;
-    
-    await sock.sendMessage(sender, { text: menuInfo });
+    if (!state.mode) {
+      await showMainMenu(sock, sender);
+    } else if (state.mode === 'daily' && !state.submode) {
+      await showDailySubmenu(sock, sender);
+    } else if (state.mode === 'booking' && !state.submode) {
+      await showBookingSubmenu(sock, sender);
+    } else if (state.mode === 'daily' && state.submode === 'data') {
+      await showDailyDataHelp(sock, sender);
+    } else if (state.mode === 'daily' && state.submode === 'status') {
+      await showDailyStatusHelp(sock, sender);
+    } else if (state.mode === 'daily' && state.submode === 'reports') {
+      await showDailyReportsHelp(sock, sender);
+    } else if (state.mode === 'booking' && state.submode === 'data') {
+      await showBookingDataHelp(sock, sender);
+    } else if (state.mode === 'booking' && state.submode === 'status') {
+      await showBookingStatusHelp(sock, sender);
+    } else if (state.mode === 'booking' && state.submode === 'reports') {
+      await showBookingReportsHelp(sock, sender);
+    }
     return true;
   }
 
