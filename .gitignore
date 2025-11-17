@@ -10,6 +10,8 @@ auth_info/
 # Storage folder (runtime data)
 storage/daily_data.json
 storage/daily_status.json
+storage/bookings_data.json
+storage/bookings_status.json
 
 # Environment variables
 .env
