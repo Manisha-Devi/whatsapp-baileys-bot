@@ -40,11 +40,23 @@ function formatFullDate(dateInput) {
 // 📊 Handle "Daily Status" command
 export async function handleDailyStatus(sock, sender, normalizedText) {
   try {
-    // Match messages like: "status initiated" (prefix already stripped)
-    const match = normalizedText.match(/^status\s+(initiated|collected|deposited)$/i);
+    // Match messages like: "status initiated", "initiated", "i", "c", "d" (prefix already stripped)
+    const match = normalizedText.match(/^(?:status\s+)?(initiated|collected|deposited|i|c|d)$/i);
     if (!match) return false; // not a status command
 
-    const statusQuery = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+    const rawStatus = match[1].toLowerCase();
+    
+    // Map shortcuts to full status names
+    const statusMap = {
+      'i': 'Initiated',
+      'c': 'Collected',
+      'd': 'Deposited',
+      'initiated': 'Initiated',
+      'collected': 'Collected',
+      'deposited': 'Deposited'
+    };
+    
+    const statusQuery = statusMap[rawStatus];
 
     await db.read();
     const data = db.data || {};
@@ -69,7 +81,7 @@ export async function handleDailyStatus(sock, sender, normalizedText) {
     });
 
     // Start message
-    let msg = `📊 *Pending Daily Entries (Status: ${statusQuery})*\n\n`;
+    let msg = `📊 *Status: ${statusQuery}*\n\n`;
 
     let totalCash = 0;
     let totalCount = 0;
@@ -90,7 +102,7 @@ export async function handleDailyStatus(sock, sender, normalizedText) {
       totalCount++;
     }
 
-    msg += `📊 *Total Pending Entries:* ${totalCount}\n`;
+    msg += `📊 *Total Entries:* ${totalCount}\n`;
     msg += `💰 *Total Cash Handover:* ₹${totalCash}`;
 
     await safeSendMessage(sock, sender, { text: msg });
@@ -160,25 +172,32 @@ const ALLOWED_STATUSES = new Set(["collected", "deposited"]);
 export async function handleStatusUpdate(sock, sender, normalizedText) {
   try {
     // Accepts:
-    //   update status 05/11/2025 collected remarks bank
-    //   update status 05/11/2025 to 07/11/2025 deposited
-    //   update status 05/11/2025,06/11/2025 collected
+    //   update 05/11/2025 collected remark bank
+    //   update 05/11/2025 to 07/11/2025 deposited
+    //   update 05/11/2025,06/11/2025 collected
     const match = normalizedText.match(
-      /^update\s+status\s+(.+?)\s+(collected|deposited|[a-zA-Z]+)(?:\s+remarks\s+(.+))?$/i
+      /^update\s+(.+?)\s+(collected|deposited|c|d)(?:\s+remark\s+(.+))?$/i
     );
     if (!match) return false; // not this command
 
     const datesExpr = match[1].trim();
-    const requestedStatusRaw = match[2].trim();
+    const requestedStatusRaw = match[2].trim().toLowerCase();
     const remarksRaw = match[3]?.trim() ?? null;
 
-    const requestedStatusLower = requestedStatusRaw.toLowerCase();
-
-    // Validate status: only 'collected' or 'deposited' allowed
-    if (!ALLOWED_STATUSES.has(requestedStatusLower)) {
+    // Map shortcuts to full status names
+    const statusShortcuts = {
+      'c': 'collected',
+      'd': 'deposited',
+      'collected': 'collected',
+      'deposited': 'deposited'
+    };
+    
+    const requestedStatusLower = statusShortcuts[requestedStatusRaw];
+    
+    if (!requestedStatusLower) {
       await safeSendMessage(sock, sender, {
         text:
-          "❌ Invalid status. Only the following statuses are allowed:\n• collected\n• deposited\n\nUsage examples:\n`update status 05/11/2025 collected`\n`update status 05/11/2025 to 07/11/2025 deposited remarks bank_deposit`",
+          "❌ Invalid status. Only the following statuses are allowed:\n• Collected or C\n• Deposited or D\n\nUsage examples:\n`Update 05/11/2025 Collected`\n`Update 05/11/2025 to 07/11/2025 Deposited Remark bank_deposit`",
       });
       return true;
     }

@@ -83,13 +83,14 @@ export function showDailyStatusHelp(sock, sender) {
 You can now use status commands without typing "daily":
 
 *View Status:*
-• status initiated
-• status collected
-• status deposited
+• *Initiated* or *I*
+• *Collected* or *C*
+• *Deposited* or *D*
 
 *Update Status:*
-• update status 15/11/2025 collected
-• update status 10/11/2025 to 15/11/2025 deposited
+• *Update* 15/11/2025 *Collected*
+• *Update* 10/11/2025 to 15/11/2025 *Deposited*
+• *Update* 15/11/2025 *Collected Remark* All Done
 
 *Other Commands:*
 • *Help* - Show this help
