@@ -11,9 +11,9 @@ export function showMainMenu(sock, sender) {
 
 Please select an option:
 
-📊 Reply *Daily* - for Daily Reports
-🚌 Reply *Booking* - for Booking Management
-🚪 Reply *Exit* - to close menu
+📊 Reply *Daily* or *D* - for Daily Reports
+🚌 Reply *Booking* or *B* - for Booking Management
+🚪 Reply *Exit* or *E* - to close menu
 
 Type your choice:`;
 
@@ -25,11 +25,11 @@ export function showDailySubmenu(sock, sender) {
 
 Please select an option:
 
-📝 Reply *Data* - for Data Entry
-📋 Reply *Status* - for Status Management
-❓ Reply *Help* - for Help with Commands
-📊 Reply *Reports* - to View Daily Reports
-🔙 Reply *Exit* - to go back to Main Menu
+📝 Reply *Data* or *D* - for Data Entry
+📋 Reply *Status* or *S* - for Status Management
+❓ Reply *Help* or *H* - for Help with Commands
+📊 Reply *Reports* or *R* - to View Daily Reports
+🔙 Reply *Exit* or *E* - to go back to Main Menu
 
 Type your choice:`;
 
@@ -41,11 +41,11 @@ export function showBookingSubmenu(sock, sender) {
 
 Please select an option:
 
-📝 Reply *Data* - for Booking Entry
-📋 Reply *Status* - for Status Management
-❓ Reply *Help* - for Help with Commands
-📊 Reply *Reports* - to View Booking Reports
-🔙 Reply *Exit* - to go back to Main Menu
+📝 Reply *Data* or *D* - for Booking Entry
+📋 Reply *Status* or *S* - for Status Management
+❓ Reply *Help* or *H* - for Help with Commands
+📊 Reply *Reports* or *R* - to View Booking Reports
+🔙 Reply *Exit* or *E* - to go back to Main Menu
 
 Type your choice:`;
 
@@ -221,6 +221,57 @@ function getCurrentMenuPath(state) {
   return path;
 }
 
+const commandAliases = {
+  'entry': ['entry'],
+  'exit': ['exit', 'e'],
+  'home': ['home'],
+  'menu': ['menu'],
+  'daily': ['daily'],
+  'booking': ['booking'],
+  'data': ['data', 'd'],
+  'status': ['status', 's'],
+  'reports': ['reports', 'r'],
+  'help': ['help', 'h'],
+  'yes': ['yes', 'y'],
+  'no': ['no', 'n']
+};
+
+export function resolveCommand(input, menuState = null) {
+  const lower = input.toLowerCase().trim();
+  
+  const isMainMenu = menuState && menuState.mode === null;
+  const isInSubmenu = menuState && menuState.mode !== null && menuState.submode === null;
+  
+  if (isMainMenu) {
+    const mainMenuAliases = {
+      'd': 'daily',
+      'b': 'booking'
+    };
+    if (mainMenuAliases[lower]) {
+      return mainMenuAliases[lower];
+    }
+  }
+  
+  if (isInSubmenu) {
+    const submenuAliases = {
+      'd': 'data',
+      's': 'status',
+      'r': 'reports',
+      'h': 'help'
+    };
+    if (submenuAliases[lower]) {
+      return submenuAliases[lower];
+    }
+  }
+  
+  for (const [command, aliases] of Object.entries(commandAliases)) {
+    if (aliases.includes(lower)) {
+      return command;
+    }
+  }
+  return lower;
+}
+
 export async function handleMenuNavigation(sock, sender, text) {
   if (!sender || sender.endsWith("@g.us") || sender.endsWith("@broadcast")) {
     return false;
@@ -228,16 +279,17 @@ export async function handleMenuNavigation(sock, sender, text) {
 
   const state = getMenuState(sender);
   const lowerText = text.toLowerCase().trim();
+  const resolvedCommand = resolveCommand(text, state);
 
-  if (lowerText === 'menu') {
+  if (resolvedCommand === 'menu') {
     const currentPath = getCurrentMenuPath(state);
-    const menuInfo = `📍 *Current Location:*\n${currentPath}\n\n💡 *Quick Actions:*\n• Send *Entry* to go to Main Menu\n• Send *Exit* to go back one level\n• Send *Help* for commands in current menu`;
+    const menuInfo = `📍 *Current Location:*\n${currentPath}\n\n💡 *Quick Actions:*\n• Send *Entry* to go to Main Menu\n• Send *Exit* or *E* to go back one level\n• Send *Help* or *H* for commands in current menu`;
     
     await sock.sendMessage(sender, { text: menuInfo });
     return true;
   }
 
-  if (lowerText === 'entry') {
+  if (resolvedCommand === 'entry') {
     exitToHome(sender);
     await showMainMenu(sock, sender);
     return true;
@@ -253,7 +305,7 @@ export async function handleMenuNavigation(sock, sender, text) {
     return true;
   }
 
-  if (lowerText === 'exit' || lowerText === 'home') {
+  if (resolvedCommand === 'exit' || resolvedCommand === 'home') {
     const currentMode = state.mode;
     const currentSubmode = state.submode;
 
@@ -279,18 +331,18 @@ export async function handleMenuNavigation(sock, sender, text) {
   }
 
   if (!state.mode) {
-    if (lowerText === 'daily') {
+    if (resolvedCommand === 'daily') {
       setMenuMode(sender, 'daily');
       await showDailySubmenu(sock, sender);
       return true;
     }
-    if (lowerText === 'booking') {
+    if (resolvedCommand === 'booking') {
       setMenuMode(sender, 'booking');
       await showBookingSubmenu(sock, sender);
       return true;
     }
   } else if (state.mode && !state.submode) {
-    if (lowerText === 'data') {
+    if (resolvedCommand === 'data') {
       setMenuSubmode(sender, 'data');
       if (state.mode === 'daily') {
         await showDailyDataHelp(sock, sender);
@@ -299,7 +351,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       }
       return true;
     }
-    if (lowerText === 'status') {
+    if (resolvedCommand === 'status') {
       setMenuSubmode(sender, 'status');
       if (state.mode === 'daily') {
         await showDailyStatusHelp(sock, sender);
@@ -308,7 +360,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       }
       return true;
     }
-    if (lowerText === 'reports') {
+    if (resolvedCommand === 'reports') {
       setMenuSubmode(sender, 'reports');
       if (state.mode === 'daily') {
         await showDailyReportsHelp(sock, sender);
@@ -317,7 +369,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       }
       return true;
     }
-    if (lowerText === 'help') {
+    if (resolvedCommand === 'help') {
       if (state.mode === 'daily') {
         await showDailySubmenu(sock, sender);
       } else if (state.mode === 'booking') {
@@ -326,7 +378,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
   } else if (state.submode) {
-    if (lowerText === 'help') {
+    if (resolvedCommand === 'help') {
       if (state.mode === 'daily' && state.submode === 'data') {
         await showDailyDataHelp(sock, sender);
       } else if (state.mode === 'daily' && state.submode === 'status') {

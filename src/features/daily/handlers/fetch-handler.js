@@ -2,12 +2,14 @@ import db from "../../../data/db.js";
 import { safeSendMessage, safeDbRead } from "../utils/helpers.js";
 import { recalculateCashHandover } from "../utils/calculations.js";
 import { sendSummary } from "../utils/messages.js";
+import { resolveCommand } from "../../../utils/menu-handler.js";
 
 export async function handleFetchConfirmation(sock, sender, text, user) {
   if (!user.confirmingFetch) return false;
 
   try {
-    if (text === "yes") {
+    const resolved = resolveCommand(text);
+    if (resolved === "yes") {
       const key = user.pendingPrimaryKey;
       const ok = await safeDbRead();
       if (!ok) {
@@ -31,7 +33,7 @@ export async function handleFetchConfirmation(sock, sender, text, user) {
         await sendSummary(
           sock,
           sender,
-          "📋 Fetched existing record. You can now update any field and re-submit.\n\nDo you want to Cancel? (yes/no)",
+          "📋 Fetched existing record. You can now update any field and re-submit.\n\nDo you want to Cancel? (*Yes* or *Y* / *No* or *N*)",
           user
         );
         user.awaitingCancelChoice = true;
@@ -43,7 +45,7 @@ export async function handleFetchConfirmation(sock, sender, text, user) {
         });
       }
       return true;
-    } else if (text === "no") {
+    } else if (resolved === "no") {
       user.confirmingFetch = false;
       user.pendingPrimaryKey = null;
       user.editingExisting = false;
@@ -68,13 +70,14 @@ export async function handleCancelChoice(sock, sender, text, user) {
   if (!user.awaitingCancelChoice) return false;
 
   try {
-    if (text === "yes") {
+    const resolved = resolveCommand(text);
+    if (resolved === "yes") {
       delete global.userData?.[sender];
       await safeSendMessage(sock, sender, {
         text: "✅ Existing record discarded. Starting fresh entry.",
       });
       return true;
-    } else if (text === "no") {
+    } else if (resolved === "no") {
       user.awaitingCancelChoice = false;
       await safeSendMessage(sock, sender, {
         text: "📋 Please start updating by confirming above data.",

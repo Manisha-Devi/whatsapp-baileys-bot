@@ -1,14 +1,15 @@
 import db from "../../../data/db.js";
 import { safeSendMessage, safeDbRead, safeDbWrite } from "../utils/helpers.js";
 import { sendSubmittedSummary } from "../utils/messages.js";
+import { resolveCommand } from "../../../utils/menu-handler.js";
 
 export async function handleSubmit(sock, sender, text, user) {
   if (!user.waitingForSubmit) return false;
 
   try {
-    const cleanText = text.trim().toLowerCase();
+    const resolved = resolveCommand(text);
     
-    if (cleanText === "yes") {
+    if (resolved === "yes") {
       const ok = await safeDbRead();
       if (!ok) {
         await safeSendMessage(sock, sender, {
@@ -25,7 +26,7 @@ export async function handleSubmit(sock, sender, text, user) {
         user.waitingForSubmit = false;
         user.confirmingUpdate = true;
         await safeSendMessage(sock, sender, {
-          text: `⚠️ A record for ${user.Dated} already exists.\nDo you want to update it? (yes/no)`,
+          text: `⚠️ A record for ${user.Dated} already exists.\nDo you want to update it? (*Yes* or *Y* / *No* or *N*)`,
         });
         return true;
       }
@@ -58,7 +59,7 @@ export async function handleSubmit(sock, sender, text, user) {
       await sendSubmittedSummary(sock, sender, cleanUser);
       delete global.userData[sender];
       return true;
-    } else if (cleanText === "no") {
+    } else if (resolved === "no") {
       await safeSendMessage(sock, sender, {
         text: "❌ Submission cancelled. You can continue editing.",
       });
@@ -80,9 +81,9 @@ export async function handleUpdateConfirmation(sock, sender, text, user) {
   if (!user.confirmingUpdate) return false;
 
   try {
-    const cleanText = text.trim().toLowerCase();
+    const resolved = resolveCommand(text);
     
-    if (cleanText === "yes") {
+    if (resolved === "yes") {
       const key = user.pendingPrimaryKey;
       const ok = await safeDbRead();
       if (!ok) {
@@ -125,7 +126,7 @@ export async function handleUpdateConfirmation(sock, sender, text, user) {
       delete user.pendingPrimaryKey;
       delete global.userData[sender];
       return true;
-    } else if (cleanText === "no") {
+    } else if (resolved === "no") {
       await safeSendMessage(sock, sender, {
         text: "❌ Update cancelled. Old record kept as is.",
       });
