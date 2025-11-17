@@ -14,6 +14,14 @@ This WhatsApp bot, built with Baileys, automates business operations for a bus t
 - **Standardized Amount Storage**: Updated JSON schema to store TotalCashCollection, Online, and CashHandover as objects with 'amount' property for consistency with other fields
 - **Backward Compatibility**: All functions handle both legacy string format and new object format seamlessly
 
+## Robust Confirmation Queue System
+- **Unified Update Queue**: ALL field and expense updates (new and changed) go through a single confirmation queue with sequential processing
+- **Smart Confirmation Logic**: New values auto-apply without confirmation; changed values (including changes from 0) prompt for user confirmation
+- **Queue Preservation**: Invalid confirmation responses re-prompt without losing pending updates
+- **Expense Shortcuts**: Added support for "ex" shorthand (e.g., "Ex Washing 500 Online")
+- **Numeric Validation**: Expense amounts validated with parseFloat during storage, preventing string concatenation in cash handover calculations
+- **Pattern Improvements**: Enhanced TotalCashCollection and Online field patterns with proper anchoring to prevent false matches
+
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
