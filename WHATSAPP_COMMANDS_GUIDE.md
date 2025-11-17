@@ -2,16 +2,21 @@
 
 This guide shows all available WhatsApp commands for the Bus Transportation Management Bot.
 
+**IMPORTANT**: All commands must start with either `daily` or `booking` prefix.
+
 ---
 
 ## 📊 DAILY FEATURE - Commands & Examples
 
+**Note**: All daily commands must start with `daily` prefix.
+
 ### 1. Submit Daily Report
 
 #### Basic Daily Entry
-Send field-by-field information:
+Send field-by-field information (start with "daily"):
 
 ```
+daily
 Dated 15/11/2025
 Diesel 5000
 Adda 200
@@ -24,6 +29,7 @@ Submit
 
 #### Using Expense Commands
 ```
+daily
 Dated 16/11/2025
 Expense Diesel 5000 cash
 Expense Adda 200 cash
@@ -50,9 +56,9 @@ Submit
 
 #### Get Status by Type
 ```
-Daily Status Initiated
-Daily Status Collected
-Daily Status Deposited
+daily status initiated
+daily status collected
+daily status deposited
 ```
 
 **Example Output:**
@@ -75,20 +81,20 @@ Daily Status Deposited
 
 #### Update Single Date
 ```
-update status 15/11/2025 collected
-update status 15/11/2025 deposited remarks bank deposit done
+daily update status 15/11/2025 collected
+daily update status 15/11/2025 deposited remarks bank deposit done
 ```
 
 #### Update Date Range
 ```
-update status 10/11/2025 to 15/11/2025 collected
-update status 01/11/2025 to 05/11/2025 deposited remarks weekly deposit
+daily update status 10/11/2025 to 15/11/2025 collected
+daily update status 01/11/2025 to 05/11/2025 deposited remarks weekly deposit
 ```
 
 #### Update Multiple Dates (Comma Separated)
 ```
-update status 15/11/2025,16/11/2025,17/11/2025 collected
-update status 10/11/2025,11/11/2025 deposited
+daily update status 15/11/2025,16/11/2025,17/11/2025 collected
+daily update status 10/11/2025,11/11/2025 deposited
 ```
 
 **Allowed Status Values:**
@@ -155,12 +161,14 @@ expense delete mechanic
 
 Reset your current data entry session:
 ```
-clear
+daily clear
 ```
 
 ---
 
 ## 🚌 BOOKINGS FEATURE - Commands & Examples
+
+**Note**: All booking commands must start with `booking` prefix.
 
 > **Note**: The bookings feature has basic field entry implemented. Status queries, fetching records, and database persistence are planned for future updates.
 
@@ -170,6 +178,7 @@ clear
 
 #### Basic Booking Entry
 ```
+booking
 Customer Name Rahul Sharma
 Customer Phone 9876543210
 Pickup Location Delhi Railway Station
@@ -200,10 +209,10 @@ Submit
 
 #### Get Bookings by Status
 ```
-Booking Status Pending
-Booking Status Confirmed
-Booking Status Completed
-Booking Status Cancelled
+booking status pending
+booking status confirmed
+booking status completed
+booking status cancelled
 ```
 
 **Example Output:**
@@ -232,10 +241,10 @@ Booking Status Cancelled
 
 #### Update Single Booking
 ```
-update booking status BK001 confirmed
-update booking status BK001 confirmed remarks customer verified
-update booking status BK002 completed
-update booking status BK003 cancelled remarks customer request
+booking update status BK001 confirmed
+booking update status BK001 confirmed remarks customer verified
+booking update status BK002 completed
+booking update status BK003 cancelled remarks customer request
 ```
 
 **Allowed Booking Status Values:**
@@ -292,7 +301,7 @@ booking 20/11/2025 to 25/11/2025
 
 Reset your current booking entry:
 ```
-clear booking
+booking clear
 ```
 
 ---
@@ -335,9 +344,8 @@ Pending → Confirmed → Completed
 
 Get help anytime by sending:
 ```
-help
-help daily
-help booking
+daily help
+booking help
 ```
 
 ---
