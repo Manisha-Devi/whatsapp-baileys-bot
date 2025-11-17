@@ -4,7 +4,10 @@ export function recalculateCashHandover(user) {
     const adda = user.Adda?.mode === "cash" ? parseFloat(user.Adda?.amount || 0) : 0;
     const union = user.Union?.mode === "cash" ? parseFloat(user.Union?.amount || 0) : 0;
 
-    const totalCollection = parseFloat(user.TotalCashCollection) || 0;
+    // Handle both old format (string) and new format (object)
+    const totalCollection = typeof user.TotalCashCollection === 'object' 
+      ? parseFloat(user.TotalCashCollection?.amount || 0)
+      : parseFloat(user.TotalCashCollection || 0);
 
     const extraTotal = (user.ExtraExpenses || []).reduce(
       (sum, e) => sum + (e.mode === "cash" ? parseFloat(e.amount) || 0 : 0),
@@ -12,12 +15,15 @@ export function recalculateCashHandover(user) {
     );
 
     const autoHandover = totalCollection - (diesel + adda + union + extraTotal);
-    user.CashHandover = isFinite(autoHandover) ? autoHandover.toFixed(0) : "0";
-    return user.CashHandover;
+    const handoverAmount = isFinite(autoHandover) ? autoHandover.toFixed(0) : "0";
+    
+    // Store as object
+    user.CashHandover = { amount: handoverAmount };
+    return handoverAmount;
   } catch (err) {
     console.error("❌ Error recalculating CashHandover:", err);
-    user.CashHandover = user.CashHandover || "0";
-    return user.CashHandover;
+    user.CashHandover = { amount: "0" };
+    return "0";
   }
 }
 
@@ -30,12 +36,16 @@ export function getCompletionMessage(user) {
       if (typeof v === "object") {
         return !v.amount || String(v.amount).trim() === "";
       }
+      // Handle old string format
+      if (typeof v === "string") {
+        return String(v).trim() === "";
+      }
       return false;
     });
 
     if (missing.length === 0) {
       if (!user.waitingForSubmit) user.waitingForSubmit = true;
-      return "⚠️ All Data Entered.\nDo you want to Submit now? (yes/no)";
+      return "⚠️ All Data Entered.\nDo you want to Submit now? (*Yes* or *Y* / *No* or *N*)";
     } else {
       if (user.waitingForSubmit) user.waitingForSubmit = false;
       return `🟡 Data Entering! Please provide remaining data.\nMissing fields: ${missing.join(", ")}`;

@@ -16,6 +16,17 @@ export async function sendSummary(sock, jid, title, userData = {}) {
     const dieselAmt = userData.Diesel?.amount || userData.Diesel || "___";
     const addaAmt = userData.Adda?.amount || userData.Adda || "___";
     const unionAmt = userData.Union?.amount || userData.Union || "___";
+    
+    // Handle both old format (string) and new format (object)
+    const totalCashAmt = typeof userData.TotalCashCollection === 'object' 
+      ? userData.TotalCashCollection?.amount || "___"
+      : userData.TotalCashCollection || "___";
+    const onlineAmt = typeof userData.Online === 'object'
+      ? userData.Online?.amount || "___"
+      : userData.Online || "___";
+    const cashHandoverAmt = typeof userData.CashHandover === 'object'
+      ? userData.CashHandover?.amount || "___"
+      : userData.CashHandover || "___";
 
     const msg = [
       `✅ *Daily Data Entry*${userData.editingExisting ? " (Editing Existing Record)" : ""}`,
@@ -28,11 +39,11 @@ export async function sendSummary(sock, jid, title, userData = {}) {
       extraList ? `${extraList}` : "",
       ``,
       `💵 *Total Collection (Inflow):*`,
-      `💸 Total Cash Collection: ₹${userData.TotalCashCollection || "___"}`,
-      `💳 Online Collection: ₹${userData.Online || "___"}`,
+      `💸 Total Cash Collection: ₹${totalCashAmt}`,
+      `💳 Online Collection: ₹${onlineAmt}`,
       ``,
       `✨ *Total Hand Over:*`,
-      `💵 Cash Hand Over: ₹${userData.CashHandover || "___"}`,
+      `💵 Cash Hand Over: ₹${cashHandoverAmt}`,
       ...(userData.Remarks ? [`📝 *Remarks:* ${userData.Remarks}`] : []),
       ``,
       title ? `\n${title}` : "",
@@ -60,6 +71,17 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
     const dieselAmt = userData.Diesel?.amount || userData.Diesel || "0";
     const addaAmt = userData.Adda?.amount || userData.Adda || "0";
     const unionAmt = userData.Union?.amount || userData.Union || "0";
+    
+    // Handle both old format (string) and new format (object)
+    const totalCashAmt = typeof userData.TotalCashCollection === 'object' 
+      ? userData.TotalCashCollection?.amount || "0"
+      : userData.TotalCashCollection || "0";
+    const onlineAmt = typeof userData.Online === 'object'
+      ? userData.Online?.amount || "0"
+      : userData.Online || "0";
+    const cashHandoverAmt = typeof userData.CashHandover === 'object'
+      ? userData.CashHandover?.amount || "0"
+      : userData.CashHandover || "0";
 
     const msg = [
       `✅ *Data Submitted*${userData.editingExisting ? " (Updated Existing Record)" : ""}`,
@@ -72,11 +94,11 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
       extraList ? `${extraList}` : "",
       ``,
       `💵 *Total Collection (Inflow):*`,
-      `💸 Total Cash Collection: ₹${userData.TotalCashCollection || "0"}`,
-      `💳 Online Collection: ₹${userData.Online || "0"}`,
+      `💸 Total Cash Collection: ₹${totalCashAmt}`,
+      `💳 Online Collection: ₹${onlineAmt}`,
       ``,
       `✨ *Total Hand Over:*`,
-      `💵 Cash Hand Over: ₹${userData.CashHandover || "0"}`,
+      `💵 Cash Hand Over: ₹${cashHandoverAmt}`,
       ...(userData.Remarks ? [`📝 *Remarks: ${userData.Remarks}*`] : []),
       ``,
       `✅ Data Submitted successfully!`,
