@@ -45,8 +45,8 @@ The application follows a modular src-based architecture (restructured November 
 - **Utility Modules** (`src/features/bookings/utils/*`): Reusable booking logic:
   - `helpers.js`: Safe wrappers for messaging and database operations
   - `messages.js`: Booking summary and completion message functions
-- **Status Handlers** (`src/features/bookings/booking_status.js`): Handlers for booking status queries and updates
-- **Data Layer** (`src/data/db.js`): LowDB adapter for JSON-based storage managing both daily_data.json and daily_status.json
+- **Status Handlers** (`src/features/bookings/booking_status.js`): Handlers for booking status queries and updates with database persistence
+- **Data Layer** (`src/data/db.js`): LowDB adapter for JSON-based storage managing daily and booking databases
 
 ## State Management
 - **Session State**: In-memory global objects tracking conversation state per WhatsApp sender:
@@ -59,17 +59,30 @@ The application follows a modular src-based architecture (restructured November 
 
 ## Data Persistence
 - **Database**: LowDB with JSONFile adapter for lightweight JSON-based storage (src/data/db.js)
-- **Schema**: Flat key-value structure using date-based primary keys (DDMMYYYY format)
+- **Schema**: Flat key-value structure with different indexing strategies:
+  - Daily records: Date-based keys (DDMMYYYY format)
+  - Booking records: Booking ID-based keys (BK123456 format)
 - **Runtime Data** (git-ignored under `storage/`):
-  - `storage/daily_data.json`: Main transaction records indexed by date
-  - `storage/daily_status.json`: Status update logs tracking record lifecycle (Initiated, Collected, Deposited)
+  - `storage/daily_data.json`: Daily transaction records indexed by date
+  - `storage/daily_status.json`: Daily status update logs (Initiated, Collected, Deposited)
+  - `storage/bookings_data.json`: Booking records indexed by booking ID
+  - `storage/bookings_status.json`: Booking status update logs (Pending, Confirmed, Completed, Cancelled)
 - **Archived Data**: `archive/admin/data/*.json`: Reference data for buses, employees, and users (not used in runtime)
 
 ## Business Logic
+
+### Daily Feature
 - **Auto-calculation**: Cash handover automatically computed as: `TotalCashCollection - (cash_expenses + cash_extra_expenses)`
 - **Payment Modes**: Dual-mode expense tracking (cash/online) affecting handover calculation
 - **Validation**: Multi-stage validation ensuring all required fields present before submission
 - **Conflict Resolution**: Detects existing records and prompts user for update confirmation
+
+### Booking Feature
+- **Auto-calculation**: Balance amount computed as: `TotalFare - AdvancePaid`
+- **Numeric Validation**: Robust parsing handles comma-separated currency strings, validates positive numbers
+- **Business Rules**: Advance cannot exceed total fare, all numeric fields validated before database write
+- **ID Generation**: Auto-generated booking IDs in format BK{timestamp} for uniqueness
+- **Status Tracking**: Full lifecycle tracking (Pending → Confirmed → Completed/Cancelled)
 
 ## Message Flow Architecture (Restructured Nov 2025)
 1. User sends WhatsApp message
@@ -93,11 +106,15 @@ The application follows a modular src-based architecture (restructured November 
 - **Src-based Architecture**: Reorganized entire codebase into src/ directory with clear separation (server, features, data)
 - **Modular Refactoring**: Broke down monolithic 1154-line `daily.js` into focused modules for better maintainability
 - **Status Handler Consolidation**: Merged `daily_status_update.js` into `daily_status.js` for cleaner status management
-- **Database Layer Enhancement**: Updated `db.js` to manage both daily_data.json and daily_status.json with separate LowDB adapters
-- **Bookings Feature Added**: Created complete bookings module mirroring daily feature structure with field extraction, validation, and submission workflows
+- **Database Layer Enhancement**: Updated `db.js` to manage four separate databases (daily_data, daily_status, bookings_data, bookings_status)
+- **Bookings Feature Added**: Created complete bookings module with field extraction, validation, and submission workflows
+- **Booking Database Persistence**: Implemented full database persistence for bookings with status tracking and audit logs
+- **Prefix-based Routing**: Added mandatory "daily" and "booking" prefixes for all commands with smart prefix stripping
+- **Help Commands**: Added "daily help" and "booking help" commands showing all available features
+- **Robust Validation**: Implemented numeric validation for booking amounts with comma-handling and business rule checks
 - **Separation of Concerns**: Server, features, data, scripts, and storage are now clearly separated
 - **Runtime Data Isolation**: Mutable JSON files moved to git-ignored storage/ directory
-- **Improved Documentation**: Added comprehensive WHATSAPP_COMMANDS_GUIDE.md and paths.md documenting structure and commands
+- **Improved Documentation**: Added comprehensive WHATSAPP_COMMANDS_GUIDE.md with all prefix requirements
 - **Preserved Functionality**: All original business logic, validation, and error handling maintained
 
 ## API Security
@@ -145,11 +162,13 @@ The application follows a modular src-based architecture (restructured November 
 
 ## Database
 - **Storage**: File-based JSON storage via LowDB (no traditional database server required)
-- **Adapters**: `src/data/db.js` - Exports two LowDB adapters:
-  - `db` (default export): Manages daily_data.json for transaction records
-  - `statusDb` (named export): Manages daily_status.json for status update logs
+- **Adapters**: `src/data/db.js` - Exports four LowDB adapters:
+  - `db` (default export): Manages daily_data.json for daily transaction records
+  - `statusDb` (named export): Manages daily_status.json for daily status update logs
+  - `bookingsDb` (named export): Manages bookings_data.json for booking records
+  - `bookingsStatusDb` (named export): Manages bookings_status.json for booking status update logs
 - **Runtime Location**: `./storage/` directory (git-ignored) containing operational data files
-- **Backup/Sync**: Google Sheets acts as secondary data store and reporting interface
+- **Backup/Sync**: Google Sheets acts as secondary data store and reporting interface (currently implemented for daily data only)
 
 ## Authentication
 - **WhatsApp**: Multi-file auth state stored in `./auth_info` directory
