@@ -27,6 +27,8 @@ Please select an option:
 
 📝 Reply *Data* - for Data Entry
 📋 Reply *Status* - for Status Management
+❓ Reply *Help* - for Help with Commands
+📊 Reply *Reports* - to View Daily Reports
 🔙 Reply *Exit* - to go back to Main Menu
 
 Type your choice:`;
@@ -41,6 +43,8 @@ Please select an option:
 
 📝 Reply *Data* - for Booking Entry
 📋 Reply *Status* - for Status Management
+❓ Reply *Help* - for Help with Commands
+📊 Reply *Reports* - to View Booking Reports
 🔙 Reply *Exit* - to go back to Main Menu
 
 Type your choice:`;
@@ -146,6 +150,77 @@ Enter your command now!`;
   return sock.sendMessage(sender, { text: helpText });
 }
 
+export function showDailyReportsHelp(sock, sender) {
+  const helpText = `📊 *Daily Reports*
+
+View your daily reports using various formats:
+
+*Examples:*
+• *Today* - View today's report
+• *Last 5 Days* - View last 5 days reports
+• *11/10/2025* - View specific date
+• *11/10/2025 to 15/10/2025* - Date range
+• *This Month* - Current month reports
+• *This Week* - Current week reports
+• *6 Days Ago* - View report from 6 days ago
+
+*Other Commands:*
+• *Help* - Show this help
+• *Exit* - Back to Daily Menu
+
+Enter your report query now!`;
+
+  return sock.sendMessage(sender, { text: helpText });
+}
+
+export function showBookingReportsHelp(sock, sender) {
+  const helpText = `📊 *Booking Reports*
+
+View your booking reports using various formats:
+
+*Examples:*
+• *Today* - View today's bookings
+• *Last 5 Days* - View last 5 days bookings
+• *11/10/2025* - View specific date
+• *11/10/2025 to 15/10/2025* - Date range
+• *This Month* - Current month bookings
+• *This Week* - Current week bookings
+
+*Other Commands:*
+• *Help* - Show this help
+• *Exit* - Back to Booking Menu
+
+Enter your report query now!`;
+
+  return sock.sendMessage(sender, { text: helpText });
+}
+
+function getCurrentMenuPath(state) {
+  let path = "🏠 Main Menu";
+  
+  if (state.mode === 'daily') {
+    path += " -> 📊 Daily Menu";
+    if (state.submode === 'data') {
+      path += " -> 📝 Data Entry";
+    } else if (state.submode === 'status') {
+      path += " -> 📋 Status Management";
+    } else if (state.submode === 'reports') {
+      path += " -> 📊 Reports";
+    }
+  } else if (state.mode === 'booking') {
+    path += " -> 🚌 Booking Menu";
+    if (state.submode === 'data') {
+      path += " -> 📝 Booking Entry";
+    } else if (state.submode === 'status') {
+      path += " -> 📋 Status Management";
+    } else if (state.submode === 'reports') {
+      path += " -> 📊 Reports";
+    }
+  }
+  
+  return path;
+}
+
 export async function handleMenuNavigation(sock, sender, text) {
   if (!sender || sender.endsWith("@g.us") || sender.endsWith("@broadcast")) {
     return false;
@@ -154,7 +229,15 @@ export async function handleMenuNavigation(sock, sender, text) {
   const state = getMenuState(sender);
   const lowerText = text.toLowerCase().trim();
 
-  if (lowerText === 'entry' || lowerText === 'menu') {
+  if (lowerText === 'menu') {
+    const currentPath = getCurrentMenuPath(state);
+    const menuInfo = `📍 *Current Location:*\n${currentPath}\n\n💡 *Quick Actions:*\n• Send *Entry* to go to Main Menu\n• Send *Exit* to go back one level\n• Send *Help* for commands in current menu`;
+    
+    await sock.sendMessage(sender, { text: menuInfo });
+    return true;
+  }
+
+  if (lowerText === 'entry') {
     exitToHome(sender);
     await showMainMenu(sock, sender);
     return true;
@@ -225,16 +308,37 @@ export async function handleMenuNavigation(sock, sender, text) {
       }
       return true;
     }
+    if (lowerText === 'reports') {
+      setMenuSubmode(sender, 'reports');
+      if (state.mode === 'daily') {
+        await showDailyReportsHelp(sock, sender);
+      } else if (state.mode === 'booking') {
+        await showBookingReportsHelp(sock, sender);
+      }
+      return true;
+    }
+    if (lowerText === 'help') {
+      if (state.mode === 'daily') {
+        await showDailySubmenu(sock, sender);
+      } else if (state.mode === 'booking') {
+        await showBookingSubmenu(sock, sender);
+      }
+      return true;
+    }
   } else if (state.submode) {
     if (lowerText === 'help') {
       if (state.mode === 'daily' && state.submode === 'data') {
         await showDailyDataHelp(sock, sender);
       } else if (state.mode === 'daily' && state.submode === 'status') {
         await showDailyStatusHelp(sock, sender);
+      } else if (state.mode === 'daily' && state.submode === 'reports') {
+        await showDailyReportsHelp(sock, sender);
       } else if (state.mode === 'booking' && state.submode === 'data') {
         await showBookingDataHelp(sock, sender);
       } else if (state.mode === 'booking' && state.submode === 'status') {
         await showBookingStatusHelp(sock, sender);
+      } else if (state.mode === 'booking' && state.submode === 'reports') {
+        await showBookingReportsHelp(sock, sender);
       }
       return true;
     }

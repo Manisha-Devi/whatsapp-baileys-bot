@@ -1,12 +1,13 @@
 import { handleDailyStatus, handleStatusUpdate } from "./daily_status.js";
 import { safeSendMessage } from "./utils/helpers.js";
-import { handleClearCommand, handleDailyCommand } from "./handlers/command-handler.js";
+import { handleClearCommand, handleDailyCommand, handleReportsCommand } from "./handlers/command-handler.js";
 import { handleExpenseCommand, handleExpenseDelete } from "./handlers/expense-handler.js";
 import { handleFetchConfirmation, handleCancelChoice } from "./handlers/fetch-handler.js";
 import { handleSubmit, handleUpdateConfirmation } from "./handlers/submit-handler.js";
 import { handleFieldExtraction, handleFieldUpdateConfirmation, handleRemarksCommand } from "./handlers/field-handler.js";
 import { recalculateCashHandover, getCompletionMessage } from "./utils/calculations.js";
 import { sendSummary } from "./utils/messages.js";
+import { getMenuState } from "../../utils/menu-state.js";
 
 export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripping = false) {
   try {
@@ -110,6 +111,12 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
 
     const handledClear = await handleClearCommand(sock, sender, text);
     if (handledClear) return;
+
+    const menuState = getMenuState(sender);
+    if (menuState.mode === 'daily' && menuState.submode === 'reports') {
+      const handledReports = await handleReportsCommand(sock, sender, normalizedText, null);
+      if (handledReports) return;
+    }
 
     if (!global.userData) global.userData = {};
     if (!global.userData[sender]) {

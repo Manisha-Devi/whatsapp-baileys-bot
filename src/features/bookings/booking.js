@@ -4,6 +4,7 @@ import { handleClearCommand, handleBookingCommand } from "./handlers/command-han
 import { handleFieldExtraction } from "./handlers/field-handler.js";
 import { handleSubmit } from "./handlers/submit-handler.js";
 import { sendSummary, getCompletionMessage } from "./utils/messages.js";
+import { getMenuState } from "../../utils/menu-state.js";
 
 export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStripping = false) {
   try {
@@ -110,6 +111,14 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
 
     const handledClear = await handleClearCommand(sock, sender, text);
     if (handledClear) return;
+
+    const menuState = getMenuState(sender);
+    if (menuState.mode === 'booking' && menuState.submode === 'reports') {
+      await safeSendMessage(sock, sender, {
+        text: "📊 *Booking Reports*\n\n⚠️ This feature is currently under development.\n\nPlease use the following options for now:\n• Reply *Exit* to go back to Booking Menu\n• Reply *Entry* to go to Main Menu"
+      });
+      return;
+    }
 
     if (!global.bookingData) global.bookingData = {};
     if (!global.bookingData[sender]) {

@@ -103,10 +103,35 @@ The application follows a modular src-based architecture (restructured November 
 7. State persisted to LowDB when submitting via `safeDbWrite` wrapper
 
 ## Recent Changes (November 17, 2025)
+
+### Menu Navigation Enhancements (Latest)
+- **Removed Traditional Prefix Support**: Users must now use the menu system (no more "daily" or "booking" prefixes)
+  - Simplified user experience with single navigation path
+  - Entry command opens main menu with all options
+- **Enhanced Submenu Options**: Added Help and Reports to Daily and Booking submenus
+  - Help option in submenus shows context-specific help without exiting current menu
+  - Reports option provides dedicated reporting interface
+- **Advanced Reports Feature**: Comprehensive reporting with multiple date format support
+  - Today: View today's report
+  - Last N Days: View last 5 days, last 10 days, etc.
+  - N Days Ago: View report from 6 days ago, etc.
+  - Specific Date: View report for DD/MM/YYYY
+  - Date Range: View reports from DD/MM/YYYY to DD/MM/YYYY
+  - This Month: View all reports for current month
+  - This Week: View all reports for current week
+  - Each report shows formatted date with day of week (e.g., "Monday, 10 November 2025")
+- **Menu Breadcrumb Navigation**: New "Menu" command shows current location
+  - Shows navigation path (e.g., "🏠 Main Menu -> 📊 Daily Menu -> 📊 Reports")
+  - Provides quick action shortcuts (Entry, Exit, Help)
+  - Helps users understand their current position in menu hierarchy
+- **Booking Reports Placeholder**: Added defensive message for booking reports (feature under development)
+  - Informs users the feature is coming soon
+  - Provides clear navigation options to exit
+
+### Earlier November 17, 2025 Changes
 - **Menu-Based Navigation System**: Implemented interactive menu system with "Entry" command
-  - Users can now navigate: Entry → Daily/Booking → Data/Status
+  - Users can now navigate: Entry → Daily/Booking → Data/Status/Reports/Help
   - Commands work without prefixes when in menu mode
-  - Backward compatible with traditional prefix-based commands
 - **Menu State Management**: Added `src/utils/menu-state.js` and `src/utils/menu-handler.js`
 - **Context-Aware Help**: Help messages adapt based on navigation mode (menu vs traditional)
 - **Google Sheets Integration Extended**: Created `booking-data.js` and `booking-status.js` scripts

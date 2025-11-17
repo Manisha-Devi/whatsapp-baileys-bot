@@ -218,24 +218,19 @@ async function connectToWhatsApp() {
           await handleIncomingMessageFromDaily(sock, msg, true);
         } else if (menuState.mode === 'daily' && menuState.submode === 'status') {
           await handleIncomingMessageFromDaily(sock, msg, true);
+        } else if (menuState.mode === 'daily' && menuState.submode === 'reports') {
+          await handleIncomingMessageFromDaily(sock, msg, true);
         } else if (menuState.mode === 'booking' && menuState.submode === 'data') {
           await handleIncomingMessageFromBooking(sock, msg, true);
         } else if (menuState.mode === 'booking' && menuState.submode === 'status') {
           await handleIncomingMessageFromBooking(sock, msg, true);
+        } else if (menuState.mode === 'booking' && menuState.submode === 'reports') {
+          await handleIncomingMessageFromBooking(sock, msg, true);
         } else {
-          const isBookingCommand = /^booking\b/i.test(lowerText);
-          const isDailyCommand = /^daily\b/i.test(lowerText);
-          
-          if (isBookingCommand) {
-            await handleIncomingMessageFromBooking(sock, msg);
-          } else if (isDailyCommand) {
-            await handleIncomingMessageFromDaily(sock, msg);
-          } else {
-            if (sender && !sender.endsWith("@g.us")) {
-              await sock.sendMessage(sender, {
-                text: "❌ Invalid command.\n\n🏠 Send *Entry* to open the menu\n\nOr use:\n📊 *daily* - for daily reports\n🚌 *booking* - for bookings\n\nExamples:\n• daily help\n• booking help"
-              });
-            }
+          if (sender && !sender.endsWith("@g.us")) {
+            await sock.sendMessage(sender, {
+              text: "❌ Invalid command.\n\n🏠 Send *Entry* to open the menu to get started!\n\nThe menu will guide you through all available options."
+            });
           }
         }
       } catch (err) {
