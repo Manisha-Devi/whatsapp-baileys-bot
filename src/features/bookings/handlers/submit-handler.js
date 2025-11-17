@@ -24,6 +24,41 @@ export async function handleSubmit(sock, sender, text, user) {
       return true;
     }
 
+    // Parse and validate numeric fields
+    const totalFare = Number(String(user.TotalFare).replace(/,/g, ''));
+    const advancePaid = Number(String(user.AdvancePaid).replace(/,/g, ''));
+    const numPassengers = Number(user.NumberOfPassengers);
+
+    if (isNaN(totalFare) || totalFare <= 0) {
+      await safeSendMessage(sock, sender, {
+        text: `⚠️ Invalid Total Fare. Please enter a valid number.`,
+      });
+      return true;
+    }
+
+    if (isNaN(advancePaid) || advancePaid < 0) {
+      await safeSendMessage(sock, sender, {
+        text: `⚠️ Invalid Advance Paid. Please enter a valid number.`,
+      });
+      return true;
+    }
+
+    if (isNaN(numPassengers) || numPassengers <= 0) {
+      await safeSendMessage(sock, sender, {
+        text: `⚠️ Invalid Number of Passengers. Please enter a valid number.`,
+      });
+      return true;
+    }
+
+    const balanceAmount = totalFare - advancePaid;
+
+    if (balanceAmount < 0) {
+      await safeSendMessage(sock, sender, {
+        text: `⚠️ Advance Paid (₹${advancePaid}) cannot be greater than Total Fare (₹${totalFare}).`,
+      });
+      return true;
+    }
+
     const bookingId = `BK${Date.now().toString().slice(-6)}`;
     
     // Prepare booking record for database
@@ -36,10 +71,10 @@ export async function handleSubmit(sock, sender, text, user) {
       DropLocation: user.DropLocation,
       TravelDate: user.TravelDate,
       VehicleType: user.VehicleType,
-      NumberOfPassengers: user.NumberOfPassengers,
-      TotalFare: user.TotalFare,
-      AdvancePaid: user.AdvancePaid,
-      BalanceAmount: user.BalanceAmount || (user.TotalFare - user.AdvancePaid),
+      NumberOfPassengers: numPassengers,
+      TotalFare: totalFare,
+      AdvancePaid: advancePaid,
+      BalanceAmount: balanceAmount,
       Status: user.Status || "Pending",
       Remarks: user.Remarks || "",
       submittedAt: new Date().toISOString(),
@@ -59,17 +94,17 @@ export async function handleSubmit(sock, sender, text, user) {
     }
     
     let summary = `✅ *Booking Submitted - ${bookingId}*\n\n`;
-    summary += `👤 Customer: ${user.CustomerName}\n`;
-    summary += `📱 Phone: ${user.CustomerPhone}\n`;
-    summary += `📍 Route: ${user.PickupLocation} → ${user.DropLocation}\n`;
-    summary += `📅 Travel Date: ${user.TravelDate}\n`;
-    summary += `🚐 Vehicle: ${user.VehicleType}\n`;
-    summary += `👥 Passengers: ${user.NumberOfPassengers}\n`;
-    summary += `💰 Total Fare: ₹${user.TotalFare}\n`;
-    summary += `💵 Advance: ₹${user.AdvancePaid}\n`;
+    summary += `👤 Customer: ${bookingRecord.CustomerName}\n`;
+    summary += `📱 Phone: ${bookingRecord.CustomerPhone}\n`;
+    summary += `📍 Route: ${bookingRecord.PickupLocation} → ${bookingRecord.DropLocation}\n`;
+    summary += `📅 Travel Date: ${bookingRecord.TravelDate}\n`;
+    summary += `🚐 Vehicle: ${bookingRecord.VehicleType}\n`;
+    summary += `👥 Passengers: ${bookingRecord.NumberOfPassengers}\n`;
+    summary += `💰 Total Fare: ₹${bookingRecord.TotalFare}\n`;
+    summary += `💵 Advance: ₹${bookingRecord.AdvancePaid}\n`;
     summary += `💸 Balance: ₹${bookingRecord.BalanceAmount}\n`;
     summary += `📊 Status: ${bookingRecord.Status}\n`;
-    if (user.Remarks) summary += `📝 Remarks: ${user.Remarks}\n`;
+    if (bookingRecord.Remarks) summary += `📝 Remarks: ${bookingRecord.Remarks}\n`;
 
     await safeSendMessage(sock, sender, { text: summary });
 
