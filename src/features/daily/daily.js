@@ -28,8 +28,51 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
     if (msg.key.fromMe) return;
 
     const textRaw = String(messageContent);
-    const normalizedText = textRaw.trim();
-    const text = normalizedText.toLowerCase();
+    let normalizedText = textRaw.trim();
+    let text = normalizedText.toLowerCase();
+    
+    // Strip "daily" prefix
+    if (text.startsWith('daily ')) {
+      normalizedText = normalizedText.substring(6).trim(); // Remove "daily "
+      text = text.substring(6).trim();
+    } else if (text === 'daily') {
+      normalizedText = normalizedText.substring(5).trim(); // Remove "daily"
+      text = text.substring(5).trim();
+    }
+    
+    // Handle help command
+    if (text === 'help' || text === '') {
+      await safeSendMessage(sock, sender, {
+        text: `📊 *DAILY FEATURE COMMANDS*\n\n` +
+              `1️⃣ *Submit Daily Report*\n` +
+              `daily\n` +
+              `Dated 15/11/2025\n` +
+              `Diesel 5000\n` +
+              `Adda 200\n` +
+              `Union 150\n` +
+              `Total Cash Collection 25000\n` +
+              `Online 3000\n` +
+              `Remarks All ok\n` +
+              `Submit\n\n` +
+              `2️⃣ *Fetch Records*\n` +
+              `• daily today\n` +
+              `• daily yesterday\n` +
+              `• daily last 7\n` +
+              `• daily 15/11/2025\n\n` +
+              `3️⃣ *Check Status*\n` +
+              `• daily status initiated\n` +
+              `• daily status collected\n` +
+              `• daily status deposited\n\n` +
+              `4️⃣ *Update Status*\n` +
+              `• update status 15/11/2025 collected\n` +
+              `• update status 10/11/2025 to 15/11/2025 deposited\n\n` +
+              `5️⃣ *Other Commands*\n` +
+              `• daily clear - clear session\n` +
+              `• expense delete [name] - delete expense\n\n` +
+              `For detailed guide, see documentation.`
+      });
+      return;
+    }
 
     const handledDailyStatus = await handleDailyStatus(sock, sender, normalizedText);
     if (handledDailyStatus) return;
@@ -63,7 +106,7 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
       };
 
       await safeSendMessage(sock, sender, {
-        text: "👋 Please enter date first in format: Dated DD/MM/YYYY",
+        text: "👋 Welcome to Daily Reports!\n\n📝 Start your message with *daily*\n\nExample:\ndaily\nDated 15/11/2025\nDiesel 5000\nAdda 200\n...\n\nType *daily help* for all commands.",
       });
     }
 

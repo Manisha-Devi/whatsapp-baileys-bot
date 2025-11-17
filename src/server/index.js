@@ -19,6 +19,7 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 
 import { handleIncomingMessageFromDaily } from "../features/daily/daily.js";
+import { handleIncomingMessageFromBooking } from "../features/bookings/booking.js";
 
 // 🧭 Load environment variables
 dotenv.config();
@@ -193,7 +194,29 @@ async function connectToWhatsApp() {
 
     sock.ev.on("messages.upsert", async (m) => {
       try {
-        await handleIncomingMessageFromDaily(sock, m.messages[0]);
+        const msg = m.messages[0];
+        if (!msg || !msg.key) return;
+        
+        const messageContent = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
+        if (!messageContent) return;
+        if (msg.key.fromMe) return;
+        
+        const text = String(messageContent).trim().toLowerCase();
+        
+        // Route based on prefix
+        if (text.startsWith('booking') || text.includes('booking status') || text.includes('update booking')) {
+          await handleIncomingMessageFromBooking(sock, msg);
+        } else if (text.startsWith('daily') || text.includes('daily status') || text.includes('update status')) {
+          await handleIncomingMessageFromDaily(sock, msg);
+        } else {
+          // Send help message if no valid prefix
+          const sender = msg.key.remoteJid;
+          if (sender && !sender.endsWith("@g.us")) {
+            await sock.sendMessage(sender, {
+              text: "❌ Invalid command. Please start your message with:\n\n📊 *daily* - for daily reports\n🚌 *booking* - for bookings\n\nExamples:\n• daily help\n• booking help"
+            });
+          }
+        }
       } catch (err) {
         console.error("❌ Error handling message:", err);
       }
