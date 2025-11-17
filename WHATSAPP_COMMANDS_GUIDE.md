@@ -2,13 +2,13 @@
 
 This guide shows all available WhatsApp commands for the Bus Transportation Management Bot.
 
-**NEW**: The bot now supports **menu-based navigation** for easier use!
+**IMPORTANT**: The bot now uses **menu-only navigation**. All commands must be accessed through the menu system.
 
 ---
 
-## 🏠 GETTING STARTED - Menu Navigation
+## 🏠 GETTING STARTED
 
-### Quick Start with Menu System
+### Quick Start
 
 Send **Entry** to open the interactive menu:
 
@@ -27,41 +27,57 @@ Please select an option:
 🚪 Reply Exit - to close menu
 ```
 
-### Navigation Flow
+### Complete Navigation Flow
 
 ```
 Entry (Main Menu)
   ├─ Daily
-  │   ├─ Data (Enter daily reports without "daily" prefix)
-  │   ├─ Status (Check/update status without "daily" prefix)
+  │   ├─ Data (Enter daily reports)
+  │   ├─ Status (Check/update status)
+  │   ├─ Reports (View reports - multiple formats)
+  │   ├─ Help (Get command help)
   │   └─ Exit (Back to Main Menu)
   │
   ├─ Booking
-  │   ├─ Data (Enter bookings without "booking" prefix)
-  │   ├─ Status (Check/update status without "booking" prefix)
+  │   ├─ Data (Enter bookings)
+  │   ├─ Status (Check/update status)
+  │   ├─ Reports (Coming soon)
+  │   ├─ Help (Get command help)
   │   └─ Exit (Back to Main Menu)
   │
   └─ Exit (Close menu)
 ```
 
+### Menu Breadcrumb
+
+Type **Menu** anytime to see your current location:
+
+```
+Menu
+```
+
+You'll see your current path, for example:
+```
+📍 Current Location:
+🏠 Main Menu -> 📊 Daily Menu -> 📊 Reports
+
+Quick Actions:
+• Reply Entry - Go to Main Menu
+• Reply Exit - Go back to Daily Menu
+• Reply Help - Get help for current section
+```
+
 ---
 
-## 📊 DAILY FEATURE - Two Ways to Use
+## 📊 DAILY FEATURE
 
-### Method 1: Menu-Based (Recommended)
+### 1. Submit Daily Report
 
-1. Send `Entry` to open menu
-2. Reply `Daily`
-3. Reply `Data` for data entry OR `Status` for status management
-4. Enter your commands **without** the "daily" prefix
-5. Reply `Exit` to go back
+**Navigation**: `Entry → Daily → Data`
 
-**Example Data Entry:**
+Then enter your data (no prefix needed):
+
 ```
-Entry
-Daily
-Data
-
 Dated 15/11/2025
 Diesel 5000
 Adda 200
@@ -69,39 +85,6 @@ Union 150
 Total Cash Collection 25000
 Online 3000
 Remarks All ok
-Submit
-
-Exit
-```
-
-### Method 2: Traditional (With Prefix)
-
-All commands must start with `daily` prefix:
-
-#### 1. Submit Daily Report
-
-```
-daily
-Dated 15/11/2025
-Diesel 5000
-Adda 200
-Union 150
-Total Cash Collection 25000
-Online 3000
-Remarks All payments received
-Submit
-```
-
-#### Using Expense Commands
-```
-daily
-Dated 16/11/2025
-Expense Diesel 5000 cash
-Expense Adda 200 cash
-Expense Union 150 online
-Expense Mechanic 1500 cash remarks engine repair
-Total Cash Collection 28000
-Online 4500
 Submit
 ```
 
@@ -112,26 +95,122 @@ Submit
 - **Union**: `Union 150` (union fee)
 - **Total Cash Collection**: `Total Cash Collection 25000`
 - **Online**: `Online 3000` (online payment amount)
-- **Extra Expenses**: `Expense [name] [amount] [cash/online] remarks [details]`
 - **Remarks**: `Remarks your comments here`
+
+#### Using Expense Commands
+
+You can use detailed expense tracking:
+
+```
+Dated 16/11/2025
+Expense Diesel 5000 cash
+Expense Adda 200 cash
+Expense Union 150 online
+Expense Mechanic 1500 cash remarks engine repair
+Total Cash Collection 28000
+Online 4500
+Submit
+```
+
+**Expense Format**: `Expense [name] [amount] [cash/online] remarks [details]`
 
 ---
 
-### 2. View Daily Status
+### 2. Fetch Daily Records
 
-#### Menu Mode:
+**Navigation**: `Entry → Daily → Data`
+
+Fetch existing records by:
+
 ```
-Entry → Daily → Status
+today
+yesterday
+last 7
+15/11/2025
+10/11/2025 to 15/11/2025
+```
+
+**Supported formats:**
+- `today` - Today's record
+- `yesterday` - Yesterday's record
+- `last [N]` - Last N days (e.g., `last 7`, `last 30`)
+- `DD/MM/YYYY` - Specific date
+- `DD/MM/YYYY to DD/MM/YYYY` - Date range
+
+---
+
+### 3. View Daily Reports
+
+**Navigation**: `Entry → Daily → Reports`
+
+The Reports section supports multiple formats:
+
+#### Today's Report
+```
+Today
+```
+
+#### Last N Days
+```
+Last 5 Days
+Last 10 Days
+Last 30 Days
+```
+
+#### N Days Ago
+```
+5 Days Ago
+10 Days Ago
+```
+
+#### Specific Date
+```
+15/11/2025
+```
+
+#### Date Range
+```
+10/11/2025 to 15/11/2025
+```
+
+#### This Month
+```
+This Month
+```
+
+#### This Week
+```
+This Week
+```
+
+**Example Output:**
+```
+✅ Today 📅 Dated: Sunday, 17 November 2025
+
+💵 Diesel: ₹5000
+💵 Adda: ₹200
+💵 Union: ₹150
+💰 Total Cash Collection: ₹25000
+💳 Online: ₹3000
+🏦 Cash Handover: ₹19650
+📝 Remarks: All ok
+📊 Status: Initiated
+```
+
+For date ranges, you'll get multiple reports formatted with day names and dates.
+
+---
+
+### 4. View Daily Status
+
+**Navigation**: `Entry → Daily → Status`
+
+Check records by status:
+
+```
 status initiated
 status collected
 status deposited
-```
-
-#### Traditional Mode:
-```
-daily status initiated
-daily status collected
-daily status deposited
 ```
 
 **Example Output:**
@@ -150,21 +229,17 @@ daily status deposited
 
 ---
 
-### 3. Update Daily Status
+### 5. Update Daily Status
 
-#### Menu Mode (Entry → Daily → Status):
+**Navigation**: `Entry → Daily → Status`
+
+Update status of existing records:
+
 ```
 update status 15/11/2025 collected
 update status 15/11/2025 deposited remarks bank deposit done
 update status 10/11/2025 to 15/11/2025 collected
-```
-
-#### Traditional Mode:
-```
-daily update status 15/11/2025 collected
-daily update status 15/11/2025 deposited remarks bank deposit done
-daily update status 10/11/2025 to 15/11/2025 collected
-daily update status 15/11/2025,16/11/2025,17/11/2025 collected
+update status 15/11/2025,16/11/2025,17/11/2025 collected
 ```
 
 **Allowed Status Values:**
@@ -173,74 +248,43 @@ daily update status 15/11/2025,16/11/2025,17/11/2025 collected
 
 ---
 
-### 4. Fetch Daily Records
+### 6. Delete Expenses
 
-#### Menu Mode (Entry → Daily → Data):
-```
-today
-yesterday
-last 7
-15/11/2025
-10/11/2025 to 15/11/2025
-```
+**Navigation**: `Entry → Daily → Data`
 
-#### Traditional Mode:
-```
-daily today
-daily yesterday
-daily last 7
-daily 15/11/2025
-daily 10/11/2025 to 15/11/2025
-```
+Delete specific expenses:
 
----
-
-### 5. Delete Expenses
-
-#### Menu Mode (Entry → Daily → Data):
 ```
 expense delete 1
 expense delete mechanic
 ```
 
-#### Traditional Mode:
-```
-daily expense delete 1
-daily expense delete mechanic
-```
+- By number: `expense delete 1` (deletes first extra expense)
+- By name: `expense delete mechanic` (deletes expense with "mechanic" in name)
 
 ---
 
-### 6. Clear Session
+### 7. Clear Session
 
-#### Menu Mode (Entry → Daily → Data):
+**Navigation**: `Entry → Daily → Data`
+
+Clear current session to start fresh:
+
 ```
 clear
 ```
 
-#### Traditional Mode:
-```
-daily clear
-```
-
 ---
 
-## 🚌 BOOKINGS FEATURE - Two Ways to Use
+## 🚌 BOOKINGS FEATURE
 
-### Method 1: Menu-Based (Recommended)
+### 1. Create New Booking
 
-1. Send `Entry` to open menu
-2. Reply `Booking`
-3. Reply `Data` for booking entry OR `Status` for status management
-4. Enter your commands **without** the "booking" prefix
-5. Reply `Exit` to go back
+**Navigation**: `Entry → Booking → Data`
 
-**Example Booking Entry:**
+Enter booking details:
+
 ```
-Entry
-Booking
-Data
-
 Customer Name Rahul Sharma
 Customer Phone 9876543210
 Pickup Location Delhi Railway Station
@@ -250,26 +294,7 @@ Vehicle Type Tempo Traveller
 Number of Passengers 12
 Total Fare 8000
 Advance Paid 3000
-Submit
-
-Exit
-```
-
-### Method 2: Traditional (With Prefix)
-
-#### 1. Create New Booking
-
-```
-booking
-Customer Name Rahul Sharma
-Customer Phone 9876543210
-Pickup Location Delhi Railway Station
-Drop Location Agra
-Travel Date 20/11/2025
-Vehicle Type Tempo Traveller
-Number of Passengers 12
-Total Fare 8000
-Advance Paid 3000
+Remarks AC required
 Submit
 ```
 
@@ -283,26 +308,54 @@ Submit
 - **Number of Passengers**: `Number of Passengers [count]`
 - **Total Fare**: `Total Fare [amount]`
 - **Advance Paid**: `Advance Paid [amount]`
-- **Remarks**: `Remarks [additional notes]`
+- **Remarks**: `Remarks [additional notes]` (optional)
+
+**Note**: Balance amount is automatically calculated as `Total Fare - Advance Paid`
 
 ---
 
-### 2. View Booking Status
+### 2. Fetch Booking Details
 
-#### Menu Mode (Entry → Booking → Status):
+**Navigation**: `Entry → Booking → Data`
+
+Fetch bookings by:
+
+```
+BK001
+20/11/2025
+9876543210
+20/11/2025 to 25/11/2025
+```
+
+**Supported formats:**
+- `BK[ID]` - Booking ID (e.g., `BK001`)
+- `DD/MM/YYYY` - Travel date
+- `[10-digit phone]` - Customer phone number
+- `DD/MM/YYYY to DD/MM/YYYY` - Date range
+
+---
+
+### 3. View Booking Reports
+
+**Navigation**: `Entry → Booking → Reports`
+
+⚠️ **This feature is currently under development.**
+
+You'll see a message with options to exit back to Booking Menu or Main Menu.
+
+---
+
+### 4. View Booking Status
+
+**Navigation**: `Entry → Booking → Status`
+
+Check bookings by status:
+
 ```
 status pending
 status confirmed
 status completed
 status cancelled
-```
-
-#### Traditional Mode:
-```
-booking status pending
-booking status confirmed
-booking status completed
-booking status cancelled
 ```
 
 **Example Output:**
@@ -321,21 +374,17 @@ booking status cancelled
 
 ---
 
-### 3. Update Booking Status
+### 5. Update Booking Status
 
-#### Menu Mode (Entry → Booking → Status):
+**Navigation**: `Entry → Booking → Status`
+
+Update booking status:
+
 ```
 update status BK001 confirmed
 update status BK001 confirmed remarks customer verified
 update status BK002 completed
-```
-
-#### Traditional Mode:
-```
-booking update status BK001 confirmed
-booking update status BK001 confirmed remarks customer verified
-booking update status BK002 completed
-booking update status BK003 cancelled remarks customer request
+update status BK003 cancelled remarks customer request
 ```
 
 **Allowed Booking Status Values:**
@@ -346,36 +395,14 @@ booking update status BK003 cancelled remarks customer request
 
 ---
 
-### 4. Fetch Booking Details
+### 6. Clear Booking Session
 
-#### Menu Mode (Entry → Booking → Data):
-```
-BK001
-20/11/2025
-9876543210
-20/11/2025 to 25/11/2025
-```
+**Navigation**: `Entry → Booking → Data`
 
-#### Traditional Mode:
-```
-booking BK001
-booking 20/11/2025
-booking 9876543210
-booking 20/11/2025 to 25/11/2025
-```
+Clear current session:
 
----
-
-### 5. Clear Booking Session
-
-#### Menu Mode (Entry → Booking → Data):
 ```
 clear
-```
-
-#### Traditional Mode:
-```
-booking clear
 ```
 
 ---
@@ -399,22 +426,24 @@ Pending → Confirmed → Completed
 ## 💡 Tips & Best Practices
 
 ### Menu Navigation
-1. **Use Entry command**: Start with `Entry` for guided menu system
-2. **No prefix needed**: When in menu mode, no need to type "daily" or "booking"
-3. **Easy navigation**: Use `Exit` to go back one level
-4. **Get help anytime**: Type `Help` when in Data or Status mode
+1. **Start with Entry**: Always begin with `Entry` command
+2. **Use Menu command**: Type `Menu` to see where you are
+3. **Navigate easily**: Use `Exit` to go back one level
+4. **Get help anytime**: Type `Help` in any section
+5. **No prefixes needed**: When in menu mode, commands work without "daily" or "booking" prefix
 
 ### Daily Reports
 1. **Always start with the date**: `Dated DD/MM/YYYY`
 2. **Use expense commands for better tracking**: Include cash/online mode
 3. **Add remarks for clarity**: Important details about the day
-4. **Submit only when all fields are complete**: Bot will notify you
+4. **Submit only when complete**: Bot will notify when all required fields are filled
 5. **Update status progressively**: Initiated → Collected → Deposited
+6. **Use Reports section**: View formatted reports with multiple date options
 
 ### Bookings
 1. **Confirm customer details**: Double-check phone number and name
 2. **Specify vehicle type clearly**: Bus, Car, Tempo Traveller, etc.
-3. **Record advance payment**: Track balance amount automatically
+3. **Record advance payment**: Balance is calculated automatically
 4. **Use remarks for special requests**: AC/Non-AC, pickup time, etc.
 5. **Update status promptly**: Keep bookings current
 
@@ -422,21 +451,17 @@ Pending → Confirmed → Completed
 
 ## 🆘 Help Commands
 
-Get help anytime by sending:
+Get help anytime by typing `Help` when you're in any section:
 
-### Quick Help (from anywhere):
-```
-Daily help
-Booking help
-```
-
-### Contextual Help (when in menu):
 ```
 Entry → Daily → Data → Help
 Entry → Daily → Status → Help
+Entry → Daily → Reports → Help
 Entry → Booking → Data → Help
 Entry → Booking → Status → Help
 ```
+
+Each section provides context-specific help showing all available commands for that section.
 
 ---
 
@@ -448,7 +473,8 @@ Entry → Booking → Status → Help
 - Status updates are case-insensitive
 - You can edit fields before submitting by sending them again
 - Use `clear` to start fresh if you make mistakes
-- **Menu mode** is the easiest way to use the bot!
+- Use `Menu` command to check your current location
+- Use `Exit` to go back one level in navigation
 
 ---
 
@@ -456,27 +482,40 @@ Entry → Booking → Status → Help
 
 ### Essential Commands
 
-| Command | Purpose |
-|---------|---------|
-| `Entry` | Open main menu |
-| `Exit` | Go back one level / close menu |
-| `Daily` | Select daily reports (from main menu) |
-| `Booking` | Select bookings (from main menu) |
-| `Data` | Data entry mode |
-| `Status` | Status management mode |
-| `Help` | Show help for current context |
-| `Clear` | Clear current session |
-| `Submit` | Submit your entry |
+| Command | Purpose | Where to Use |
+|---------|---------|--------------|
+| `Entry` | Open main menu | Anywhere |
+| `Exit` | Go back one level | Any menu |
+| `Menu` | Show current location | Anywhere |
+| `Daily` | Select daily reports | Main menu |
+| `Booking` | Select bookings | Main menu |
+| `Data` | Data entry mode | Daily/Booking menu |
+| `Status` | Status management | Daily/Booking menu |
+| `Reports` | View reports | Daily/Booking menu |
+| `Help` | Show contextual help | Any submenu |
+| `Clear` | Clear current session | Data mode |
+| `Submit` | Submit your entry | Data entry |
+
+### Daily Reports Formats
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| Today | `Today` | Today's report |
+| Last N Days | `Last 7 Days` | Last N days reports |
+| N Days Ago | `5 Days Ago` | Report from N days ago |
+| Specific Date | `15/11/2025` | Single date report |
+| Date Range | `10/11/2025 to 15/11/2025` | Multiple dates |
+| This Month | `This Month` | Current month reports |
+| This Week | `This Week` | Current week reports |
 
 ---
 
 ## 🔗 Related Documentation
 
 - See `replit.md` for technical architecture
-- See `paths.md` for codebase structure
 - Contact admin for feature requests or issues
 
 ---
 
-**Version**: 2.0 - Menu-Based Navigation  
+**Version**: 3.0 - Menu-Only Navigation with Advanced Reports  
 **Last Updated**: November 17, 2025
