@@ -20,6 +20,8 @@ import makeWASocket, {
 
 import { handleIncomingMessageFromDaily } from "../features/daily/daily.js";
 import { handleIncomingMessageFromBooking } from "../features/bookings/booking.js";
+import { handleMenuNavigation } from "../utils/menu-handler.js";
+import { getMenuState } from "../utils/menu-state.js";
 
 // 🧭 Load environment variables
 dotenv.config();
@@ -201,23 +203,39 @@ async function connectToWhatsApp() {
         if (!messageContent) return;
         if (msg.key.fromMe) return;
         
-        const text = String(messageContent).trim().toLowerCase();
+        const sender = msg.key.remoteJid;
+        if (sender && sender.endsWith("@g.us")) return;
+
+        const text = String(messageContent).trim();
+        const lowerText = text.toLowerCase();
         
-        // Route based on strict prefix requirement (case-insensitive)
-        const isBookingCommand = /^booking\b/i.test(text);
-        const isDailyCommand = /^daily\b/i.test(text);
+        const menuHandled = await handleMenuNavigation(sock, sender, text);
+        if (menuHandled) return;
+
+        const menuState = getMenuState(sender);
         
-        if (isBookingCommand) {
-          await handleIncomingMessageFromBooking(sock, msg);
-        } else if (isDailyCommand) {
-          await handleIncomingMessageFromDaily(sock, msg);
+        if (menuState.mode === 'daily' && menuState.submode === 'data') {
+          await handleIncomingMessageFromDaily(sock, msg, true);
+        } else if (menuState.mode === 'daily' && menuState.submode === 'status') {
+          await handleIncomingMessageFromDaily(sock, msg, true);
+        } else if (menuState.mode === 'booking' && menuState.submode === 'data') {
+          await handleIncomingMessageFromBooking(sock, msg, true);
+        } else if (menuState.mode === 'booking' && menuState.submode === 'status') {
+          await handleIncomingMessageFromBooking(sock, msg, true);
         } else {
-          // Send help message if no valid prefix
-          const sender = msg.key.remoteJid;
-          if (sender && !sender.endsWith("@g.us")) {
-            await sock.sendMessage(sender, {
-              text: "❌ Invalid command. Please start your message with:\n\n📊 *daily* - for daily reports\n🚌 *booking* - for bookings\n\nExamples:\n• daily help\n• booking help"
-            });
+          const isBookingCommand = /^booking\b/i.test(lowerText);
+          const isDailyCommand = /^daily\b/i.test(lowerText);
+          
+          if (isBookingCommand) {
+            await handleIncomingMessageFromBooking(sock, msg);
+          } else if (isDailyCommand) {
+            await handleIncomingMessageFromDaily(sock, msg);
+          } else {
+            if (sender && !sender.endsWith("@g.us")) {
+              await sock.sendMessage(sender, {
+                text: "❌ Invalid command.\n\n🏠 Send *Entry* to open the menu\n\nOr use:\n📊 *daily* - for daily reports\n🚌 *booking* - for bookings\n\nExamples:\n• daily help\n• booking help"
+              });
+            }
           }
         }
       } catch (err) {

@@ -40,8 +40,8 @@ function formatFullDate(dateInput) {
 // 📊 Handle "Daily Status" command
 export async function handleDailyStatus(sock, sender, normalizedText) {
   try {
-    // Match messages like: "Daily Status Initiated"
-    const match = normalizedText.match(/^daily\s+status\s+(initiated|collected|deposited)$/i);
+    // Match messages like: "status initiated" (prefix already stripped)
+    const match = normalizedText.match(/^status\s+(initiated|collected|deposited)$/i);
     if (!match) return false; // not a status command
 
     const statusQuery = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();

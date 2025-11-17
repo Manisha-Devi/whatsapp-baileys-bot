@@ -8,7 +8,7 @@ import { handleFieldExtraction, handleFieldUpdateConfirmation, handleRemarksComm
 import { recalculateCashHandover, getCompletionMessage } from "./utils/calculations.js";
 import { sendSummary } from "./utils/messages.js";
 
-export async function handleIncomingMessageFromDaily(sock, msg) {
+export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripping = false) {
   try {
     if (!msg || !msg.key) {
       console.warn("⚠️ Received malformed or empty msg:", msg);
@@ -31,45 +31,74 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
     let normalizedText = textRaw.trim();
     let text = normalizedText.toLowerCase();
     
-    // Strip "daily" prefix (handles space, newline, tab, colon, hyphen after the keyword)
-    const dailyPrefixMatch = normalizedText.match(/^daily[\s\-:]*/i);
-    if (dailyPrefixMatch) {
-      const prefixLength = dailyPrefixMatch[0].length;
-      normalizedText = normalizedText.substring(prefixLength).trim();
-      text = text.substring(prefixLength).trim();
+    // Strip "daily" prefix only if not in menu mode
+    if (!skipPrefixStripping) {
+      const dailyPrefixMatch = normalizedText.match(/^daily[\s\-:]*/i);
+      if (dailyPrefixMatch) {
+        const prefixLength = dailyPrefixMatch[0].length;
+        normalizedText = normalizedText.substring(prefixLength).trim();
+        text = text.substring(prefixLength).trim();
+      }
     }
     
     // Handle help command
     if (text === 'help' || text === '') {
-      await safeSendMessage(sock, sender, {
-        text: `📊 *DAILY FEATURE COMMANDS*\n\n` +
-              `1️⃣ *Submit Daily Report*\n` +
-              `daily\n` +
-              `Dated 15/11/2025\n` +
-              `Diesel 5000\n` +
-              `Adda 200\n` +
-              `Union 150\n` +
-              `Total Cash Collection 25000\n` +
-              `Online 3000\n` +
-              `Remarks All ok\n` +
-              `Submit\n\n` +
-              `2️⃣ *Fetch Records*\n` +
-              `• daily today\n` +
-              `• daily yesterday\n` +
-              `• daily last 7\n` +
-              `• daily 15/11/2025\n\n` +
-              `3️⃣ *Check Status*\n` +
-              `• daily status initiated\n` +
-              `• daily status collected\n` +
-              `• daily status deposited\n\n` +
-              `4️⃣ *Update Status*\n` +
-              `• daily update status 15/11/2025 collected\n` +
-              `• daily update status 10/11/2025 to 15/11/2025 deposited\n\n` +
-              `5️⃣ *Other Commands*\n` +
-              `• daily clear - clear session\n` +
-              `• daily expense delete [name] - delete expense\n\n` +
-              `For detailed guide, see documentation.`
-      });
+      if (skipPrefixStripping) {
+        await safeSendMessage(sock, sender, {
+          text: `📊 *DAILY COMMANDS (Menu Mode)*\n\n` +
+                `📝 *Data Entry:*\n` +
+                `Dated 15/11/2025\n` +
+                `Diesel 5000\n` +
+                `Adda 200\n` +
+                `Union 150\n` +
+                `Total Cash Collection 25000\n` +
+                `Online 3000\n` +
+                `Remarks All ok\n` +
+                `Submit\n\n` +
+                `📋 *Status Commands:*\n` +
+                `• status initiated\n` +
+                `• status collected\n` +
+                `• update status 15/11/2025 collected\n\n` +
+                `🔍 *Fetch Records:*\n` +
+                `• today\n` +
+                `• yesterday\n` +
+                `• 15/11/2025\n\n` +
+                `⚙️ *Other:*\n` +
+                `• clear - clear session\n` +
+                `• exit - back to menu\n\n` +
+                `No "daily" prefix needed in menu mode!`
+        });
+      } else {
+        await safeSendMessage(sock, sender, {
+          text: `📊 *DAILY FEATURE COMMANDS*\n\n` +
+                `1️⃣ *Submit Daily Report*\n` +
+                `daily\n` +
+                `Dated 15/11/2025\n` +
+                `Diesel 5000\n` +
+                `Adda 200\n` +
+                `Union 150\n` +
+                `Total Cash Collection 25000\n` +
+                `Online 3000\n` +
+                `Remarks All ok\n` +
+                `Submit\n\n` +
+                `2️⃣ *Fetch Records*\n` +
+                `• daily today\n` +
+                `• daily yesterday\n` +
+                `• daily last 7\n` +
+                `• daily 15/11/2025\n\n` +
+                `3️⃣ *Check Status*\n` +
+                `• daily status initiated\n` +
+                `• daily status collected\n` +
+                `• daily status deposited\n\n` +
+                `4️⃣ *Update Status*\n` +
+                `• daily update status 15/11/2025 collected\n` +
+                `• daily update status 10/11/2025 to 15/11/2025 deposited\n\n` +
+                `5️⃣ *Other Commands*\n` +
+                `• daily clear - clear session\n` +
+                `• daily expense delete [name] - delete expense\n\n` +
+                `For detailed guide, see documentation.`
+        });
+      }
       return;
     }
 
@@ -104,9 +133,11 @@ export async function handleIncomingMessageFromDaily(sock, msg) {
         pendingPrimaryKey: null,
       };
 
-      await safeSendMessage(sock, sender, {
-        text: "👋 Welcome to Daily Reports!\n\n📝 Start your message with *daily*\n\nExample:\ndaily\nDated 15/11/2025\nDiesel 5000\nAdda 200\n...\n\nType *daily help* for all commands.",
-      });
+      if (!skipPrefixStripping) {
+        await safeSendMessage(sock, sender, {
+          text: "👋 Welcome to Daily Reports!\n\n📝 Start your message with *daily*\n\nExample:\ndaily\nDated 15/11/2025\nDiesel 5000\nAdda 200\n...\n\nType *daily help* for all commands.",
+        });
+      }
     }
 
     const user = global.userData[sender];

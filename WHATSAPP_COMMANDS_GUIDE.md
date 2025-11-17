@@ -2,18 +2,83 @@
 
 This guide shows all available WhatsApp commands for the Bus Transportation Management Bot.
 
-**IMPORTANT**: All commands must start with either `daily` or `booking` prefix.
+**NEW**: The bot now supports **menu-based navigation** for easier use!
 
 ---
 
-## 📊 DAILY FEATURE - Commands & Examples
+## 🏠 GETTING STARTED - Menu Navigation
 
-**Note**: All daily commands must start with `daily` prefix.
+### Quick Start with Menu System
 
-### 1. Submit Daily Report
+Send **Entry** to open the interactive menu:
 
-#### Basic Daily Entry
-Send field-by-field information (start with "daily"):
+```
+Entry
+```
+
+You'll see:
+```
+🏠 Main Menu
+
+Please select an option:
+
+📊 Reply Daily - for Daily Reports
+🚌 Reply Booking - for Booking Management
+🚪 Reply Exit - to close menu
+```
+
+### Navigation Flow
+
+```
+Entry (Main Menu)
+  ├─ Daily
+  │   ├─ Data (Enter daily reports without "daily" prefix)
+  │   ├─ Status (Check/update status without "daily" prefix)
+  │   └─ Exit (Back to Main Menu)
+  │
+  ├─ Booking
+  │   ├─ Data (Enter bookings without "booking" prefix)
+  │   ├─ Status (Check/update status without "booking" prefix)
+  │   └─ Exit (Back to Main Menu)
+  │
+  └─ Exit (Close menu)
+```
+
+---
+
+## 📊 DAILY FEATURE - Two Ways to Use
+
+### Method 1: Menu-Based (Recommended)
+
+1. Send `Entry` to open menu
+2. Reply `Daily`
+3. Reply `Data` for data entry OR `Status` for status management
+4. Enter your commands **without** the "daily" prefix
+5. Reply `Exit` to go back
+
+**Example Data Entry:**
+```
+Entry
+Daily
+Data
+
+Dated 15/11/2025
+Diesel 5000
+Adda 200
+Union 150
+Total Cash Collection 25000
+Online 3000
+Remarks All ok
+Submit
+
+Exit
+```
+
+### Method 2: Traditional (With Prefix)
+
+All commands must start with `daily` prefix:
+
+#### 1. Submit Daily Report
 
 ```
 daily
@@ -54,7 +119,15 @@ Submit
 
 ### 2. View Daily Status
 
-#### Get Status by Type
+#### Menu Mode:
+```
+Entry → Daily → Status
+status initiated
+status collected
+status deposited
+```
+
+#### Traditional Mode:
 ```
 daily status initiated
 daily status collected
@@ -79,22 +152,19 @@ daily status deposited
 
 ### 3. Update Daily Status
 
-#### Update Single Date
+#### Menu Mode (Entry → Daily → Status):
+```
+update status 15/11/2025 collected
+update status 15/11/2025 deposited remarks bank deposit done
+update status 10/11/2025 to 15/11/2025 collected
+```
+
+#### Traditional Mode:
 ```
 daily update status 15/11/2025 collected
 daily update status 15/11/2025 deposited remarks bank deposit done
-```
-
-#### Update Date Range
-```
 daily update status 10/11/2025 to 15/11/2025 collected
-daily update status 01/11/2025 to 05/11/2025 deposited remarks weekly deposit
-```
-
-#### Update Multiple Dates (Comma Separated)
-```
 daily update status 15/11/2025,16/11/2025,17/11/2025 collected
-daily update status 10/11/2025,11/11/2025 deposited
 ```
 
 **Allowed Status Values:**
@@ -105,51 +175,35 @@ daily update status 10/11/2025,11/11/2025 deposited
 
 ### 4. Fetch Daily Records
 
-#### Fetch Today's Record
+#### Menu Mode (Entry → Daily → Data):
+```
+today
+yesterday
+last 7
+15/11/2025
+10/11/2025 to 15/11/2025
+```
+
+#### Traditional Mode:
 ```
 daily today
-```
-
-#### Fetch Yesterday's Record
-```
 daily yesterday
-```
-
-#### Fetch Last N Days
-```
 daily last 7
-daily last 30
-```
-
-#### Fetch Specific Date
-```
 daily 15/11/2025
-```
-
-#### Fetch Date Range
-```
 daily 10/11/2025 to 15/11/2025
-```
-
-**Example Output:**
-```
-📅 *Daily Report for 15/11/2025*
-
-⛽ Diesel: ₹5000 (cash)
-🏪 Adda: ₹200 (cash)
-👥 Union: ₹150 (online)
-💰 Total Cash Collection: ₹25000
-💳 Online: ₹3000
-💵 Cash Handover: ₹19650
-📝 Remarks: All payments received
-📊 Status: Initiated
 ```
 
 ---
 
 ### 5. Delete Expenses
 
-#### Delete Extra Expense
+#### Menu Mode (Entry → Daily → Data):
+```
+expense delete 1
+expense delete mechanic
+```
+
+#### Traditional Mode:
 ```
 daily expense delete 1
 daily expense delete mechanic
@@ -159,24 +213,52 @@ daily expense delete mechanic
 
 ### 6. Clear Session
 
-Reset your current data entry session:
+#### Menu Mode (Entry → Daily → Data):
+```
+clear
+```
+
+#### Traditional Mode:
 ```
 daily clear
 ```
 
 ---
 
-## 🚌 BOOKINGS FEATURE - Commands & Examples
+## 🚌 BOOKINGS FEATURE - Two Ways to Use
 
-**Note**: All booking commands must start with `booking` prefix.
+### Method 1: Menu-Based (Recommended)
 
-> **Note**: The bookings feature has basic field entry implemented. Status queries, fetching records, and database persistence are planned for future updates.
+1. Send `Entry` to open menu
+2. Reply `Booking`
+3. Reply `Data` for booking entry OR `Status` for status management
+4. Enter your commands **without** the "booking" prefix
+5. Reply `Exit` to go back
 
+**Example Booking Entry:**
+```
+Entry
+Booking
+Data
 
+Customer Name Rahul Sharma
+Customer Phone 9876543210
+Pickup Location Delhi Railway Station
+Drop Location Agra
+Travel Date 20/11/2025
+Vehicle Type Tempo Traveller
+Number of Passengers 12
+Total Fare 8000
+Advance Paid 3000
+Submit
 
-### 1. Create New Booking
+Exit
+```
 
-#### Basic Booking Entry
+### Method 2: Traditional (With Prefix)
+
+#### 1. Create New Booking
+
 ```
 booking
 Customer Name Rahul Sharma
@@ -207,7 +289,15 @@ Submit
 
 ### 2. View Booking Status
 
-#### Get Bookings by Status
+#### Menu Mode (Entry → Booking → Status):
+```
+status pending
+status confirmed
+status completed
+status cancelled
+```
+
+#### Traditional Mode:
 ```
 booking status pending
 booking status confirmed
@@ -225,21 +315,22 @@ booking status cancelled
 🚐 Tempo Traveller (12 passengers)
 💰 Total: ₹8000 | Paid: ₹3000 | Balance: ₹5000
 
-📅 22/11/2025
-👤 Priya Verma (9123456789)
-📍 Mumbai → Pune
-🚌 Bus (45 passengers)
-💰 Total: ₹25000 | Paid: ₹10000 | Balance: ₹15000
-
-📊 *Total Pending Bookings:* 2
-💵 *Total Balance Amount:* ₹20000
+📊 *Total Pending Bookings:* 1
+💵 *Total Balance Amount:* ₹5000
 ```
 
 ---
 
 ### 3. Update Booking Status
 
-#### Update Single Booking
+#### Menu Mode (Entry → Booking → Status):
+```
+update status BK001 confirmed
+update status BK001 confirmed remarks customer verified
+update status BK002 completed
+```
+
+#### Traditional Mode:
 ```
 booking update status BK001 confirmed
 booking update status BK001 confirmed remarks customer verified
@@ -257,49 +348,32 @@ booking update status BK003 cancelled remarks customer request
 
 ### 4. Fetch Booking Details
 
-#### Fetch by Booking ID
+#### Menu Mode (Entry → Booking → Data):
+```
+BK001
+20/11/2025
+9876543210
+20/11/2025 to 25/11/2025
+```
+
+#### Traditional Mode:
 ```
 booking BK001
-```
-
-#### Fetch by Date
-```
 booking 20/11/2025
-```
-
-#### Fetch by Customer Phone
-```
 booking 9876543210
-```
-
-#### Fetch Date Range
-```
 booking 20/11/2025 to 25/11/2025
-```
-
-**Example Output:**
-```
-🎫 *Booking Details - BK001*
-
-📅 Booking Date: 16/11/2025
-📅 Travel Date: 20/11/2025
-👤 Customer: Rahul Sharma
-📱 Phone: 9876543210
-📍 Route: Delhi Railway Station → Agra
-🚐 Vehicle: Tempo Traveller
-👥 Passengers: 12
-💰 Total Fare: ₹8000
-💵 Advance: ₹3000
-💸 Balance: ₹5000
-📊 Status: Confirmed
-📝 Remarks: Confirmed by customer
 ```
 
 ---
 
 ### 5. Clear Booking Session
 
-Reset your current booking entry:
+#### Menu Mode (Entry → Booking → Data):
+```
+clear
+```
+
+#### Traditional Mode:
 ```
 booking clear
 ```
@@ -324,6 +398,12 @@ Pending → Confirmed → Completed
 
 ## 💡 Tips & Best Practices
 
+### Menu Navigation
+1. **Use Entry command**: Start with `Entry` for guided menu system
+2. **No prefix needed**: When in menu mode, no need to type "daily" or "booking"
+3. **Easy navigation**: Use `Exit` to go back one level
+4. **Get help anytime**: Type `Help` when in Data or Status mode
+
 ### Daily Reports
 1. **Always start with the date**: `Dated DD/MM/YYYY`
 2. **Use expense commands for better tracking**: Include cash/online mode
@@ -343,9 +423,19 @@ Pending → Confirmed → Completed
 ## 🆘 Help Commands
 
 Get help anytime by sending:
+
+### Quick Help (from anywhere):
 ```
-daily help
-booking help
+Daily help
+Booking help
+```
+
+### Contextual Help (when in menu):
+```
+Entry → Daily → Data → Help
+Entry → Daily → Status → Help
+Entry → Booking → Data → Help
+Entry → Booking → Status → Help
 ```
 
 ---
@@ -358,6 +448,25 @@ booking help
 - Status updates are case-insensitive
 - You can edit fields before submitting by sending them again
 - Use `clear` to start fresh if you make mistakes
+- **Menu mode** is the easiest way to use the bot!
+
+---
+
+## 🎯 Quick Reference
+
+### Essential Commands
+
+| Command | Purpose |
+|---------|---------|
+| `Entry` | Open main menu |
+| `Exit` | Go back one level / close menu |
+| `Daily` | Select daily reports (from main menu) |
+| `Booking` | Select bookings (from main menu) |
+| `Data` | Data entry mode |
+| `Status` | Status management mode |
+| `Help` | Show help for current context |
+| `Clear` | Clear current session |
+| `Submit` | Submit your entry |
 
 ---
 
@@ -369,5 +478,5 @@ booking help
 
 ---
 
-**Version**: 1.0  
-**Last Updated**: November 16, 2025
+**Version**: 2.0 - Menu-Based Navigation  
+**Last Updated**: November 17, 2025
