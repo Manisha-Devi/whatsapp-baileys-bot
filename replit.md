@@ -102,7 +102,18 @@ The application follows a modular src-based architecture (restructured November 
 6. Response sent via `safeSendMessage` wrapper with error handling
 7. State persisted to LowDB when submitting via `safeDbWrite` wrapper
 
-## Recent Changes (November 2025)
+## Recent Changes (November 17, 2025)
+- **Menu-Based Navigation System**: Implemented interactive menu system with "Entry" command
+  - Users can now navigate: Entry → Daily/Booking → Data/Status
+  - Commands work without prefixes when in menu mode
+  - Backward compatible with traditional prefix-based commands
+- **Menu State Management**: Added `src/utils/menu-state.js` and `src/utils/menu-handler.js`
+- **Context-Aware Help**: Help messages adapt based on navigation mode (menu vs traditional)
+- **Google Sheets Integration Extended**: Created `booking-data.js` and `booking-status.js` scripts
+- **Status Command Fix**: Updated regex patterns in status handlers to work with stripped prefixes
+- **Enhanced Documentation**: Comprehensive WHATSAPP_COMMANDS_GUIDE.md with both menu and traditional flows
+
+## Previous Changes (November 2025)
 - **Src-based Architecture**: Reorganized entire codebase into src/ directory with clear separation (server, features, data)
 - **Modular Refactoring**: Broke down monolithic 1154-line `daily.js` into focused modules for better maintainability
 - **Status Handler Consolidation**: Merged `daily_status_update.js` into `daily_status.js` for cleaner status management
