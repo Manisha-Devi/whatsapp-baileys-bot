@@ -22,9 +22,9 @@ You'll see:
 
 Please select an option:
 
-📊 Reply Daily or D - for Daily Reports
-🚌 Reply Booking or B - for Booking Management
-🚪 Reply Exit or E - to close menu
+📊 Reply Daily - for Daily Reports
+🚌 Reply Booking - for Booking Management
+🚪 Reply Exit - to close menu
 ```
 
 ### Complete Navigation Flow
@@ -205,15 +205,8 @@ For date ranges, you'll get multiple reports formatted with day names and dates.
 
 **Navigation**: `Entry → Daily → Status`
 
-Check records by status using shortcuts:
+Check records by status:
 
-```
-I or Initiated
-C or Collected
-D or Deposited
-```
-
-**Full format also supported:**
 ```
 status initiated
 status collected
@@ -222,7 +215,7 @@ status deposited
 
 **Example Output:**
 ```
-📊 *Status: Initiated*
+📊 *Pending Daily Entries (Status: Initiated)*
 
 📅 Friday, 15 November 2025
 💵 Cash Handover: ₹24150
@@ -230,7 +223,7 @@ status deposited
 📅 Thursday, 14 November 2025
 💵 Cash Handover: ₹22500
 
-📊 *Total Entries:* 2
+📊 *Total Pending Entries:* 2
 💰 *Total Cash Handover:* ₹46650
 ```
 
@@ -240,26 +233,18 @@ status deposited
 
 **Navigation**: `Entry → Daily → Status`
 
-Update status of existing records using simplified format:
+Update status of existing records:
 
 ```
-Update 15/11/2025 Collected
-Update 15/11/2025 Deposited Remark bank deposit done
-Update 10/11/2025 to 15/11/2025 Collected
-Update 15/11/2025,16/11/2025,17/11/2025 Collected
-```
-
-**Using shortcuts:**
-```
-Update 15/11/2025 C
-Update 15/11/2025 D Remark all done
+update status 15/11/2025 collected
+update status 15/11/2025 deposited remarks bank deposit done
+update status 10/11/2025 to 15/11/2025 collected
+update status 15/11/2025,16/11/2025,17/11/2025 collected
 ```
 
 **Allowed Status Values:**
-- `Collected` or `C` - Cash has been collected
-- `Deposited` or `D` - Cash has been deposited to bank
-
-**Note:** The "status" keyword is no longer required, and "Remark" replaces "Remarks"
+- `collected` - Cash has been collected
+- `deposited` - Cash has been deposited to bank
 
 ---
 
@@ -442,21 +427,18 @@ Pending → Confirmed → Completed
 
 ### Menu Navigation
 1. **Start with Entry**: Always begin with `Entry` command
-2. **Use shortcuts**: Type `D` for Daily, `B` for Booking, `S` for Status, `R` for Reports, `H` for Help, `E` for Exit
-3. **Quick confirmations**: Reply `Y` for Yes or `N` for No to any confirmation
-4. **Use Menu command**: Type `Menu` to see where you are
-5. **Navigate easily**: Use `Exit` to go back one level
-6. **Get help anytime**: Type `Help` in any section
-7. **No prefixes needed**: When in menu mode, commands work without "daily" or "booking" prefix
+2. **Use Menu command**: Type `Menu` to see where you are
+3. **Navigate easily**: Use `Exit` to go back one level
+4. **Get help anytime**: Type `Help` in any section
+5. **No prefixes needed**: When in menu mode, commands work without "daily" or "booking" prefix
 
 ### Daily Reports
 1. **Always start with the date**: `Dated DD/MM/YYYY`
 2. **Use expense commands for better tracking**: Include cash/online mode
 3. **Add remarks for clarity**: Important details about the day
 4. **Submit only when complete**: Bot will notify when all required fields are filled
-5. **Update status progressively**: Initiated → Collected → Deposited (or use shortcuts I/C/D)
+5. **Update status progressively**: Initiated → Collected → Deposited
 6. **Use Reports section**: View formatted reports with multiple date options
-7. **Use shortcuts for speed**: Reply `Y` or `N` for confirmations, `I/C/D` for status checks
 
 ### Bookings
 1. **Confirm customer details**: Double-check phone number and name
@@ -500,29 +482,19 @@ Each section provides context-specific help showing all available commands for t
 
 ### Essential Commands
 
-| Command | Shortcut | Purpose | Where to Use |
-|---------|----------|---------|--------------|
-| `Entry` | - | Open main menu | Anywhere |
-| `Exit` | `E` | Go back one level | Any menu |
-| `Menu` | - | Show current location | Anywhere |
-| `Daily` | `D` | Select daily reports | Main menu |
-| `Booking` | `B` | Select bookings | Main menu |
-| `Data` | `D` | Data entry mode | Daily/Booking menu |
-| `Status` | `S` | Status management | Daily/Booking menu |
-| `Reports` | `R` | View reports | Daily/Booking menu |
-| `Help` | `H` | Show contextual help | Any submenu |
-| `Clear` | - | Clear current session | Data mode |
-| `Submit` | - | Submit your entry | Data entry |
-| `Yes` | `Y` | Confirm action | Any confirmation |
-| `No` | `N` | Decline action | Any confirmation |
-
-### Status Shortcuts (Daily)
-
-| Status | Shortcut | Purpose |
-|--------|----------|---------|
-| `Initiated` | `I` | View/set initiated status |
-| `Collected` | `C` | View/set collected status |
-| `Deposited` | `D` | View/set deposited status |
+| Command | Purpose | Where to Use |
+|---------|---------|--------------|
+| `Entry` | Open main menu | Anywhere |
+| `Exit` | Go back one level | Any menu |
+| `Menu` | Show current location | Anywhere |
+| `Daily` | Select daily reports | Main menu |
+| `Booking` | Select bookings | Main menu |
+| `Data` | Data entry mode | Daily/Booking menu |
+| `Status` | Status management | Daily/Booking menu |
+| `Reports` | View reports | Daily/Booking menu |
+| `Help` | Show contextual help | Any submenu |
+| `Clear` | Clear current session | Data mode |
+| `Submit` | Submit your entry | Data entry |
 
 ### Daily Reports Formats
 
@@ -545,28 +517,5 @@ Each section provides context-specific help showing all available commands for t
 
 ---
 
-**Version**: 3.1 - Enhanced UX with Keyboard Shortcuts  
+**Version**: 3.0 - Menu-Only Navigation with Advanced Reports  
 **Last Updated**: November 17, 2025
-
-## ⚡ New in Version 3.1
-
-### Keyboard Shortcuts
-- **Single-letter navigation**: Use D, S, R, H, E instead of full words
-- **Quick confirmations**: Reply Y/N instead of Yes/No
-- **Status shortcuts**: Use I/C/D for Initiated/Collected/Deposited
-- **Simplified commands**: Remove "status" keyword from update commands
-- **Streamlined format**: "Remark" instead of "Remarks"
-
-### Example Before & After
-
-**Before:**
-```
-status initiated
-update status 15/11/2025 collected remarks done
-```
-
-**After (New):**
-```
-I
-Update 15/11/2025 C Remark done
-```

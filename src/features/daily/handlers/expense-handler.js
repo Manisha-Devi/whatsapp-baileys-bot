@@ -4,50 +4,46 @@ import { recalculateCashHandover, getCompletionMessage } from "../utils/calculat
 import { sendSummary } from "../utils/messages.js";
 
 export async function handleExpenseCommand(sock, sender, normalizedText, user) {
-  const expensePattern = /(?:expense|ex)\s+([a-zA-Z]+)\s+(\d+)(?:\s+(online))?/gi;
-  let anyExpenseAdded = false;
+  const expensePattern = /(?:expense|ex)\s+([a-zA-Z]+)\s+(\d+)(?:\s+(online))?/i;
+  const match = normalizedText.match(expensePattern);
   
+  if (!match) return false;
+
   try {
-    let match;
-    while ((match = expensePattern.exec(normalizedText)) !== null) {
-      const [_, expenseName, amount, onlineFlag] = match;
-      const mode = onlineFlag?.toLowerCase() === "online" ? "online" : "cash";
+    const [_, expenseName, amount, onlineFlag] = match;
+    const mode = onlineFlag?.toLowerCase() === "online" ? "online" : "cash";
 
-      if (!user.ExtraExpenses) user.ExtraExpenses = [];
+    if (!user.ExtraExpenses) user.ExtraExpenses = [];
 
-      const existingIndex = user.ExtraExpenses.findIndex(
-        (e) => e.name.toLowerCase() === expenseName.toLowerCase()
-      );
+    const existingIndex = user.ExtraExpenses.findIndex(
+      (e) => e.name.toLowerCase() === expenseName.toLowerCase()
+    );
 
-      if (existingIndex !== -1) {
-        user.ExtraExpenses[existingIndex] = {
-          name: expenseName,
-          amount: amount,
-          mode,
-        };
-      } else {
-        user.ExtraExpenses.push({
-          name: expenseName,
-          amount: amount,
-          mode,
-        });
-      }
-      
-      anyExpenseAdded = true;
+    if (existingIndex !== -1) {
+      user.ExtraExpenses[existingIndex] = {
+        name: expenseName,
+        amount: parseFloat(amount),
+        mode,
+      };
+    } else {
+      user.ExtraExpenses.push({
+        name: expenseName,
+        amount: parseFloat(amount),
+        mode,
+      });
     }
-    
-    if (anyExpenseAdded) {
-      recalculateCashHandover(user);
-      // Don't send summary here, let field extraction send it
-    }
-    
-    return anyExpenseAdded;
+
+    recalculateCashHandover(user);
+    const completenessMsg = getCompletionMessage(user);
+    await sendSummary(
+      sock,
+      sender,
+      `✅ Expense *${capitalize(expenseName)}* added!\n${completenessMsg}`,
+      user
+    );
+    return true;
   } catch (err) {
     console.error("❌ Error handling expense command:", err);
-    if (anyExpenseAdded) {
-      // If we added some expenses before error, still return true
-      return true;
-    }
     await safeSendMessage(sock, sender, {
       text: "❌ Error adding expense. Please try again.",
     });

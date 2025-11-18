@@ -4,58 +4,6 @@ import { formatExistingForMessage, capitalize } from "../utils/formatters.js";
 import { parseDate, formatDate, getDateKey } from "./date-handler.js";
 import { recalculateCashHandover, getCompletionMessage } from "../utils/calculations.js";
 import { sendSummary } from "../utils/messages.js";
-import { resolveCommand } from "../../../utils/menu-handler.js";
-
-// Helper function to process next update in queue
-async function processNextUpdate(sock, sender, user) {
-  if (!user.remainingUpdates || user.remainingUpdates.length === 0) {
-    // No more updates, send summary
-    recalculateCashHandover(user);
-    const completenessMsg = getCompletionMessage(user);
-    await sendSummary(sock, sender, completenessMsg, user);
-    return;
-  }
-
-  const nextUpdate = user.remainingUpdates[0];
-
-  // If this update doesn't need confirmation, apply it and move to next
-  if (!nextUpdate.needsConfirmation) {
-    await applyUpdate(user, nextUpdate);
-    user.remainingUpdates = user.remainingUpdates.slice(1); // Remove after applying
-    await processNextUpdate(sock, sender, user);
-    return;
-  }
-
-  // This update needs confirmation, prompt user (don't remove from queue yet)
-  user.waitingForUpdate = {
-    field: nextUpdate.field,
-    value: nextUpdate.value,
-    type: nextUpdate.type || "normal",
-    needsConfirmation: nextUpdate.needsConfirmation,
-  };
-  await safeSendMessage(sock, sender, { text: nextUpdate.message });
-}
-
-// Helper function to apply an update
-function applyUpdate(user, update) {
-  const { field, value, type } = update;
-
-  if (type === "extra") {
-    // Parse amount as float and convert back to string to ensure valid numeric format
-    const numericAmount = parseFloat(value.amount) || 0;
-    const idx = user.ExtraExpenses.findIndex(
-      (e) => e.name.toLowerCase() === field.toLowerCase()
-    );
-    if (idx >= 0) {
-      user.ExtraExpenses[idx].amount = String(numericAmount);
-      user.ExtraExpenses[idx].mode = value.mode;
-    } else {
-      user.ExtraExpenses.push({ name: field, amount: String(numericAmount), mode: value.mode });
-    }
-  } else {
-    user[field] = value;
-  }
-}
 
 export async function handleFieldExtraction(sock, sender, normalizedText, user) {
   const fieldPatterns = {
@@ -63,8 +11,8 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     Diesel: /diesel\s*[:\-]?\s*\*?(\d+)\*?(?:\s*(online))?/gi,
     Adda: /adda\s*[:\-]?\s*\*?(\d+)\*?(?:\s*(online))?/gi,
     Union: /union\s*[:\-]?\s*\*?(\d+)\*?(?:\s*(online))?/gi,
-    TotalCashCollection: /(?:total\s*cash\s*collection|cash\s*collection|total\s*collection|collection)\s*[:\-]?\s*\*?(\d+)\*?/gi,
-    Online: /^online\s*(?:collection)?\s*[:\-]?\s*\*?(\d+)\*?$/gim,
+    TotalCashCollection: /(?:total\s*cash\s*collection|cash\s*collection|cash|total\s*collection)\s*[:\-]?\s*\*?(\d+)\*?/gi,
+    Online: /(?:online\s*collection|total\s*online|online)\s*[:\-]?\s*\*?(\d+)\*?/gi,
   };
 
   let anyFieldFound = false;
@@ -139,19 +87,10 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
               pendingUpdates.push({
                 field: key,
                 value: newVal,
-                type: "normal",
-                needsConfirmation: true,
-                message: `⚠️ ${key} already has value *${formatExistingForMessage(existing)}*.\nDo you want to update it to *${amount} (${mode})*? (*Yes* or *Y* / *No* or *N*)`,
+                message: `⚠️ ${key} already has value *${formatExistingForMessage(existing)}*.\nDo you want to update it to *${amount} (${mode})*? (yes/no)`,
               });
             } else {
-              // Queue new field for processing (no confirmation needed)
-              pendingUpdates.push({
-                field: key,
-                value: newVal,
-                type: "normal",
-                needsConfirmation: false,
-                message: null,
-              });
+              user[key] = newVal;
             }
           } catch (err) {
             console.error(`❌ Error parsing ${key} for ${sender}:`, err);
@@ -161,30 +100,15 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
 
         try {
           const value = match[1].trim();
-          const newVal = { amount: value };
-          
-          const existing = user[key];
-          const existingAmount = typeof existing === 'object' ? existing.amount : existing;
-          
-          // Check for existing value (including 0) that's different from new value
-          if (existingAmount != null && existingAmount !== value) {
+          if (user[key] && user[key] !== value) {
             const label = key.replace(/([A-Z])/g, " $1").trim();
             pendingUpdates.push({
               field: key,
-              value: newVal,
-              type: "normal",
-              needsConfirmation: true,
-              message: `⚠️ ${label} already has value *${existingAmount}*.\nDo you want to update it to *${value}*? (*Yes* or *Y* / *No* or *N*)`,
+              value,
+              message: `⚠️ ${label} already has value *${user[key]}*.\nDo you want to update it to *${value}*? (yes/no)`,
             });
           } else {
-            // Queue new field for processing (no confirmation needed)
-            pendingUpdates.push({
-              field: key,
-              value: newVal,
-              type: "normal",
-              needsConfirmation: false,
-              message: null,
-            });
+            user[key] = value;
           }
         } catch (err) {
           console.error(`❌ Error parsing generic field ${key} for ${sender}:`, err);
@@ -196,11 +120,8 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
   }
 
   try {
-    // Initialize ExtraExpenses if it doesn't exist
-    if (!user.ExtraExpenses) user.ExtraExpenses = [];
-    
     const expenseMatches = [
-      ...normalizedText.matchAll(/(?:expense|ex)\s+([a-zA-Z]+)\s*[:\-]?\s*(\d+)(?:\s*(online))?/gi),
+      ...normalizedText.matchAll(/expense\s+([a-zA-Z]+)\s*[:\-]?\s*(\d+)(?:\s*(online))?/gi),
     ];
     for (const match of expenseMatches) {
       try {
@@ -218,18 +139,10 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
             field: expenseName,
             value: { amount, mode },
             type: "extra",
-            needsConfirmation: true,
-            message: `⚠️ Expense *${expenseName}* already has *${existing.amount} (${existing.mode})*.\nUpdate to *${amount} (${mode})*? (*Yes* or *Y* / *No* or *N*)`,
+            message: `⚠️ Expense *${expenseName}* already has *${existing.amount} (${existing.mode})*.\nUpdate to *${amount} (${mode})*? (yes/no)`,
           });
         } else if (!existing) {
-          // Queue new expense for processing (no confirmation needed)
-          pendingUpdates.push({
-            field: expenseName,
-            value: { amount, mode },
-            type: "extra",
-            needsConfirmation: false,
-            message: null,
-          });
+          user.ExtraExpenses.push({ name: expenseName, amount, mode });
         }
       } catch (err) {
         console.error("❌ Error parsing an expense match for", sender, ":", err);
@@ -240,67 +153,67 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
   }
 
   if (pendingUpdates.length > 0) {
-    // Store all pending updates in the queue
-    user.remainingUpdates = pendingUpdates;
-    // Process the first one
-    await processNextUpdate(sock, sender, user);
+    const first = pendingUpdates[0];
+    user.waitingForUpdate = {
+      field: first.field,
+      value: first.value,
+      type: first.type || "normal",
+    };
+    await safeSendMessage(sock, sender, { text: first.message });
     return { handled: true, anyFieldFound };
   }
 
-  // If we processed fields but no confirmation needed, send summary
-  if (anyFieldFound) {
-    recalculateCashHandover(user);
-    const completenessMsg = getCompletionMessage(user);
-    await sendSummary(
-      sock,
-      sender,
-      completenessMsg,
-      user
-    );
-    return { handled: true, anyFieldFound: true };
-  }
-
-  return { handled: false, anyFieldFound: false };
+  return { handled: false, anyFieldFound };
 }
 
 export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
   if (!user.waitingForUpdate) return false;
 
   try {
-    const resolved = resolveCommand(text);
-    
-    if (resolved === "yes") {
-      // Apply the update
-      await applyUpdate(user, user.waitingForUpdate);
+    if (/^yes$/i.test(text)) {
+      const { field, value, type } = user.waitingForUpdate;
+
+      if (type === "extra") {
+        const idx = user.ExtraExpenses.findIndex(
+          (e) => e.name.toLowerCase() === field.toLowerCase()
+        );
+        if (idx >= 0) {
+          if (typeof value === "object") {
+            user.ExtraExpenses[idx].amount = value.amount;
+            user.ExtraExpenses[idx].mode = value.mode;
+          } else {
+            user.ExtraExpenses[idx].amount = value;
+          }
+        } else {
+          user.ExtraExpenses.push({ name: field, amount: value.amount || value, mode: value.mode || "cash" });
+        }
+      } else {
+        user[field] = value;
+      }
+
       user.waitingForUpdate = null;
-      
-      // Remove the confirmed update from queue
-      user.remainingUpdates = user.remainingUpdates.slice(1);
-      
-      // Process next update in queue
-      await processNextUpdate(sock, sender, user);
+      recalculateCashHandover(user);
+      const completenessMsg = getCompletionMessage(user);
+      await sendSummary(
+        sock,
+        sender,
+        `✅ ${capitalize(field)} updated successfully!\n${completenessMsg}`,
+        user
+      );
       return true;
-    } else if (resolved === "no") {
-      // Skip this update
+    } else if (/^no$/i.test(text)) {
       user.waitingForUpdate = null;
-      
-      // Remove the declined update from queue
-      user.remainingUpdates = user.remainingUpdates.slice(1);
-      
-      // Process next update in queue
-      await processNextUpdate(sock, sender, user);
-      return true;
-    } else {
-      // Invalid input, re-prompt (keep update in queue)
+      const completenessMsg = getCompletionMessage(user);
       await safeSendMessage(sock, sender, {
-        text: "⚠️ Please reply *Yes* or *Y* to confirm, *No* or *N* to cancel.",
+        text: `❎ Update cancelled.\n${completenessMsg}`,
       });
       return true;
     }
+    
+    return false;
   } catch (err) {
     console.error("❌ Error handling waitingForUpdate for", sender, ":", err);
     user.waitingForUpdate = null;
-    user.remainingUpdates = user.remainingUpdates.slice(1); // Remove on error
     await safeSendMessage(sock, sender, {
       text: "❌ Error processing your update response. Please re-enter the value.",
     });

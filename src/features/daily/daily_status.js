@@ -91,20 +91,12 @@ export async function handleDailyStatus(sock, sender, normalizedText) {
       msg += `📅 ${dateFormatted}\n`;
 
       // Show only one important value (Cash Handover or Total Collection)
-      // Handle both old format (string) and new format (object)
-      const cashHandover = typeof entry.CashHandover === 'object' 
-        ? entry.CashHandover?.amount 
-        : entry.CashHandover;
-      const totalCollection = typeof entry.TotalCashCollection === 'object'
-        ? entry.TotalCashCollection?.amount
-        : entry.TotalCashCollection;
-        
-      if (cashHandover && cashHandover !== "0") {
-        msg += `💵 Cash Handover: ₹${cashHandover}\n\n`;
-        totalCash += toNum(cashHandover);
+      if (entry.CashHandover && entry.CashHandover !== "0") {
+        msg += `💵 Cash Handover: ₹${entry.CashHandover}\n\n`;
+        totalCash += toNum(entry.CashHandover);
       } else {
-        msg += `💸 Total Collection: ₹${totalCollection || 0}\n\n`;
-        totalCash += toNum(totalCollection);
+        msg += `💸 Total Collection: ₹${entry.TotalCashCollection || 0}\n\n`;
+        totalCash += toNum(entry.TotalCashCollection);
       }
 
       totalCount++;

@@ -2,26 +2,6 @@
 
 This WhatsApp bot, built with Baileys, automates business operations for a bus transportation company. It facilitates daily operational reporting (expenses, collections, cash handover) and manages customer bookings (passenger details, routes, payments). The bot offers conversational interfaces, uses LowDB for data persistence, and integrates with Google Sheets for reporting and synchronization. The primary goal is to streamline daily operations and booking management through an intuitive chat interface.
 
-# Recent Changes (November 17, 2025)
-
-## Enhanced User Experience
-- **Status Command Shortcuts**: Added single-letter shortcuts (I/C/D) for Initiated/Collected/Deposited status queries
-- **Simplified Status Updates**: Removed "status" keyword from update commands; changed "remarks" to "remark" for consistency
-- **Universal Y/N Shortcuts**: All confirmation prompts now accept both full words (Yes/No) and single letters (Y/N)
-- **Improved Status Display**: Changed header from "Pending Daily Entries (Status: X)" to "Status: X" and "Total Pending Entries" to "Total Entries"
-
-## Data Structure Enhancement
-- **Standardized Amount Storage**: Updated JSON schema to store TotalCashCollection, Online, and CashHandover as objects with 'amount' property for consistency with other fields
-- **Backward Compatibility**: All functions handle both legacy string format and new object format seamlessly
-
-## Robust Confirmation Queue System
-- **Unified Update Queue**: ALL field and expense updates (new and changed) go through a single confirmation queue with sequential processing
-- **Smart Confirmation Logic**: New values auto-apply without confirmation; changed values (including changes from 0) prompt for user confirmation
-- **Queue Preservation**: Invalid confirmation responses re-prompt without losing pending updates
-- **Expense Shortcuts**: Added support for "ex" shorthand (e.g., "Ex Washing 500 Online")
-- **Numeric Validation**: Expense amounts validated with parseFloat during storage, preventing string concatenation in cash handover calculations
-- **Pattern Improvements**: Enhanced TotalCashCollection and Online field patterns with proper anchoring to prevent false matches
-
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -49,8 +29,6 @@ The application follows a modular `src`-based architecture:
 ## Data Persistence
 - **Database**: LowDB with JSONFile adapter for lightweight JSON-based storage.
 - **Schema**: Flat key-value structure; daily records by date, booking records by Booking ID.
-  - Amount fields stored as objects: `{ amount: "value" }`
-  - Expense fields with dual-mode tracking: `{ amount: "value", mode: "cash|online" }`
 - **Runtime Data**: Stored in `storage/` (git-ignored) including `daily_data.json`, `daily_status.json`, `bookings_data.json`, `bookings_status.json`.
 
 ## Business Logic
@@ -62,7 +40,6 @@ Incoming WhatsApp messages are routed by orchestrators to specific handlers. Han
 
 ## Menu-Based Navigation System
 - **Interactive Menus**: Implemented a comprehensive menu system with an "Entry" command for navigation.
-- **Keyboard Shortcuts**: Single-letter shortcuts available for all menu options (D/Data, S/Status, R/Reports, H/Help, E/Exit)
 - **Context-Aware Help**: Help messages adapt based on the current menu context.
 - **Advanced Reports**: Comprehensive reporting options for daily data including specific dates, ranges, and periods (Today, Last N Days, N Days Ago, Specific Date, Date Range, This Month, This Week).
 - **Menu Breadcrumb**: "Menu" command displays current navigation path and quick actions.
