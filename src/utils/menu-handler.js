@@ -394,12 +394,19 @@ export async function handleMenuNavigation(sock, sender, text) {
     }
   }
 
-  if (!state.selectedBus) {
+  if (!state.isAuthenticated || !state.selectedBus) {
+    if (!state.awaitingBusSelection) {
+      await sock.sendMessage(sender, {
+        text: "⚠️ Please type *Entry* first to get started."
+      });
+      return true;
+    }
     return false;
   }
 
   if (resolvedCommand === 'switch') {
     switchBus(sender);
+    setAwaitingBusSelection(sender, true);
     await showBusSelectionMenu(sock, sender);
     return true;
   }

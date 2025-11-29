@@ -219,7 +219,7 @@ export async function handleStatusUpdate(sock, sender, normalizedText) {
 
     const alreadyLogged = new Set();
     for (const lg of logData) {
-      if (Array.isArray(lg.updatedKeys)) {
+      if (lg.busCode === selectedBus && Array.isArray(lg.updatedKeys)) {
         for (const k of lg.updatedKeys) {
           alreadyLogged.add(k);
         }

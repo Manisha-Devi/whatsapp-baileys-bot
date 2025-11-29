@@ -86,6 +86,13 @@ export function switchBus(sender) {
   state.mode = null;
   state.submode = null;
   state.awaitingBusSelection = true;
+  
+  if (global.userData && global.userData[sender]) {
+    delete global.userData[sender];
+  }
+  if (global.bookingData && global.bookingData[sender]) {
+    delete global.bookingData[sender];
+  }
 }
 
 export function fullLogout(sender) {

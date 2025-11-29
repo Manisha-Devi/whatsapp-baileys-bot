@@ -214,6 +214,17 @@ async function connectToWhatsApp() {
 
         const menuState = getMenuState(sender);
         
+        if (menuState.awaitingBusSelection) {
+          return;
+        }
+        
+        if (!menuState.isAuthenticated || !menuState.selectedBus) {
+          await sock.sendMessage(sender, {
+            text: "⚠️ Please type *Entry* first to get started."
+          });
+          return;
+        }
+        
         if (menuState.mode === 'daily' && menuState.submode === 'data') {
           await handleIncomingMessageFromDaily(sock, msg, true);
         } else if (menuState.mode === 'daily' && menuState.submode === 'status') {
