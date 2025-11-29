@@ -5,6 +5,7 @@ import { parseDate, formatDate, getPrimaryKey } from "./date-handler.js";
 import { recalculateCashHandover, getCompletionMessage } from "../utils/calculations.js";
 import { sendSummary } from "../utils/messages.js";
 import { getMenuState } from "../../../utils/menu-state.js";
+import { getEmployExpensesForBus } from "../../../data/employees.js";
 
 export async function handleFieldExtraction(sock, sender, normalizedText, user) {
   const fieldPatterns = {
@@ -54,6 +55,10 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
 
             user.Dated = formatted;
             user.pendingPrimaryKey = primaryKey;
+
+            if (!user.EmployExpenses || user.EmployExpenses.length === 0) {
+              user.EmployExpenses = getEmployExpensesForBus(selectedBus);
+            }
 
             const ok = await safeDbRead();
             if (!ok) {

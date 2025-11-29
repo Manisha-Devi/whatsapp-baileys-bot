@@ -13,6 +13,16 @@ export async function sendSummary(sock, jid, title, userData = {}) {
             .join("\n")
         : "";
 
+    const employList =
+      userData.EmployExpenses && userData.EmployExpenses.length > 0
+        ? userData.EmployExpenses
+            .map(
+              (e) =>
+                `👤 ${capitalize(e.name)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`
+            )
+            .join("\n")
+        : "";
+
     const dieselAmt = userData.Diesel?.amount || userData.Diesel || "___";
     const addaAmt = userData.Adda?.amount || userData.Adda || "___";
     const unionAmt = userData.Union?.amount || userData.Union || "___";
@@ -33,6 +43,7 @@ export async function sendSummary(sock, jid, title, userData = {}) {
       `🤝 Union Fees: ₹${unionAmt}${userData.Union?.mode === "online" ? " 💳" : ""}`,
       extraList ? `${extraList}` : "",
       ``,
+      ...(employList ? [`👥 *Employ (Outflow):*`, employList, ``] : []),
       `💵 *Total Collection (Inflow):*`,
       `💸 Total Cash Collection: ₹${totalCashAmt}`,
       `💳 Online Collection: ₹${onlineAmt}`,
@@ -63,6 +74,16 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
             .join("\n")
         : "";
 
+    const employList =
+      userData.EmployExpenses && userData.EmployExpenses.length > 0
+        ? userData.EmployExpenses
+            .map(
+              (e) =>
+                `👤 ${capitalize(e.name)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`
+            )
+            .join("\n")
+        : "";
+
     const dieselAmt = userData.Diesel?.amount || userData.Diesel || "0";
     const addaAmt = userData.Adda?.amount || userData.Adda || "0";
     const unionAmt = userData.Union?.amount || userData.Union || "0";
@@ -83,6 +104,7 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
       `🤝 Union Fees: ₹${unionAmt}${userData.Union?.mode === "online" ? " 💳" : ""}`,
       extraList ? `${extraList}` : "",
       ``,
+      ...(employList ? [`👥 *Employ (Outflow):*`, employList, ``] : []),
       `💵 *Total Collection (Inflow):*`,
       `💸 Total Cash Collection: ₹${totalCashAmt}`,
       `💳 Online Collection: ₹${onlineAmt}`,

@@ -34,6 +34,18 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
             .join("\n")
         : "";
 
+    const employList =
+      record.EmployExpenses && record.EmployExpenses.length > 0
+        ? record.EmployExpenses
+            .map(
+              (e) =>
+                `👤 ${capitalize(e.name)}: ₹${e.amount}${
+                  e.mode === "online" ? " 💳" : ""
+                }`
+            )
+            .join("\n")
+        : "";
+
     const dieselAmt = record.Diesel?.amount || record.Diesel || "0";
     const addaAmt = record.Adda?.amount || record.Adda || "0";
     const unionAmt = record.Union?.amount || record.Union || "0";
@@ -54,6 +66,7 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
       `🤝 Union Fees: ₹${unionAmt}${record.Union?.mode === "online" ? " 💳" : ""}`,
       extraList ? `${extraList}` : "",
       ``,
+      ...(employList ? [`👥 *Employ (Outflow):*`, employList, ``] : []),
       `💵 *Total Collection (Inflow):*`,
       `💸 Total Cash Collection: ₹${totalCashAmt}`,
       `💳 Online Collection: ₹${onlineAmt}`,
