@@ -80,8 +80,8 @@ export async function handleDailyStatus(sock, sender, normalizedText) {
     }
 
     filtered.sort((a, b) => {
-      const dateA = new Date(a.Dated || a.DateKey || a.key.split('_')[1]);
-      const dateB = new Date(b.Dated || b.DateKey || b.key.split('_')[1]);
+      const dateA = new Date(a.Dated || a.key.split('_')[1]);
+      const dateB = new Date(b.Dated || b.key.split('_')[1]);
       return dateB - dateA;
     });
 
@@ -91,7 +91,7 @@ export async function handleDailyStatus(sock, sender, normalizedText) {
     let totalCount = 0;
 
     for (const entry of filtered) {
-      const dateFormatted = formatFullDate(entry.Dated || entry.DateKey || entry.key.split('_')[1]);
+      const dateFormatted = formatFullDate(entry.Dated || entry.key.split('_')[1]);
       msg += `📅 ${dateFormatted}\n`;
 
       const cashHandoverAmt = entry.CashHandover?.amount || entry.CashHandover || "0";

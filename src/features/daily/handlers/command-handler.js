@@ -46,7 +46,7 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
     const msg = [
       `${title}`,
       busInfo,
-      `📅 Dated: ${record.Dated || record.DateKey || "___"}`,
+      `📅 Dated: ${record.Dated || "___"}`,
       ``,
       `💰 *Expenses (Outflow):*`,
       `⛽ Diesel: ₹${dieselAmt}${record.Diesel?.mode === "online" ? " 💳" : ""}`,

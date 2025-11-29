@@ -130,7 +130,6 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
       global.userData[sender] = {
         busCode: selectedBus,
         Dated: null,
-        DateKey: null,
         Diesel: null,
         Adda: null,
         Union: null,

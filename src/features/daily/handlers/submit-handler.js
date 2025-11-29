@@ -27,7 +27,7 @@ export async function handleSubmit(sock, sender, text, user) {
         user.waitingForSubmit = false;
         user.confirmingUpdate = true;
         await safeSendMessage(sock, sender, {
-          text: `⚠️ A record for ${user.busCode || 'Unknown Bus'} on ${user.DateKey || user.Dated} already exists.\nDo you want to update it? (*Yes* or *Y* / *No* or *N*)`,
+          text: `⚠️ A record for ${user.busCode || 'Unknown Bus'} on ${user.Dated} already exists.\nDo you want to update it? (*Yes* or *Y* / *No* or *N*)`,
         });
         return true;
       }
@@ -120,7 +120,7 @@ export async function handleUpdateConfirmation(sock, sender, text, user) {
       }
 
       await safeSendMessage(sock, sender, {
-        text: `✅ Record for *${user.busCode || 'Bus'}* on ${user.DateKey || user.Dated} updated successfully!`,
+        text: `✅ Record for *${user.busCode || 'Bus'}* on ${user.Dated} updated successfully!`,
       });
 
       delete user.confirmingUpdate;
