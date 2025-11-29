@@ -94,12 +94,15 @@ export async function handleDailyStatus(sock, sender, normalizedText) {
       const dateFormatted = formatFullDate(entry.Dated || entry.DateKey || entry.key.split('_')[1]);
       msg += `📅 ${dateFormatted}\n`;
 
-      if (entry.CashHandover && entry.CashHandover !== "0") {
-        msg += `💵 Cash Handover: ₹${entry.CashHandover}\n\n`;
-        totalCash += toNum(entry.CashHandover);
+      const cashHandoverAmt = entry.CashHandover?.amount || entry.CashHandover || "0";
+      const totalCollectionAmt = entry.TotalCashCollection?.amount || entry.TotalCashCollection || "0";
+
+      if (cashHandoverAmt && cashHandoverAmt !== "0") {
+        msg += `💵 Cash Handover: ₹${cashHandoverAmt}\n\n`;
+        totalCash += toNum(cashHandoverAmt);
       } else {
-        msg += `💸 Total Collection: ₹${entry.TotalCashCollection || 0}\n\n`;
-        totalCash += toNum(entry.TotalCashCollection);
+        msg += `💸 Total Collection: ₹${totalCollectionAmt}\n\n`;
+        totalCash += toNum(totalCollectionAmt);
       }
 
       totalCount++;

@@ -37,6 +37,9 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
     const dieselAmt = record.Diesel?.amount || record.Diesel || "0";
     const addaAmt = record.Adda?.amount || record.Adda || "0";
     const unionAmt = record.Union?.amount || record.Union || "0";
+    const totalCashAmt = record.TotalCashCollection?.amount || record.TotalCashCollection || "0";
+    const onlineAmt = record.Online?.amount || record.Online || "0";
+    const cashHandoverAmt = record.CashHandover?.amount || record.CashHandover || "0";
 
     const busInfo = record.busCode ? `🚌 Bus: *${record.busCode}*\n` : "";
 
@@ -52,11 +55,11 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
       extraList ? `${extraList}` : "",
       ``,
       `💵 *Total Collection (Inflow):*`,
-      `💸 Total Cash Collection: ₹${record.TotalCashCollection || "0"}`,
-      `💳 Online Collection: ₹${record.Online || "0"}`,
+      `💸 Total Cash Collection: ₹${totalCashAmt}`,
+      `💳 Online Collection: ₹${onlineAmt}`,
       ``,
       `✨ *Total Hand Over:*`,
-      `💵 Cash Hand Over: ₹${record.CashHandover || "0"}`,
+      `💵 Cash Hand Over: ₹${cashHandoverAmt}`,
       ``,
       `✅ Data Fetched successfully!`,
     ].filter(line => line !== "").join("\n");

@@ -4,20 +4,25 @@ export function recalculateCashHandover(user) {
     const adda = user.Adda?.mode === "cash" ? parseFloat(user.Adda?.amount || 0) : 0;
     const union = user.Union?.mode === "cash" ? parseFloat(user.Union?.amount || 0) : 0;
 
-    const totalCollection = parseFloat(user.TotalCashCollection) || 0;
+    const totalCollection = parseFloat(user.TotalCashCollection?.amount || user.TotalCashCollection) || 0;
 
     const extraTotal = (user.ExtraExpenses || []).reduce(
       (sum, e) => sum + (e.mode === "cash" ? parseFloat(e.amount) || 0 : 0),
       0
     );
 
-    const autoHandover = totalCollection - (diesel + adda + union + extraTotal);
-    user.CashHandover = isFinite(autoHandover) ? autoHandover.toFixed(0) : "0";
-    return user.CashHandover;
+    const employTotal = (user.EmployExpenses || []).reduce(
+      (sum, e) => sum + (e.mode === "cash" ? parseFloat(e.amount) || 0 : 0),
+      0
+    );
+
+    const autoHandover = totalCollection - (diesel + adda + union + extraTotal + employTotal);
+    user.CashHandover = { amount: isFinite(autoHandover) ? autoHandover.toFixed(0) : "0" };
+    return user.CashHandover.amount;
   } catch (err) {
     console.error("❌ Error recalculating CashHandover:", err);
-    user.CashHandover = user.CashHandover || "0";
-    return user.CashHandover;
+    user.CashHandover = user.CashHandover || { amount: "0" };
+    return user.CashHandover.amount || "0";
   }
 }
 
@@ -30,6 +35,7 @@ export function getCompletionMessage(user) {
       if (typeof v === "object") {
         return !v.amount || String(v.amount).trim() === "";
       }
+      if (typeof v === "string") return v.trim() === "";
       return false;
     });
 

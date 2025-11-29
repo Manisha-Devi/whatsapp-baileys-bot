@@ -137,6 +137,7 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
         TotalCashCollection: null,
         Online: null,
         CashHandover: null,
+        EmployExpenses: [],
         ExtraExpenses: [],
         Remarks: null,
         Status: "Initiated",

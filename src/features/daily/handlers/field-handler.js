@@ -115,15 +115,18 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
 
         try {
           const value = match[1].trim();
-          if (user[key] && user[key] !== value) {
+          const newVal = { amount: value };
+          
+          const existingAmount = user[key]?.amount || user[key];
+          if (existingAmount && existingAmount !== value) {
             const label = key.replace(/([A-Z])/g, " $1").trim();
             pendingUpdates.push({
               field: key,
-              value,
-              message: `⚠️ ${label} already has value *${user[key]}*.\nDo you want to update it to *${value}*? (yes/no)`,
+              value: newVal,
+              message: `⚠️ ${label} already has value *${existingAmount}*.\nDo you want to update it to *${value}*? (yes/no)`,
             });
           } else {
-            user[key] = value;
+            user[key] = newVal;
           }
         } catch (err) {
           console.error(`❌ Error parsing generic field ${key} for ${sender}:`, err);
