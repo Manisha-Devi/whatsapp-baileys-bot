@@ -1,0 +1,43 @@
+{
+  "users": [
+    {
+      "userId": "USR001",
+      "firstName": "Pankaj",
+      "middleName": "",
+      "lastName": "Parihar",
+      "phone": "0000000000",
+      "role": "Admin",
+      "joiningDate": "2023-01-10",
+      "resignDate": null,
+      "status": "Active",
+      "remarks": "System owner and super admin",
+      "assignedBuses": []
+    },
+    {
+      "userId": "USR002",
+      "firstName": "Pankaj",
+      "middleName": "",
+      "lastName": "Singh",
+      "phone": "9697568765",
+      "role": "MIS Assistant",
+      "joiningDate": "2024-05-12",
+      "resignDate": null,
+      "status": "Active",
+      "remarks": "Manages daily entries for BUS101",
+      "assignedBuses": ["BUS101"]
+    },
+    {
+      "userId": "USR003",
+      "firstName": "Nitin",
+      "middleName": "",
+      "lastName": "Kumar",
+      "phone": "9123456780",
+      "role": "MIS Assistant",
+      "joiningDate": "2024-11-01",
+      "resignDate": "2025-06-30",
+      "status": "Resigned",
+      "remarks": "Left job",
+      "assignedBuses": ["BUS102"]
+    }
+  ]
+}
