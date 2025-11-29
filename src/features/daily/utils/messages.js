@@ -17,8 +17,11 @@ export async function sendSummary(sock, jid, title, userData = {}) {
     const addaAmt = userData.Adda?.amount || userData.Adda || "___";
     const unionAmt = userData.Union?.amount || userData.Union || "___";
 
+    const busInfo = userData.busCode ? `🚌 Bus: *${userData.busCode}*\n` : "";
+
     const msg = [
       `✅ *Daily Data Entry*${userData.editingExisting ? " (Editing Existing Record)" : ""}`,
+      busInfo,
       `📅 Dated: ${userData.Dated || "___"}`,
       ``,
       `💰 *Expenses (Outflow):*`,
@@ -36,7 +39,7 @@ export async function sendSummary(sock, jid, title, userData = {}) {
       ...(userData.Remarks ? [`📝 *Remarks:* ${userData.Remarks}`] : []),
       ``,
       title ? `\n${title}` : "",
-    ].join("\n");
+    ].filter(line => line !== "").join("\n");
 
     await safeSendMessage(sock, jid, { text: msg });
   } catch (err) {
@@ -61,8 +64,11 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
     const addaAmt = userData.Adda?.amount || userData.Adda || "0";
     const unionAmt = userData.Union?.amount || userData.Union || "0";
 
+    const busInfo = userData.busCode ? `🚌 Bus: *${userData.busCode}*\n` : "";
+
     const msg = [
       `✅ *Data Submitted*${userData.editingExisting ? " (Updated Existing Record)" : ""}`,
+      busInfo,
       `📅 Dated: ${userData.Dated || "___"}`,
       ``,
       `💰 *Expenses (Outflow):*`,
@@ -80,7 +86,7 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
       ...(userData.Remarks ? [`📝 *Remarks: ${userData.Remarks}*`] : []),
       ``,
       `✅ Data Submitted successfully!`,
-    ].join("\n");
+    ].filter(line => line !== "").join("\n");
 
     await safeSendMessage(sock, jid, { text: msg });
   } catch (err) {

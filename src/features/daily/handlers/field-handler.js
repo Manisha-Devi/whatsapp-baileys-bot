@@ -1,9 +1,10 @@
 import db from "../../../data/db.js";
 import { safeSendMessage, safeDbRead } from "../utils/helpers.js";
 import { formatExistingForMessage, capitalize } from "../utils/formatters.js";
-import { parseDate, formatDate, getDateKey } from "./date-handler.js";
+import { parseDate, formatDate, getDateKey, getPrimaryKey } from "./date-handler.js";
 import { recalculateCashHandover, getCompletionMessage } from "../utils/calculations.js";
 import { sendSummary } from "../utils/messages.js";
+import { getMenuState } from "../../../utils/menu-state.js";
 
 export async function handleFieldExtraction(sock, sender, normalizedText, user) {
   const fieldPatterns = {
@@ -17,6 +18,18 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
 
   let anyFieldFound = false;
   let pendingUpdates = [];
+
+  const menuState = getMenuState(sender);
+  const selectedBus = menuState.selectedBus;
+
+  if (!selectedBus) {
+    await safeSendMessage(sock, sender, {
+      text: "⚠️ No bus selected. Please type *Entry* to select a bus first.",
+    });
+    return { handled: true, anyFieldFound: false };
+  }
+
+  user.busCode = selectedBus;
 
   try {
     for (const [key, regex] of Object.entries(fieldPatterns)) {
@@ -37,9 +50,11 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
             }
 
             const formatted = formatDate(targetDate);
-            const primaryKey = getDateKey(targetDate);
+            const dateKey = getDateKey(targetDate);
+            const primaryKey = getPrimaryKey(selectedBus, targetDate);
 
             user.Dated = formatted;
+            user.DateKey = dateKey;
             user.pendingPrimaryKey = primaryKey;
 
             const ok = await safeDbRead();
@@ -56,7 +71,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
               const month = String(targetDate.getMonth() + 1).padStart(2, "0");
               const year = targetDate.getFullYear();
               await safeSendMessage(sock, sender, {
-                text: `⚠️ Data for ${day}/${month}/${year} already exists.\nDo you want to fetch and update it? (yes/no)`,
+                text: `⚠️ Data for *${selectedBus}* on ${day}/${month}/${year} already exists.\nDo you want to fetch and update it? (yes/no)`,
               });
               return { handled: true, anyFieldFound };
             }

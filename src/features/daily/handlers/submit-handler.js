@@ -2,6 +2,7 @@ import db from "../../../data/db.js";
 import { safeSendMessage, safeDbRead, safeDbWrite } from "../utils/helpers.js";
 import { sendSubmittedSummary } from "../utils/messages.js";
 import { resolveCommand } from "../../../utils/menu-handler.js";
+import { getMenuState } from "../../../utils/menu-state.js";
 
 export async function handleSubmit(sock, sender, text, user) {
   if (!user.waitingForSubmit) return false;
@@ -26,7 +27,7 @@ export async function handleSubmit(sock, sender, text, user) {
         user.waitingForSubmit = false;
         user.confirmingUpdate = true;
         await safeSendMessage(sock, sender, {
-          text: `⚠️ A record for ${user.Dated} already exists.\nDo you want to update it? (*Yes* or *Y* / *No* or *N*)`,
+          text: `⚠️ A record for ${user.busCode || 'Unknown Bus'} on ${user.DateKey || user.Dated} already exists.\nDo you want to update it? (*Yes* or *Y* / *No* or *N*)`,
         });
         return true;
       }
@@ -119,7 +120,7 @@ export async function handleUpdateConfirmation(sock, sender, text, user) {
       }
 
       await safeSendMessage(sock, sender, {
-        text: "✅ Existing record updated successfully!",
+        text: `✅ Record for *${user.busCode || 'Bus'}* on ${user.DateKey || user.Dated} updated successfully!`,
       });
 
       delete user.confirmingUpdate;

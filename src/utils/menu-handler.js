@@ -3,16 +3,40 @@ import {
   setMenuMode, 
   setMenuSubmode, 
   exitToHome, 
-  exitToPreviousLevel 
+  exitToPreviousLevel,
+  setSelectedBus,
+  setUserAuthenticated,
+  setAwaitingBusSelection,
+  getSelectedBus,
+  switchBus,
+  fullLogout
 } from './menu-state.js';
 
+import {
+  getUserByPhone,
+  getBusesForUser,
+  formatBusSelectionMenu,
+  getBusBySelection
+} from './bus-selection.js';
+
 export function showMainMenu(sock, sender) {
+  const state = getMenuState(sender);
+  const busCode = state.selectedBus || 'N/A';
+  const busInfo = state.selectedBusInfo;
+  
+  let busDisplay = busCode;
+  if (busInfo) {
+    busDisplay = `${busCode} (${busInfo.registrationNumber})`;
+  }
+  
   const menuText = `🏠 *Main Menu*
+🚌 Selected Bus: *${busDisplay}*
 
 Please select an option:
 
 📊 Reply *Daily* or *D* - for Daily Reports
 🚌 Reply *Booking* or *B* - for Booking Management
+🔄 Reply *Switch* or *S* - to change bus
 🚪 Reply *Exit* or *E* - to close menu
 
 Type your choice:`;
@@ -20,8 +44,27 @@ Type your choice:`;
   return sock.sendMessage(sender, { text: menuText });
 }
 
+export function showBusSelectionMenu(sock, sender) {
+  const state = getMenuState(sender);
+  const buses = state.availableBuses;
+  const user = state.user;
+  
+  if (!buses || buses.length === 0) {
+    return sock.sendMessage(sender, {
+      text: "⚠️ No buses available. Please contact admin."
+    });
+  }
+  
+  const menuText = formatBusSelectionMenu(buses, user?.role === 'Admin');
+  return sock.sendMessage(sender, { text: menuText });
+}
+
 export function showDailySubmenu(sock, sender) {
+  const state = getMenuState(sender);
+  const busCode = state.selectedBus || 'N/A';
+  
   const menuText = `📊 *Daily Reports Menu*
+🚌 Bus: *${busCode}*
 
 Please select an option:
 
@@ -37,7 +80,11 @@ Type your choice:`;
 }
 
 export function showBookingSubmenu(sock, sender) {
+  const state = getMenuState(sender);
+  const busCode = state.selectedBus || 'N/A';
+  
   const menuText = `🚌 *Booking Menu*
+🚌 Bus: *${busCode}*
 
 Please select an option:
 
@@ -53,7 +100,11 @@ Type your choice:`;
 }
 
 export function showDailyDataHelp(sock, sender) {
+  const state = getMenuState(sender);
+  const busCode = state.selectedBus || 'N/A';
+  
   const helpText = `📊 *Daily Data Entry*
+🚌 Bus: *${busCode}*
 
 You can now enter fields directly without typing "daily":
 
@@ -234,19 +285,21 @@ const commandAliases = {
   'reports': ['reports', 'r'],
   'help': ['help', 'h'],
   'yes': ['yes', 'y'],
-  'no': ['no', 'n']
+  'no': ['no', 'n'],
+  'switch': ['switch', 'sw']
 };
 
 export function resolveCommand(input, menuState = null) {
   const lower = input.toLowerCase().trim();
   
-  const isMainMenu = menuState && menuState.mode === null;
+  const isMainMenu = menuState && menuState.mode === null && menuState.selectedBus;
   const isInSubmenu = menuState && menuState.mode !== null && menuState.submode === null;
   
   if (isMainMenu) {
     const mainMenuAliases = {
       'd': 'daily',
-      'b': 'booking'
+      'b': 'booking',
+      's': 'switch'
     };
     if (mainMenuAliases[lower]) {
       return mainMenuAliases[lower];
@@ -273,6 +326,11 @@ export function resolveCommand(input, menuState = null) {
   return lower;
 }
 
+function extractPhoneFromSender(sender) {
+  const match = sender.match(/^(\d+)@/);
+  return match ? match[1] : null;
+}
+
 export async function handleMenuNavigation(sock, sender, text) {
   if (!sender || sender.endsWith("@g.us") || sender.endsWith("@broadcast")) {
     return false;
@@ -281,6 +339,70 @@ export async function handleMenuNavigation(sock, sender, text) {
   const state = getMenuState(sender);
   const lowerText = text.toLowerCase().trim();
   const resolvedCommand = resolveCommand(text, state);
+
+  if (resolvedCommand === 'entry') {
+    const phoneNumber = extractPhoneFromSender(sender);
+    const user = getUserByPhone(phoneNumber);
+    
+    if (!user) {
+      await sock.sendMessage(sender, {
+        text: "❌ *Access Denied*\n\nYour number is not registered in the system.\nPlease contact admin for access."
+      });
+      return true;
+    }
+    
+    const buses = getBusesForUser(user);
+    
+    if (buses.length === 0) {
+      await sock.sendMessage(sender, {
+        text: "⚠️ No buses assigned to you. Please contact admin."
+      });
+      return true;
+    }
+    
+    setUserAuthenticated(sender, user, buses);
+    
+    if (buses.length === 1) {
+      setSelectedBus(sender, buses[0].busCode, buses[0]);
+      await sock.sendMessage(sender, {
+        text: `✅ Auto-selected bus: *${buses[0].busCode}* (${buses[0].registrationNumber})`
+      });
+      await showMainMenu(sock, sender);
+    } else {
+      setAwaitingBusSelection(sender, true);
+      await showBusSelectionMenu(sock, sender);
+    }
+    return true;
+  }
+
+  if (state.awaitingBusSelection) {
+    const buses = state.availableBuses;
+    const selectedBus = getBusBySelection(buses, text);
+    
+    if (selectedBus) {
+      setSelectedBus(sender, selectedBus.busCode, selectedBus);
+      await sock.sendMessage(sender, {
+        text: `✅ Selected bus: *${selectedBus.busCode}* (${selectedBus.registrationNumber})`
+      });
+      await showMainMenu(sock, sender);
+      return true;
+    } else {
+      await sock.sendMessage(sender, {
+        text: `❌ Invalid selection. Please enter a number between 1 and ${buses.length}.`
+      });
+      return true;
+    }
+  }
+
+  if (!state.selectedBus) {
+    return false;
+  }
+
+  if (resolvedCommand === 'switch') {
+    switchBus(sender);
+    await showBusSelectionMenu(sock, sender);
+    return true;
+  }
 
   if (resolvedCommand === 'menu') {
     if (!state.mode) {
@@ -302,12 +424,6 @@ export async function handleMenuNavigation(sock, sender, text) {
     } else if (state.mode === 'booking' && state.submode === 'reports') {
       await showBookingReportsHelp(sock, sender);
     }
-    return true;
-  }
-
-  if (resolvedCommand === 'entry') {
-    exitToHome(sender);
-    await showMainMenu(sock, sender);
     return true;
   }
 
@@ -338,7 +454,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       await showMainMenu(sock, sender);
       return true;
     } else {
-      exitToHome(sender);
+      fullLogout(sender);
       await sock.sendMessage(sender, { 
         text: "👋 Menu closed. Send *Entry* anytime to open the menu again." 
       });

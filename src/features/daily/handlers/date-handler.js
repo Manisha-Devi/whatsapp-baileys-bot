@@ -62,9 +62,49 @@ export function getDateKey(date) {
     const day = String(date.getDate()).padStart(2, "0");
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const year = date.getFullYear();
-    return `${day}${month}${year}`;
+    return `${day}/${month}/${year}`;
   } catch (err) {
     console.error("❌ Error getting date key:", err);
+    return null;
+  }
+}
+
+export function getPrimaryKey(busCode, date) {
+  try {
+    const dateKey = getDateKey(date);
+    if (!dateKey) return null;
+    return `${busCode}_${dateKey}`;
+  } catch (err) {
+    console.error("❌ Error getting primary key:", err);
+    return null;
+  }
+}
+
+export function getPrimaryKeyFromDateString(busCode, dateString) {
+  try {
+    return `${busCode}_${dateString}`;
+  } catch (err) {
+    console.error("❌ Error getting primary key from string:", err);
+    return null;
+  }
+}
+
+export function extractBusCodeFromKey(primaryKey) {
+  try {
+    const parts = primaryKey.split('_');
+    return parts.length >= 2 ? parts[0] : null;
+  } catch (err) {
+    console.error("❌ Error extracting bus code:", err);
+    return null;
+  }
+}
+
+export function extractDateFromKey(primaryKey) {
+  try {
+    const parts = primaryKey.split('_');
+    return parts.length >= 2 ? parts[1] : null;
+  } catch (err) {
+    console.error("❌ Error extracting date:", err);
     return null;
   }
 }

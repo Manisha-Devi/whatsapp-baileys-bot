@@ -7,7 +7,7 @@ import { handleSubmit, handleUpdateConfirmation } from "./handlers/submit-handle
 import { handleFieldExtraction, handleFieldUpdateConfirmation, handleRemarksCommand } from "./handlers/field-handler.js";
 import { recalculateCashHandover, getCompletionMessage } from "./utils/calculations.js";
 import { sendSummary } from "./utils/messages.js";
-import { getMenuState } from "../../utils/menu-state.js";
+import { getMenuState, getSelectedBus } from "../../utils/menu-state.js";
 
 export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripping = false) {
   try {
@@ -32,7 +32,6 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     let normalizedText = textRaw.trim();
     let text = normalizedText.toLowerCase();
     
-    // Strip "daily" prefix only if not in menu mode
     if (!skipPrefixStripping) {
       const dailyPrefixMatch = normalizedText.match(/^daily[\s\-:]*/i);
       if (dailyPrefixMatch) {
@@ -41,12 +40,21 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
         text = text.substring(prefixLength).trim();
       }
     }
+
+    const menuState = getMenuState(sender);
+    const selectedBus = menuState.selectedBus;
+
+    if (!selectedBus) {
+      await safeSendMessage(sock, sender, {
+        text: "⚠️ No bus selected. Please type *Entry* to select a bus first.",
+      });
+      return;
+    }
     
-    // Handle help command
     if (text === 'help' || text === '') {
       if (skipPrefixStripping) {
         await safeSendMessage(sock, sender, {
-          text: `📊 *DAILY COMMANDS (Menu Mode)*\n\n` +
+          text: `📊 *DAILY COMMANDS (Menu Mode)*\n🚌 Bus: *${selectedBus}*\n\n` +
                 `📝 *Data Entry:*\n` +
                 `Dated 15/11/2025\n` +
                 `Diesel 5000\n` +
@@ -71,7 +79,7 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
         });
       } else {
         await safeSendMessage(sock, sender, {
-          text: `📊 *DAILY FEATURE COMMANDS*\n\n` +
+          text: `📊 *DAILY FEATURE COMMANDS*\n🚌 Bus: *${selectedBus}*\n\n` +
                 `1️⃣ *Submit Daily Report*\n` +
                 `daily\n` +
                 `Dated 15/11/2025\n` +
@@ -112,7 +120,6 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     const handledClear = await handleClearCommand(sock, sender, text);
     if (handledClear) return;
 
-    const menuState = getMenuState(sender);
     if (menuState.mode === 'daily' && menuState.submode === 'reports') {
       const handledReports = await handleReportsCommand(sock, sender, normalizedText, null);
       if (handledReports) return;
@@ -121,7 +128,9 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     if (!global.userData) global.userData = {};
     if (!global.userData[sender]) {
       global.userData[sender] = {
+        busCode: selectedBus,
         Dated: null,
+        DateKey: null,
         Diesel: null,
         Adda: null,
         Union: null,
@@ -142,12 +151,13 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
 
       if (!skipPrefixStripping) {
         await safeSendMessage(sock, sender, {
-          text: "👋 Welcome to Daily Reports!\n\n📝 Start your message with *daily*\n\nExample:\ndaily\nDated 15/11/2025\nDiesel 5000\nAdda 200\n...\n\nType *daily help* for all commands.",
+          text: `👋 Welcome to Daily Reports!\n🚌 Bus: *${selectedBus}*\n\n📝 Start your message with *daily*\n\nExample:\ndaily\nDated 15/11/2025\nDiesel 5000\nAdda 200\n...\n\nType *daily help* for all commands.`,
         });
       }
     }
 
     const user = global.userData[sender];
+    user.busCode = selectedBus;
 
     const handledFetchConfirmation = await handleFetchConfirmation(sock, sender, text, user);
     if (handledFetchConfirmation) return;

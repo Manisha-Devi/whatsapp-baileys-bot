@@ -3,6 +3,7 @@ import { safeSendMessage, safeDbRead } from "../utils/helpers.js";
 import { recalculateCashHandover } from "../utils/calculations.js";
 import { sendSummary } from "../utils/messages.js";
 import { resolveCommand } from "../../../utils/menu-handler.js";
+import { getMenuState } from "../../../utils/menu-state.js";
 
 export async function handleFetchConfirmation(sock, sender, text, user) {
   if (!user.confirmingFetch) return false;
@@ -33,7 +34,7 @@ export async function handleFetchConfirmation(sock, sender, text, user) {
         await sendSummary(
           sock,
           sender,
-          "📋 Fetched existing record. You can now update any field and re-submit.\n\nDo you want to Cancel? (*Yes* or *Y* / *No* or *N*)",
+          `📋 Fetched existing record for *${user.busCode || 'Bus'}*.\nYou can now update any field and re-submit.\n\nDo you want to Cancel? (*Yes* or *Y* / *No* or *N*)`,
           user
         );
         user.awaitingCancelChoice = true;

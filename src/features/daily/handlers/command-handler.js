@@ -3,6 +3,7 @@ import { safeSendMessage, safeDbRead } from "../utils/helpers.js";
 import { capitalize } from "../utils/formatters.js";
 import { recalculateCashHandover, getCompletionMessage } from "../utils/calculations.js";
 import { sendSummary } from "../utils/messages.js";
+import { getMenuState } from "../../../utils/menu-state.js";
 
 export async function handleClearCommand(sock, sender, text) {
   if (!/^clear$/i.test(text)) return false;
@@ -37,9 +38,12 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
     const addaAmt = record.Adda?.amount || record.Adda || "0";
     const unionAmt = record.Union?.amount || record.Union || "0";
 
+    const busInfo = record.busCode ? `🚌 Bus: *${record.busCode}*\n` : "";
+
     const msg = [
       `${title}`,
-      `📅 Dated: ${record.Dated || "___"}`,
+      busInfo,
+      `📅 Dated: ${record.Dated || record.DateKey || "___"}`,
       ``,
       `💰 *Expenses (Outflow):*`,
       `⛽ Diesel: ₹${dieselAmt}${record.Diesel?.mode === "online" ? " 💳" : ""}`,
@@ -55,7 +59,7 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
       `💵 Cash Hand Over: ₹${record.CashHandover || "0"}`,
       ``,
       `✅ Data Fetched successfully!`,
-    ].join("\n");
+    ].filter(line => line !== "").join("\n");
 
     await safeSendMessage(sock, sender, { text: msg });
   } catch (err) {
@@ -66,21 +70,39 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
   }
 }
 
+function getKeyForBusAndDate(busCode, date) {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${busCode}_${day}/${month}/${year}`;
+}
+
+function getRecordForBusAndDate(busCode, date) {
+  const key = getKeyForBusAndDate(busCode, date);
+  return db.data[key];
+}
+
 export async function handleReportsCommand(sock, sender, normalizedText, user) {
   try {
     await safeDbRead();
     const lowerText = normalizedText.toLowerCase().trim();
+    
+    const menuState = getMenuState(sender);
+    const selectedBus = menuState.selectedBus;
+    
+    if (!selectedBus) {
+      await safeSendMessage(sock, sender, {
+        text: "⚠️ No bus selected. Please type *Entry* to select a bus first.",
+      });
+      return true;
+    }
 
     if (lowerText === "today") {
       const now = new Date();
-      const day = String(now.getDate()).padStart(2, "0");
-      const month = String(now.getMonth() + 1).padStart(2, "0");
-      const year = now.getFullYear();
-      const key = `${day}${month}${year}`;
-      const record = db.data[key];
+      const record = getRecordForBusAndDate(selectedBus, now);
 
       if (!record) {
-        await safeSendMessage(sock, sender, { text: `⚠️ No record found for today.` });
+        await safeSendMessage(sock, sender, { text: `⚠️ No record found for *${selectedBus}* today.` });
         return true;
       }
 
@@ -88,24 +110,36 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
       return true;
     }
 
+    if (lowerText === "yesterday") {
+      const now = new Date();
+      now.setDate(now.getDate() - 1);
+      const record = getRecordForBusAndDate(selectedBus, now);
+
+      if (!record) {
+        await safeSendMessage(sock, sender, { text: `⚠️ No record found for *${selectedBus}* yesterday.` });
+        return true;
+      }
+
+      await sendFetchedRecord(sock, sender, record, "✅ Yesterday's Data");
+      return true;
+    }
+
     const lastDaysMatch = lowerText.match(/^last\s+(\d+)\s+days?$/i);
     if (lastDaysMatch) {
       const daysCount = parseInt(lastDaysMatch[1]);
       const now = new Date();
+      let foundCount = 0;
 
       for (let i = 0; i < daysCount; i++) {
         const d = new Date(now);
         d.setDate(now.getDate() - i);
-        const day = String(d.getDate()).padStart(2, "0");
-        const month = String(d.getMonth() + 1).padStart(2, "0");
-        const year = d.getFullYear();
-        const key = `${day}${month}${year}`;
-        const record = db.data[key];
+        const record = getRecordForBusAndDate(selectedBus, d);
         if (!record) continue;
 
+        foundCount++;
         const dayOfWeek = d.toLocaleDateString('en-US', { weekday: 'long' });
         const monthName = d.toLocaleDateString('en-US', { month: 'long' });
-        const formattedDate = `${dayOfWeek}, ${d.getDate()} ${monthName} ${year}`;
+        const formattedDate = `${dayOfWeek}, ${d.getDate()} ${monthName} ${d.getFullYear()}`;
 
         await sendFetchedRecord(
           sock,
@@ -122,10 +156,14 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
               await new Promise((r) => setTimeout(r, 1200));
               await sock.sendPresenceUpdate("paused", sender);
             }
-          } catch (err) {
-            // Not fatal
-          }
+          } catch (err) {}
         }
+      }
+
+      if (foundCount === 0) {
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ No records found for *${selectedBus}* in the last ${daysCount} days.`,
+        });
       }
 
       return true;
@@ -136,22 +174,18 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
       const daysAgo = parseInt(daysAgoMatch[1]);
       const d = new Date();
       d.setDate(d.getDate() - daysAgo);
-      const day = String(d.getDate()).padStart(2, "0");
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const year = d.getFullYear();
-      const key = `${day}${month}${year}`;
-      const record = db.data[key];
+      const record = getRecordForBusAndDate(selectedBus, d);
 
       if (!record) {
         await safeSendMessage(sock, sender, {
-          text: `⚠️ No record found for ${daysAgo} days ago.`,
+          text: `⚠️ No record found for *${selectedBus}* ${daysAgo} days ago.`,
         });
         return true;
       }
 
       const dayOfWeek = d.toLocaleDateString('en-US', { weekday: 'long' });
       const monthName = d.toLocaleDateString('en-US', { month: 'long' });
-      const formattedDate = `${dayOfWeek}, ${d.getDate()} ${monthName} ${year}`;
+      const formattedDate = `${dayOfWeek}, ${d.getDate()} ${monthName} ${d.getFullYear()}`;
 
       await sendFetchedRecord(sock, sender, record, `✅ ${daysAgo} Days Ago\n📅 Dated: ${formattedDate}`);
       return true;
@@ -160,12 +194,12 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
     const dateMatch = lowerText.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
     if (dateMatch) {
       const [_, day, month, year] = dateMatch;
-      const key = `${day.padStart(2, "0")}${month.padStart(2, "0")}${year}`;
+      const key = `${selectedBus}_${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
       const record = db.data[key];
 
       if (!record) {
         await safeSendMessage(sock, sender, {
-          text: `⚠️ No record found for ${day}/${month}/${year}.`,
+          text: `⚠️ No record found for *${selectedBus}* on ${day}/${month}/${year}.`,
         });
         return true;
       }
@@ -191,11 +225,7 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
       const currentDate = new Date(startDate);
 
       while (currentDate <= endDate) {
-        const day = String(currentDate.getDate()).padStart(2, "0");
-        const month = String(currentDate.getMonth() + 1).padStart(2, "0");
-        const year = currentDate.getFullYear();
-        const key = `${day}${month}${year}`;
-        const record = db.data[key];
+        const record = getRecordForBusAndDate(selectedBus, currentDate);
 
         if (record) {
           foundCount++;
@@ -214,7 +244,7 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
 
       if (foundCount === 0) {
         await safeSendMessage(sock, sender, {
-          text: `⚠️ No records found in the date range ${startDay}/${startMonth}/${startYear} to ${endDay}/${endMonth}/${endYear}.`,
+          text: `⚠️ No records found for *${selectedBus}* from ${startDay}/${startMonth}/${startYear} to ${endDay}/${endMonth}/${endYear}.`,
         });
       }
 
@@ -231,11 +261,7 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
       let foundCount = 0;
 
       for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
-        const day = String(d.getDate()).padStart(2, "0");
-        const mon = String(d.getMonth() + 1).padStart(2, "0");
-        const yr = d.getFullYear();
-        const key = `${day}${mon}${yr}`;
-        const record = db.data[key];
+        const record = getRecordForBusAndDate(selectedBus, d);
 
         if (record) {
           foundCount++;
@@ -252,7 +278,7 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
 
       if (foundCount === 0) {
         await safeSendMessage(sock, sender, {
-          text: `⚠️ No records found for this month.`,
+          text: `⚠️ No records found for *${selectedBus}* this month.`,
         });
       }
 
@@ -274,11 +300,7 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
       let foundCount = 0;
 
       for (let d = new Date(firstDayOfWeek); d <= lastDayOfWeek; d.setDate(d.getDate() + 1)) {
-        const day = String(d.getDate()).padStart(2, "0");
-        const month = String(d.getMonth() + 1).padStart(2, "0");
-        const year = d.getFullYear();
-        const key = `${day}${month}${year}`;
-        const record = db.data[key];
+        const record = getRecordForBusAndDate(selectedBus, d);
 
         if (record) {
           foundCount++;
@@ -295,7 +317,7 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
 
       if (foundCount === 0) {
         await safeSendMessage(sock, sender, {
-          text: `⚠️ No records found for this week.`,
+          text: `⚠️ No records found for *${selectedBus}* this week.`,
         });
       }
 
@@ -320,16 +342,22 @@ export async function handleDailyCommand(sock, sender, normalizedText, user) {
     const param1 = dailyMatch[1]?.toLowerCase() || "";
     const daysCount = parseInt(dailyMatch[2]) || null;
 
+    const menuState = getMenuState(sender);
+    const selectedBus = menuState.selectedBus;
+
+    if (!selectedBus) {
+      await safeSendMessage(sock, sender, {
+        text: "⚠️ No bus selected. Please type *Entry* to select a bus first.",
+      });
+      return true;
+    }
+
     if (param1 === "today") {
       const now = new Date();
-      const day = String(now.getDate()).padStart(2, "0");
-      const month = String(now.getMonth() + 1).padStart(2, "0");
-      const year = now.getFullYear();
-      const key = `${day}${month}${year}`;
-      const record = db.data[key];
+      const record = getRecordForBusAndDate(selectedBus, now);
 
       if (!record) {
-        await safeSendMessage(sock, sender, { text: `⚠️ No record found for today.` });
+        await safeSendMessage(sock, sender, { text: `⚠️ No record found for *${selectedBus}* today.` });
         return true;
       }
 
@@ -339,17 +367,15 @@ export async function handleDailyCommand(sock, sender, normalizedText, user) {
 
     if (param1 === "last" && daysCount) {
       const now = new Date();
+      let foundCount = 0;
 
       for (let i = 0; i < daysCount; i++) {
         const d = new Date(now);
         d.setDate(now.getDate() - i);
-        const day = String(d.getDate()).padStart(2, "0");
-        const month = String(d.getMonth() + 1).padStart(2, "0");
-        const year = d.getFullYear();
-        const key = `${day}${month}${year}`;
-        const record = db.data[key];
+        const record = getRecordForBusAndDate(selectedBus, d);
         if (!record) continue;
 
+        foundCount++;
         await sendFetchedRecord(
           sock,
           sender,
@@ -365,10 +391,14 @@ export async function handleDailyCommand(sock, sender, normalizedText, user) {
               await new Promise((r) => setTimeout(r, 1200));
               await sock.sendPresenceUpdate("paused", sender);
             }
-          } catch (err) {
-            // Not fatal
-          }
+          } catch (err) {}
         }
+      }
+
+      if (foundCount === 0) {
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ No records found for *${selectedBus}* in the last ${daysCount} days.`,
+        });
       }
 
       return true;
@@ -377,12 +407,12 @@ export async function handleDailyCommand(sock, sender, normalizedText, user) {
     const dateMatch = param1.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
     if (dateMatch) {
       const [_, day, month, year] = dateMatch;
-      const key = `${day.padStart(2, "0")}${month.padStart(2, "0")}${year}`;
+      const key = `${selectedBus}_${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
       const record = db.data[key];
 
       if (!record) {
         await safeSendMessage(sock, sender, {
-          text: `⚠️ No record found for ${day}/${month}/${year}.`,
+          text: `⚠️ No record found for *${selectedBus}* on ${day}/${month}/${year}.`,
         });
         return true;
       }
