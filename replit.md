@@ -44,6 +44,18 @@ Incoming WhatsApp messages are routed by orchestrators to specific handlers. Han
 - **Advanced Reports**: Comprehensive reporting options for daily data including specific dates, ranges, and periods (Today, Last N Days, N Days Ago, Specific Date, Date Range, This Month, This Week).
 - **Menu Breadcrumb**: "Menu" command displays current navigation path and quick actions.
 
+## Bus Selection Feature (NEW)
+- **User Authentication**: Users are identified by phone number against `src/data/users.json`.
+- **Role-Based Access**: 
+  - **Admin**: Access to all active buses, must select one before proceeding.
+  - **MIS Assistant**: Access only to assigned buses. If single bus assigned, auto-selected.
+- **Bus Selection Flow**: Before main menu, users with multiple buses must select one.
+- **Primary Key Format**: Daily data now uses `busCode_date` format (e.g., `BUS101_15/11/2025`) allowing multiple buses to have entries on the same date.
+- **Data Files**: 
+  - `src/data/users.json`: User profiles with phone, role, and assigned buses.
+  - `src/data/buses.json`: Bus inventory with status and details.
+- **Switch Bus**: Users can switch between their assigned buses using "Switch" or "S" command from main menu.
+
 ## API Security
 - Bearer token authentication for all REST endpoints using environment variables.
 
