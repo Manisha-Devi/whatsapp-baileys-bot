@@ -216,6 +216,12 @@ View your daily reports using various formats:
 • *This Week* - Current week reports
 • *6 Days Ago* - View report from 6 days ago
 
+*📈 Average Profit Reports:*
+• *Average Today* - Today's profit
+• *Average This Week* - Weekly average profit
+• *Average This Month* - Monthly average profit
+• *Average This Year* - Yearly average profit
+
 *Other Commands:*
 • *Help* - Show this help
 • *Exit* - Back to Daily Menu

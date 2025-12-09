@@ -301,6 +301,101 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
       return true;
     }
 
+    const averageMatch = lowerText.match(/^average\s+(today|this\s+week|this\s+month|this\s+year)$/i);
+    if (averageMatch) {
+      const period = averageMatch[1].toLowerCase();
+      let startDate, endDate;
+      const now = new Date();
+      
+      if (period === "today") {
+        startDate = new Date(now);
+        endDate = new Date(now);
+      } else if (period === "this week") {
+        const dayOfWeek = now.getDay();
+        const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - diff);
+        endDate = new Date(now);
+      } else if (period === "this month") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now);
+      } else if (period === "this year") {
+        startDate = new Date(now.getFullYear(), 0, 1);
+        endDate = new Date(now);
+      }
+      
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      
+      const originalStartDate = new Date(startDate);
+      const originalEndDate = new Date(endDate);
+      
+      let totalProfit = 0;
+      let totalCollection = 0;
+      let totalExpenses = 0;
+      let recordCount = 0;
+      
+      const iterDate = new Date(startDate);
+      while (iterDate <= endDate) {
+        const record = getRecordForBusAndDate(selectedBus, iterDate);
+        if (record) {
+          recordCount++;
+          
+          const cashCollection = parseFloat(record.TotalCashCollection?.amount || record.TotalCashCollection || 0);
+          const onlineCollection = parseFloat(record.Online?.amount || record.Online || 0);
+          const diesel = parseFloat(record.Diesel?.amount || record.Diesel || 0);
+          const adda = parseFloat(record.Adda?.amount || record.Adda || 0);
+          const union = parseFloat(record.Union?.amount || record.Union || 0);
+          
+          const extraExpTotal = (record.ExtraExpenses || []).reduce(
+            (sum, e) => sum + (parseFloat(e.amount) || 0), 0
+          );
+          const employExpTotal = (record.EmployExpenses || []).reduce(
+            (sum, e) => sum + (parseFloat(e.amount) || 0), 0
+          );
+          
+          const dayCollection = cashCollection + onlineCollection;
+          const dayExpenses = diesel + adda + union + extraExpTotal + employExpTotal;
+          const dayProfit = dayCollection - dayExpenses;
+          
+          totalCollection += dayCollection;
+          totalExpenses += dayExpenses;
+          totalProfit += dayProfit;
+        }
+        iterDate.setDate(iterDate.getDate() + 1);
+      }
+      
+      if (recordCount === 0) {
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ No records found for *${selectedBus}* ${period}.`,
+        });
+        return true;
+      }
+      
+      const avgProfit = (totalProfit / recordCount).toFixed(0);
+      const periodFormatted = period.charAt(0).toUpperCase() + period.slice(1);
+      const startStr = `${originalStartDate.getDate().toString().padStart(2, '0')}/${(originalStartDate.getMonth()+1).toString().padStart(2, '0')}/${originalStartDate.getFullYear()}`;
+      const endStr = `${originalEndDate.getDate().toString().padStart(2, '0')}/${(originalEndDate.getMonth()+1).toString().padStart(2, '0')}/${originalEndDate.getFullYear()}`;
+      
+      const msg = [
+        `📊 *Average Profit Report - ${periodFormatted}*`,
+        `🚌 Bus: *${selectedBus}*`,
+        ``,
+        `📅 Period: ${startStr} to ${endStr}`,
+        `📈 Total Days with Data: ${recordCount}`,
+        ``,
+        `💰 *Breakdown:*`,
+        `📥 Total Collection: ₹${totalCollection.toLocaleString('en-IN')}`,
+        `📤 Total Expenses: ₹${totalExpenses.toLocaleString('en-IN')}`,
+        `💵 Net Profit: ₹${totalProfit.toLocaleString('en-IN')}`,
+        ``,
+        `✨ *Average Profit/Day: ₹${parseInt(avgProfit).toLocaleString('en-IN')}*`,
+      ].join("\n");
+      
+      await safeSendMessage(sock, sender, { text: msg });
+      return true;
+    }
+
     if (lowerText === "this week") {
       const now = new Date();
       const firstDayOfWeek = new Date(now);

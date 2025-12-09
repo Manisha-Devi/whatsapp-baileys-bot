@@ -1,6 +1,8 @@
 import { safeSendMessage } from "./helpers.js";
 import { capitalize } from "./formatters.js";
 
+import { getMenuState } from "../../../utils/menu-state.js";
+
 export async function sendSummary(sock, jid, title, userData = {}) {
   try {
     const extraList =
@@ -30,11 +32,14 @@ export async function sendSummary(sock, jid, title, userData = {}) {
     const onlineAmt = userData.Online?.amount || userData.Online || "___";
     const cashHandoverAmt = userData.CashHandover?.amount || userData.CashHandover || "___";
 
-    const busInfo = userData.busCode ? `🚌 Bus: *${userData.busCode}*\n` : "";
+    const menuState = getMenuState(jid);
+    const regNumber = menuState?.selectedBusInfo?.registrationNumber;
+    const busInfo = regNumber || userData.busCode || "";
+    const editingLabel = userData.editingExisting ? " (Editing)" : "";
+    const titleBus = busInfo ? ` (${busInfo})` : "";
 
     const msg = [
-      `✅ *Daily Data Entry*${userData.editingExisting ? " (Editing Existing Record)" : ""}`,
-      busInfo,
+      `✅ *Daily Data Entry${titleBus}${editingLabel}*`,
       `📅 Dated: ${userData.Dated || "___"}`,
       ``,
       `💰 *Expenses (Outflow):*`,
@@ -91,11 +96,14 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
     const onlineAmt = userData.Online?.amount || userData.Online || "0";
     const cashHandoverAmt = userData.CashHandover?.amount || userData.CashHandover || "0";
 
-    const busInfo = userData.busCode ? `🚌 Bus: *${userData.busCode}*\n` : "";
+    const menuState = getMenuState(jid);
+    const regNumber = menuState?.selectedBusInfo?.registrationNumber;
+    const busInfo = regNumber || userData.busCode || "";
+    const updateLabel = userData.editingExisting ? " (Updated)" : "";
+    const titleBus = busInfo ? ` (${busInfo})` : "";
 
     const msg = [
-      `✅ *Data Submitted*${userData.editingExisting ? " (Updated Existing Record)" : ""}`,
-      busInfo,
+      `✅ *Data Submitted${titleBus}${updateLabel}*`,
       `📅 Dated: ${userData.Dated || "___"}`,
       ``,
       `💰 *Expenses (Outflow):*`,

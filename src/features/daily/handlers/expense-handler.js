@@ -29,6 +29,18 @@ export async function handleEmployeeExpenseCommand(sock, sender, normalizedText,
 
     const oldValue = existingIndex !== -1 ? user.EmployExpenses[existingIndex] : null;
 
+    if (oldValue && (oldValue.amount !== amount || oldValue.mode !== mode)) {
+      user.waitingForUpdate = {
+        field: role,
+        value: { amount, mode },
+        type: "employee",
+      };
+      await safeSendMessage(sock, sender, {
+        text: `⚠️ *${role}* already has value *₹${oldValue.amount} (${oldValue.mode})*.\nDo you want to update it to *₹${amount} (${mode})*? (yes/no)`,
+      });
+      return true;
+    }
+
     if (existingIndex !== -1) {
       user.EmployExpenses[existingIndex] = {
         name: role,
@@ -46,9 +58,7 @@ export async function handleEmployeeExpenseCommand(sock, sender, normalizedText,
     recalculateCashHandover(user);
     const completenessMsg = getCompletionMessage(user);
     
-    const actionMsg = oldValue 
-      ? `✅ *${role}* updated from ₹${oldValue.amount} to ₹${amount}${mode === "online" ? " (online)" : " (cash)"}!`
-      : `✅ *${role}* added: ₹${amount}${mode === "online" ? " (online)" : " (cash)"}!`;
+    const actionMsg = `✅ *${role}* added: ₹${amount}${mode === "online" ? " (online)" : " (cash)"}!`;
     
     await sendSummary(sock, sender, `${actionMsg}\n${completenessMsg}`, user);
     return true;

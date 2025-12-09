@@ -194,7 +194,17 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
     if (/^yes$/i.test(text)) {
       const { field, value, type } = user.waitingForUpdate;
 
-      if (type === "extra") {
+      if (type === "employee") {
+        const idx = user.EmployExpenses.findIndex(
+          (e) => e.name.toLowerCase() === field.toLowerCase()
+        );
+        if (idx >= 0) {
+          user.EmployExpenses[idx].amount = value.amount;
+          user.EmployExpenses[idx].mode = value.mode;
+        } else {
+          user.EmployExpenses.push({ name: field, amount: value.amount, mode: value.mode });
+        }
+      } else if (type === "extra") {
         const idx = user.ExtraExpenses.findIndex(
           (e) => e.name.toLowerCase() === field.toLowerCase()
         );
