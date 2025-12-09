@@ -248,7 +248,34 @@ update status 15/11/2025,16/11/2025,17/11/2025 collected
 
 ---
 
-### 6. Delete Expenses
+### 6. Employee Expenses (Manual Entry)
+
+**Navigation**: `Entry → Daily → Data`
+
+Driver and Conductor expenses are loaded automatically from employee data. However, you can also add or update them manually:
+
+```
+driver 250
+conductor 150
+driver 200 online
+conductor 100 online
+```
+
+**Format**: `[driver/conductor] [amount] [optional: online]`
+
+**Examples:**
+- `driver 250` - Set driver expense to ₹250 (cash)
+- `conductor 150` - Set conductor expense to ₹150 (cash)
+- `driver 200 online` - Set driver expense to ₹200 (online payment)
+
+**Note**: Manual entries will override the automatic values. This is useful when:
+- Automatic data is not available
+- You need to correct the amount
+- Driver/Conductor is different for that day
+
+---
+
+### 7. Delete Expenses
 
 **Navigation**: `Entry → Daily → Data`
 
@@ -264,7 +291,7 @@ expense delete mechanic
 
 ---
 
-### 7. Clear Session
+### 8. Clear Session
 
 **Navigation**: `Entry → Daily → Data`
 
@@ -495,6 +522,8 @@ Each section provides context-specific help showing all available commands for t
 | `Help` | Show contextual help | Any submenu |
 | `Clear` | Clear current session | Data mode |
 | `Submit` | Submit your entry | Data entry |
+| `Driver [amt]` | Set driver expense | Daily data entry |
+| `Conductor [amt]` | Set conductor expense | Daily data entry |
 
 ### Daily Reports Formats
 

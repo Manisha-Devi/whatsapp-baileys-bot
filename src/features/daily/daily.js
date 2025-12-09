@@ -1,7 +1,7 @@
 import { handleDailyStatus, handleStatusUpdate } from "./daily_status.js";
 import { safeSendMessage } from "./utils/helpers.js";
 import { handleClearCommand, handleDailyCommand, handleReportsCommand } from "./handlers/command-handler.js";
-import { handleExpenseCommand, handleExpenseDelete } from "./handlers/expense-handler.js";
+import { handleExpenseCommand, handleExpenseDelete, handleEmployeeExpenseCommand } from "./handlers/expense-handler.js";
 import { handleFetchConfirmation, handleCancelChoice } from "./handlers/fetch-handler.js";
 import { handleSubmit, handleUpdateConfirmation } from "./handlers/submit-handler.js";
 import { handleFieldExtraction, handleFieldUpdateConfirmation, handleRemarksCommand } from "./handlers/field-handler.js";
@@ -64,6 +64,10 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
                 `Online 3000\n` +
                 `Remarks All ok\n` +
                 `Submit\n\n` +
+                `👥 *Employee (Manual):*\n` +
+                `• driver 250\n` +
+                `• conductor 150\n` +
+                `• driver 200 online\n\n` +
                 `📋 *Status Commands:*\n` +
                 `• status initiated\n` +
                 `• status collected\n` +
@@ -102,7 +106,11 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
                 `4️⃣ *Update Status*\n` +
                 `• daily update status 15/11/2025 collected\n` +
                 `• daily update status 10/11/2025 to 15/11/2025 deposited\n\n` +
-                `5️⃣ *Other Commands*\n` +
+                `5️⃣ *Employee (Manual Entry)*\n` +
+                `• daily driver 250 - set driver expense\n` +
+                `• daily conductor 150 - set conductor expense\n` +
+                `• daily driver 200 online - set as online payment\n\n` +
+                `6️⃣ *Other Commands*\n` +
                 `• daily clear - clear session\n` +
                 `• daily expense delete [name] - delete expense\n\n` +
                 `For detailed guide, see documentation.`
@@ -176,6 +184,9 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
 
     const handledRemarks = await handleRemarksCommand(sock, sender, normalizedText, user);
     if (handledRemarks) return;
+
+    const handledEmployeeExpense = await handleEmployeeExpenseCommand(sock, sender, normalizedText, user);
+    if (handledEmployeeExpense) return;
 
     const handledExpenseCmd = await handleExpenseCommand(sock, sender, normalizedText, user);
     if (handledExpenseCmd) return;

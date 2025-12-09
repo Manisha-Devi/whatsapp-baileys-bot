@@ -3,6 +3,64 @@ import { capitalize } from "../utils/formatters.js";
 import { recalculateCashHandover, getCompletionMessage } from "../utils/calculations.js";
 import { sendSummary } from "../utils/messages.js";
 
+export async function handleEmployeeExpenseCommand(sock, sender, normalizedText, user) {
+  const driverPattern = /^driver\s+(\d+)(?:\s+(online))?$/i;
+  const conductorPattern = /^conductor\s+(\d+)(?:\s+(online))?$/i;
+  
+  let match = normalizedText.match(driverPattern);
+  let role = "Driver";
+  
+  if (!match) {
+    match = normalizedText.match(conductorPattern);
+    role = "Conductor";
+  }
+  
+  if (!match) return false;
+
+  try {
+    const amount = parseFloat(match[1]);
+    const mode = match[2]?.toLowerCase() === "online" ? "online" : "cash";
+
+    if (!user.EmployExpenses) user.EmployExpenses = [];
+
+    const existingIndex = user.EmployExpenses.findIndex(
+      (e) => e.name.toLowerCase() === role.toLowerCase()
+    );
+
+    const oldValue = existingIndex !== -1 ? user.EmployExpenses[existingIndex] : null;
+
+    if (existingIndex !== -1) {
+      user.EmployExpenses[existingIndex] = {
+        name: role,
+        amount: amount,
+        mode,
+      };
+    } else {
+      user.EmployExpenses.push({
+        name: role,
+        amount: amount,
+        mode,
+      });
+    }
+
+    recalculateCashHandover(user);
+    const completenessMsg = getCompletionMessage(user);
+    
+    const actionMsg = oldValue 
+      ? `✅ *${role}* updated from ₹${oldValue.amount} to ₹${amount}${mode === "online" ? " (online)" : " (cash)"}!`
+      : `✅ *${role}* added: ₹${amount}${mode === "online" ? " (online)" : " (cash)"}!`;
+    
+    await sendSummary(sock, sender, `${actionMsg}\n${completenessMsg}`, user);
+    return true;
+  } catch (err) {
+    console.error("❌ Error handling employee expense command:", err);
+    await safeSendMessage(sock, sender, {
+      text: `❌ Error setting ${role}. Please try again with format: ${role.toLowerCase()} [amount]`,
+    });
+    return true;
+  }
+}
+
 export async function handleExpenseCommand(sock, sender, normalizedText, user) {
   const expensePattern = /(?:expense|ex)\s+([a-zA-Z]+)\s+(\d+)(?:\s+(online))?/i;
   const match = normalizedText.match(expensePattern);
