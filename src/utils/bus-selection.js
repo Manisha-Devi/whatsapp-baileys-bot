@@ -30,17 +30,27 @@ function loadBuses() {
 
 export function getUserByPhone(phoneNumber) {
   const users = loadUsers();
-  const cleanPhone = phoneNumber.replace(/\D/g, '').slice(-10);
+  const cleanId = phoneNumber.replace(/\D/g, '');
   
-  console.log(`🔍 Looking for phone: ${phoneNumber} -> cleaned: ${cleanPhone}`);
-  console.log(`📋 Available users:`, users.map(u => ({ phone: u.phone, cleaned: u.phone.replace(/\D/g, '').slice(-10), status: u.status })));
+  console.log(`🔍 Looking for apiId: ${cleanId}`);
   
-  return users.find(user => {
-    const userPhone = user.phone.replace(/\D/g, '').slice(-10);
-    const match = userPhone === cleanPhone && user.status === 'Active';
-    console.log(`   Comparing: ${userPhone} === ${cleanPhone} && status=${user.status} => ${match}`);
+  const user = users.find(user => {
+    const userApiId = (user.apiId || '').replace(/\D/g, '');
+    const match = userApiId === cleanId && user.status === 'Active';
+    if (match) console.log(`✅ Matched user: ${user.firstName} ${user.lastName}`);
     return match;
   });
+  
+  if (!user) {
+    const cleanPhone = cleanId.slice(-10);
+    console.log(`🔍 Fallback: checking phone (last 10 digits): ${cleanPhone}`);
+    return users.find(u => {
+      const userPhone = u.phone.replace(/\D/g, '').slice(-10);
+      return userPhone === cleanPhone && u.status === 'Active';
+    });
+  }
+  
+  return user;
 }
 
 export function getBusesByCode(busCodes) {
