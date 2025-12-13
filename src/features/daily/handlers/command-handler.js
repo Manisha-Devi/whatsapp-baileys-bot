@@ -1,4 +1,4 @@
-import db from "../../../data/db.js";
+import db from "../../../utils/db.js";
 import { safeSendMessage, safeDbRead } from "../utils/helpers.js";
 import { capitalize } from "../utils/formatters.js";
 import { recalculateCashHandover, getCompletionMessage } from "../utils/calculations.js";

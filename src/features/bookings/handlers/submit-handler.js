@@ -1,5 +1,5 @@
 import { safeSendMessage, safeDbRead, safeDbWrite } from "../utils/helpers.js";
-import { bookingsDb } from "../../../data/db.js";
+import { bookingsDb } from "../../../utils/db.js";
 
 export async function handleSubmit(sock, sender, text, user) {
   if (text === "submit" && user.waitingForSubmit) {

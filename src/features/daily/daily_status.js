@@ -1,4 +1,4 @@
-import db, { statusDb } from "../../data/db.js";
+import db, { statusDb } from "../../utils/db.js";
 import { safeSendMessage } from "./utils/helpers.js";
 import { getMenuState } from "../../utils/menu-state.js";
 

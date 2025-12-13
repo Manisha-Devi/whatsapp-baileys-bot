@@ -1,4 +1,4 @@
-import db from "../../../data/db.js";
+import db from "../../../utils/db.js";
 
 export async function safeSendMessage(sock, jid, message) {
   try {

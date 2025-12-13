@@ -1,11 +1,11 @@
-import db from "../../../data/db.js";
+import db from "../../../utils/db.js";
 import { safeSendMessage, safeDbRead } from "../utils/helpers.js";
 import { formatExistingForMessage, capitalize } from "../utils/formatters.js";
 import { parseDate, formatDate, getPrimaryKey } from "./date-handler.js";
 import { recalculateCashHandover, getCompletionMessage } from "../utils/calculations.js";
 import { sendSummary } from "../utils/messages.js";
 import { getMenuState } from "../../../utils/menu-state.js";
-import { getEmployExpensesForBus } from "../../../data/employees.js";
+import { getEmployExpensesForBus } from "../../../utils/employees.js";
 
 export async function handleFieldExtraction(sock, sender, normalizedText, user) {
   const fieldPatterns = {

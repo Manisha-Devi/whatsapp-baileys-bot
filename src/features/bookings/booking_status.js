@@ -1,5 +1,5 @@
 import { safeSendMessage, safeDbRead, safeDbWrite } from "./utils/helpers.js";
-import { bookingsDb, bookingsStatusDb } from "../../data/db.js";
+import { bookingsDb, bookingsStatusDb } from "../../utils/db.js";
 
 function toNum(value) {
   const n = Number(value);
