@@ -56,7 +56,7 @@ export function showDailySubmenu(sock, sender) {
   const state = getMenuState(sender);
   const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
   
-  const menuText = `📊 *Daily Menu* (${regNumber})
+  const menuText = `📊 *Daily Menu* (*${regNumber}*)
 
 Enter Command or Select Option:
 
@@ -92,7 +92,7 @@ export function showDailyDataHelp(sock, sender) {
   const state = getMenuState(sender);
   const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
   
-  const helpText = `📊 *Daily Help* (${regNumber})
+  const helpText = `📊 *Daily Help* (*${regNumber}*)
 
 *Commands For Data Entry:*
 • Date [Date]
