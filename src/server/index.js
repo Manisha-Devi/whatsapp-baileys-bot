@@ -160,27 +160,10 @@ async function connectToWhatsApp() {
     sock.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
-      // Pairing Code Login (if PHONE_NUMBER is set and QR is available)
-      const phoneNumber = process.env.PHONE_NUMBER;
-      if (qr && phoneNumber && !pairingRequested) {
-        try {
-          pairingRequested = true;
-          // Small delay to ensure connection is ready
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          const code = await sock.requestPairingCode(phoneNumber);
-          pairingCode = code;
-          console.log(`🔐 Pairing Code: ${code}`);
-          console.log(`📱 Enter this code in WhatsApp > Linked Devices > Link with phone number`);
-        } catch (err) {
-          console.error("❌ Pairing code error:", err.message);
-          pairingRequested = false;
-        }
-      }
-
-      // QR Code fallback (if no phone number set)
-      if (qr && !phoneNumber) {
+      // Generate QR Code for login
+      if (qr) {
         qrCodeData = await qrcode.toDataURL(qr);
-        console.log("📱 Scan QR to login");
+        console.log("📱 QR Code ready. Use /login-qr or /request-pairing-code API");
       }
 
       if (connection === "open") {
@@ -323,18 +306,78 @@ app.get("/login-qr/status", (req, res) => {
   });
 });
 
-// ✅ Get Pairing Code (Protected)
+// ✅ Get Pairing Code Status (Protected)
 app.get("/pairing-code", verifyApiKey, (req, res) => {
   res.json({
     loggedIn: isLoggedIn,
     pairingCode: pairingCode || null,
-    phoneNumber: process.env.PHONE_NUMBER || null,
-    message: pairingCode 
-      ? `Enter code ${pairingCode} in WhatsApp > Linked Devices > Link with phone number` 
-      : isLoggedIn 
-        ? "Already connected" 
-        : "Waiting for pairing code..."
+    qrAvailable: !!qrCodeData,
+    message: isLoggedIn 
+      ? "Already connected" 
+      : pairingCode 
+        ? `Enter code ${pairingCode} in WhatsApp > Linked Devices > Link with phone number` 
+        : "Use /request-pairing-code to generate a pairing code"
   });
+});
+
+// ✅ Request Pairing Code (Protected) - Manual trigger
+app.post("/request-pairing-code", verifyApiKey, async (req, res) => {
+  try {
+    // Check if already logged in
+    if (isLoggedIn) {
+      return res.json({ 
+        success: false, 
+        message: "Already connected to WhatsApp" 
+      });
+    }
+
+    // Get phone number from request body or environment
+    const phoneNumber = req.body.phoneNumber || process.env.PHONE_NUMBER;
+    
+    if (!phoneNumber) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Phone number required. Send in body: { phoneNumber: '918493090932' }" 
+      });
+    }
+
+    // Clean phone number (remove +, spaces)
+    const cleanPhone = phoneNumber.replace(/[\s+\-]/g, '');
+
+    if (!sock) {
+      return res.status(500).json({ 
+        success: false, 
+        message: "WhatsApp socket not ready. Wait and try again." 
+      });
+    }
+
+    // Request pairing code
+    const code = await sock.requestPairingCode(cleanPhone);
+    pairingCode = code;
+    
+    console.log(`🔐 Pairing Code: ${code}`);
+    console.log(`📱 Phone: ${cleanPhone}`);
+
+    res.json({
+      success: true,
+      pairingCode: code,
+      phoneNumber: cleanPhone,
+      message: `Enter code ${code} in WhatsApp > Linked Devices > Link with phone number`,
+      instructions: [
+        "1. Open WhatsApp on your phone",
+        "2. Go to Settings > Linked Devices",
+        "3. Tap 'Link a Device'",
+        "4. Tap 'Link with phone number instead'",
+        `5. Enter code: ${code}`
+      ]
+    });
+  } catch (err) {
+    console.error("❌ Pairing code error:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      message: err.message 
+    });
+  }
 });
 
 
