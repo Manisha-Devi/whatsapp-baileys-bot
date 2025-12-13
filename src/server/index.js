@@ -163,7 +163,7 @@ async function connectToWhatsApp() {
       // Generate QR Code for login
       if (qr) {
         qrCodeData = await qrcode.toDataURL(qr);
-        console.log("📱 QR Code ready. Use /login-qr or /request-pairing-code API");
+        console.log("📱 QR Code ready. Use /login-qr or /pairing-code API");
       }
 
       if (connection === "open") {
