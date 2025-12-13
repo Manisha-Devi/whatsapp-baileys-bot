@@ -121,24 +121,21 @@ export function showBusSelectionMenu(sock, sender, user) {
     return { autoSelect: true, bus: buses[0] };
   }
   
-  // Try interactive buttons first
+  // Try native buttons
   try {
     const buttons = buses.map((bus, index) => ({
-      name: 'quick_reply',
-      buttonParamsJson: JSON.stringify({
-        display_text: `${bus.busCode} - ${bus.registrationNumber}`,
-        id: `bus_${index + 1}`
-      })
+      buttonId: `${index + 1}`,
+      buttonText: { displayText: `${bus.busCode} - ${bus.registrationNumber}` },
+      type: 1
     }));
     
     sock.sendMessage(sender, {
       text: `🚌 *Select Bus*\n\n${user.role === 'Admin' ? 'You have access to all buses.' : 'You are assigned to multiple buses.'}`,
-      footer: 'Tap a button to select',
-      interactive: {
-        buttons: buttons
-      }
+      footer: 'Tap to select',
+      buttons: buttons,
+      headerType: 1
     }).catch(() => {
-      // Fallback to text menu if interactive fails
+      // Fallback to text menu if buttons fail
       const menuText = formatBusSelectionMenu(buses, user.role === 'Admin');
       sock.sendMessage(sender, { text: menuText });
     });
