@@ -306,27 +306,13 @@ app.get("/login-qr/status", (req, res) => {
   });
 });
 
-// ✅ Get Pairing Code Status (Protected)
-app.get("/pairing-code", verifyApiKey, (req, res) => {
-  res.json({
-    loggedIn: isLoggedIn,
-    pairingCode: pairingCode || null,
-    qrAvailable: !!qrCodeData,
-    message: isLoggedIn 
-      ? "Already connected" 
-      : pairingCode 
-        ? `Enter code ${pairingCode} in WhatsApp > Linked Devices > Link with phone number` 
-        : "Use /request-pairing-code to generate a pairing code"
-  });
-});
-
-// ✅ Request Pairing Code (Protected) - Manual trigger
-app.get("/request-pairing-code", verifyApiKey, async (req, res) => {
+// ✅ Pairing Code - Auto generate if not logged in
+app.get("/pairing-code", verifyApiKey, async (req, res) => {
   try {
-    // Check if already logged in
+    // If already logged in, show status
     if (isLoggedIn) {
       return res.json({ 
-        success: false, 
+        loggedIn: true,
         message: "Already connected to WhatsApp" 
       });
     }
@@ -336,7 +322,7 @@ app.get("/request-pairing-code", verifyApiKey, async (req, res) => {
     
     if (!phoneNumber) {
       return res.status(400).json({ 
-        success: false, 
+        loggedIn: false,
         message: "PHONE_NUMBER secret not set" 
       });
     }
@@ -346,7 +332,7 @@ app.get("/request-pairing-code", verifyApiKey, async (req, res) => {
 
     if (!sock) {
       return res.status(500).json({ 
-        success: false, 
+        loggedIn: false,
         message: "WhatsApp socket not ready. Wait and try again." 
       });
     }
@@ -359,22 +345,15 @@ app.get("/request-pairing-code", verifyApiKey, async (req, res) => {
     console.log(`📱 Phone: ${cleanPhone}`);
 
     res.json({
-      success: true,
+      loggedIn: false,
       pairingCode: code,
       phoneNumber: cleanPhone,
-      message: `Enter code ${code} in WhatsApp > Linked Devices > Link with phone number`,
-      instructions: [
-        "1. Open WhatsApp on your phone",
-        "2. Go to Settings > Linked Devices",
-        "3. Tap 'Link a Device'",
-        "4. Tap 'Link with phone number instead'",
-        `5. Enter code: ${code}`
-      ]
+      message: `Enter code ${code} in WhatsApp > Linked Devices > Link with phone number`
     });
   } catch (err) {
     console.error("❌ Pairing code error:", err.message);
     res.status(500).json({ 
-      success: false, 
+      loggedIn: false,
       message: err.message 
     });
   }
