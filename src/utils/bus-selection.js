@@ -32,9 +32,14 @@ export function getUserByPhone(phoneNumber) {
   const users = loadUsers();
   const cleanPhone = phoneNumber.replace(/\D/g, '').slice(-10);
   
+  console.log(`🔍 Looking for phone: ${phoneNumber} -> cleaned: ${cleanPhone}`);
+  console.log(`📋 Available users:`, users.map(u => ({ phone: u.phone, cleaned: u.phone.replace(/\D/g, '').slice(-10), status: u.status })));
+  
   return users.find(user => {
     const userPhone = user.phone.replace(/\D/g, '').slice(-10);
-    return userPhone === cleanPhone && user.status === 'Active';
+    const match = userPhone === cleanPhone && user.status === 'Active';
+    console.log(`   Comparing: ${userPhone} === ${cleanPhone} && status=${user.status} => ${match}`);
+    return match;
   });
 }
 
