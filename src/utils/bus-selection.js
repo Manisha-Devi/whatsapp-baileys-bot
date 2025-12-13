@@ -32,11 +32,11 @@ export function getUserByPhone(phoneNumber) {
   const users = loadUsers();
   const cleanId = phoneNumber.replace(/\D/g, '');
   
-  console.log(`🔍 Looking for apiId: ${cleanId}`);
+  console.log(`🔍 Looking for internalId: ${cleanId}`);
   
   const user = users.find(user => {
-    const userApiId = (user.apiId || '').replace(/\D/g, '');
-    const match = userApiId === cleanId && user.status === 'Active';
+    const userInternalId = (user.internalId || '').replace(/\D/g, '');
+    const match = userInternalId === cleanId && user.status === 'Active';
     if (match) console.log(`✅ Matched user: ${user.firstName} ${user.lastName}`);
     return match;
   });
