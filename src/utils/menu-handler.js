@@ -21,16 +21,9 @@ import {
 
 export function showMainMenu(sock, sender) {
   const state = getMenuState(sender);
-  const busCode = state.selectedBus || 'N/A';
-  const busInfo = state.selectedBusInfo;
+  const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
   
-  let busDisplay = busCode;
-  if (busInfo) {
-    busDisplay = `${busCode} (${busInfo.registrationNumber})`;
-  }
-  
-  const menuText = `🏠 *Main Menu*
-🚌 Selected Bus: *${busDisplay}*
+  const menuText = `🏠 *Main Menu* (${regNumber})
 
 Please select an option:
 
