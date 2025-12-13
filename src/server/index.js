@@ -160,11 +160,13 @@ async function connectToWhatsApp() {
     sock.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
-      // Pairing Code Login (if PHONE_NUMBER is set)
+      // Pairing Code Login (if PHONE_NUMBER is set and QR is available)
       const phoneNumber = process.env.PHONE_NUMBER;
-      if (phoneNumber && !pairingRequested && (connection === "connecting" || qr)) {
+      if (qr && phoneNumber && !pairingRequested) {
         try {
           pairingRequested = true;
+          // Small delay to ensure connection is ready
+          await new Promise(resolve => setTimeout(resolve, 1000));
           const code = await sock.requestPairingCode(phoneNumber);
           pairingCode = code;
           console.log(`🔐 Pairing Code: ${code}`);
