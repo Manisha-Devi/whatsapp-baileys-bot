@@ -6,6 +6,7 @@ auth/
 session/
 sessions/
 auth_info/
+attached_assets/
 
 # Storage folder (runtime data)
 storage/daily_data.json
