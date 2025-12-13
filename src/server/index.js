@@ -193,23 +193,33 @@ async function connectToWhatsApp() {
         const reason = lastDisconnect?.error?.output?.statusCode;
         console.log(`❌ Connection closed. Reason: ${reason}`);
         isLoggedIn = false;
-        pairingRequested = false;
 
         if (reason === DisconnectReason.loggedOut) {
           console.log("🚪 Logged out. Clearing old session...");
           fs.rmSync("auth_info", { recursive: true, force: true });
+          pairingRequested = false;
 
           if (!isRestarting) {
             isRestarting = true;
-            console.log("♻️ Restarting for re-login...");
+            console.log("♻️ Restarting for re-login in 5 seconds...");
             setTimeout(() => {
               isRestarting = false;
               connectToWhatsApp();
-            }, 3000);
+            }, 5000);
           }
+        } else if (reason === 408) {
+          // Timeout - wait longer before retry
+          console.log("⏳ Connection timeout. Retrying in 10 seconds...");
+          pairingRequested = false;
+          setTimeout(() => {
+            connectToWhatsApp();
+          }, 10000);
         } else {
-          console.log("🔁 Attempting reconnect...");
-          connectToWhatsApp();
+          console.log("🔁 Attempting reconnect in 3 seconds...");
+          pairingRequested = false;
+          setTimeout(() => {
+            connectToWhatsApp();
+          }, 3000);
         }
       }
     });
