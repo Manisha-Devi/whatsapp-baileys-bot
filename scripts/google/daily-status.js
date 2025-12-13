@@ -67,6 +67,7 @@ function syncDailyStatus() {
       const raw = r[i];
       // prefer structured fields names if present (case-insensitive)
       if (/^updatedon$/i.test(key)) obj.updatedOn = (raw && String(raw).trim()) || null;
+      else if (/^buscode$/i.test(key)) obj.busCode = (raw && String(raw).trim()) || null;
       else if (/^updatedkeys$/i.test(key)) {
         const parsed = tryParseJSON(raw);
         if (Array.isArray(parsed)) obj.updatedKeys = parsed.map(String);
@@ -74,7 +75,8 @@ function syncDailyStatus() {
           obj.updatedKeys = parsed.split(",").map((x) => x.trim()).filter(Boolean);
         } else if (raw) obj.updatedKeys = [String(raw).trim()];
         else obj.updatedKeys = [];
-      } else if (/^remarks$/i.test(key)) obj.remarks = raw || null;
+      } else if (/^statuschangedto$/i.test(key)) obj.statusChangedTo = (raw && String(raw).trim()) || null;
+      else if (/^remarks$/i.test(key)) obj.remarks = raw || null;
       else obj[key] = raw;
     });
 
@@ -120,7 +122,9 @@ function syncDailyStatus() {
     if (!e || !e.updatedOn) return;
     serverMap[String(e.updatedOn)] = {
       updatedOn: String(e.updatedOn),
+      busCode: e.busCode || null,
       updatedKeys: normalizeUpdatedKeys(e.updatedKeys || []),
+      statusChangedTo: e.statusChangedTo || null,
       remarks: e.remarks ?? null,
     };
   });
@@ -129,7 +133,9 @@ function syncDailyStatus() {
   sheetLogs.forEach((e) => {
     sheetMap[String(e.updatedOn)] = {
       updatedOn: String(e.updatedOn),
+      busCode: e.busCode || null,
       updatedKeys: normalizeUpdatedKeys(e.updatedKeys || []),
+      statusChangedTo: e.statusChangedTo || null,
       remarks: e.remarks ?? null,
     };
   });
@@ -178,13 +184,15 @@ function syncDailyStatus() {
 
   // --- 5) update sheet if server had new entries ---
   if (newToSheet > 0) {
-    // Prepare rows: headers -> UpdatedOn, UpdatedKeys, Remarks (and any extra fields if present)
-    const expectedHeaders = ["UpdatedOn", "UpdatedKeys", "Remarks"];
+    // Prepare rows: headers -> UpdatedOn, busCode, UpdatedKeys, StatusChangedTo, Remarks
+    const expectedHeaders = ["UpdatedOn", "busCode", "UpdatedKeys", "StatusChangedTo", "Remarks"];
     // Build rows array from mergedArray (we'll keep only expected headers columns)
     const rowsOut = mergedArray.map((rec) => {
       return [
         rec.updatedOn || "",
+        rec.busCode || "",
         Array.isArray(rec.updatedKeys) ? JSON.stringify(rec.updatedKeys) : (rec.updatedKeys || ""),
+        rec.statusChangedTo || "",
         rec.remarks || "",
       ];
     });
