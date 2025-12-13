@@ -528,6 +528,39 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
       return true;
     }
 
+    if (lowerText === "this year") {
+      const now = new Date();
+      const year = now.getFullYear();
+      const firstDay = new Date(year, 0, 1);
+      const lastDay = new Date(year, 11, 31);
+
+      let foundCount = 0;
+
+      for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+        const record = getRecordForBusAndDate(selectedBus, d);
+
+        if (record) {
+          foundCount++;
+          await sendFetchedRecord(sock, sender, record);
+          
+          if (sock.presenceSubscribe) await sock.presenceSubscribe(sender);
+          if (sock.sendPresenceUpdate) {
+            await sock.sendPresenceUpdate("composing", sender);
+            await new Promise((r) => setTimeout(r, 1200));
+            await sock.sendPresenceUpdate("paused", sender);
+          }
+        }
+      }
+
+      if (foundCount === 0) {
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ No records found for *${selectedBus}* this year.`,
+        });
+      }
+
+      return true;
+    }
+
     return false;
   } catch (err) {
     console.error("❌ Error handling reports command for", sender, ":", err);
