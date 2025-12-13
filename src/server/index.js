@@ -35,8 +35,10 @@ const PORT = process.env.PORT || 3000;
 // ✅ Global State
 let sock;
 let qrCodeData = "";
+let pairingCode = "";
 let isRestarting = false;
 let isLoggedIn = false;
+let pairingRequested = false;
 
 // --------------------------------------------------
 // 🔐 Middleware: API Key Authentication
@@ -144,7 +146,6 @@ async function connectToWhatsApp() {
 
     sock = makeWASocket({
       version,
-      printQRInTerminal: true,
       auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
@@ -159,7 +160,23 @@ async function connectToWhatsApp() {
     sock.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
-      if (qr) {
+      // Pairing Code Login (if PHONE_NUMBER is set)
+      const phoneNumber = process.env.PHONE_NUMBER;
+      if (phoneNumber && !pairingRequested && (connection === "connecting" || qr)) {
+        try {
+          pairingRequested = true;
+          const code = await sock.requestPairingCode(phoneNumber);
+          pairingCode = code;
+          console.log(`🔐 Pairing Code: ${code}`);
+          console.log(`📱 Enter this code in WhatsApp > Linked Devices > Link with phone number`);
+        } catch (err) {
+          console.error("❌ Pairing code error:", err.message);
+          pairingRequested = false;
+        }
+      }
+
+      // QR Code fallback (if no phone number set)
+      if (qr && !phoneNumber) {
         qrCodeData = await qrcode.toDataURL(qr);
         console.log("📱 Scan QR to login");
       }
@@ -167,11 +184,14 @@ async function connectToWhatsApp() {
       if (connection === "open") {
         console.log("✅ WhatsApp Connected Successfully!");
         qrCodeData = "";
+        pairingCode = "";
+        pairingRequested = false;
         isLoggedIn = true;
       } else if (connection === "close") {
         const reason = lastDisconnect?.error?.output?.statusCode;
         console.log(`❌ Connection closed. Reason: ${reason}`);
         isLoggedIn = false;
+        pairingRequested = false;
 
         if (reason === DisconnectReason.loggedOut) {
           console.log("🚪 Logged out. Clearing old session...");
@@ -288,6 +308,20 @@ app.get("/login-qr/status", (req, res) => {
   res.json({
     loggedIn: isLoggedIn,
     qrAvailable: !!qrCodeData,
+  });
+});
+
+// ✅ Get Pairing Code (Protected)
+app.get("/pairing-code", verifyApiKey, (req, res) => {
+  res.json({
+    loggedIn: isLoggedIn,
+    pairingCode: pairingCode || null,
+    phoneNumber: process.env.PHONE_NUMBER || null,
+    message: pairingCode 
+      ? `Enter code ${pairingCode} in WhatsApp > Linked Devices > Link with phone number` 
+      : isLoggedIn 
+        ? "Already connected" 
+        : "Waiting for pairing code..."
   });
 });
 
