@@ -321,7 +321,7 @@ app.get("/pairing-code", verifyApiKey, (req, res) => {
 });
 
 // ✅ Request Pairing Code (Protected) - Manual trigger
-app.post("/request-pairing-code", verifyApiKey, async (req, res) => {
+app.get("/request-pairing-code", verifyApiKey, async (req, res) => {
   try {
     // Check if already logged in
     if (isLoggedIn) {
@@ -331,13 +331,13 @@ app.post("/request-pairing-code", verifyApiKey, async (req, res) => {
       });
     }
 
-    // Get phone number from request body or environment
-    const phoneNumber = req.body.phoneNumber || process.env.PHONE_NUMBER;
+    // Get phone number from secret
+    const phoneNumber = process.env.PHONE_NUMBER;
     
     if (!phoneNumber) {
       return res.status(400).json({ 
         success: false, 
-        message: "Phone number required. Send in body: { phoneNumber: '918493090932' }" 
+        message: "PHONE_NUMBER secret not set" 
       });
     }
 
