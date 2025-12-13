@@ -80,18 +80,16 @@ function syncBothWays() {
   let newToServer = 0;
   let newToSheet = 0;
 
-  // → Push newer sheet data to server
+  // → Push sheet data to server (sheet data overwrites server for existing keys)
   for (const [key, sheetRec] of Object.entries(sheetData)) {
     const serverRec = serverData[key];
     if (!serverRec) {
+      // New entry from sheet
       merged[key] = sheetRec;
       newToServer++;
-    } else if (
-      sheetRec.submittedAt &&
-      serverRec.submittedAt &&
-      new Date(sheetRec.submittedAt) > new Date(serverRec.submittedAt)
-    ) {
-      merged[key] = sheetRec;
+    } else {
+      // Update existing - sheet data takes priority
+      merged[key] = { ...serverRec, ...sheetRec };
       newToServer++;
     }
   }
@@ -132,17 +130,19 @@ function syncBothWays() {
 
     const expectedHeaders = [
       "PrimaryKey",
+      "sender",
       "Dated",
+      "busCode",
       "Diesel",
       "Adda",
       "Union",
       "TotalCashCollection",
       "Online",
       "CashHandover",
+      "EmployExpenses",
       "ExtraExpenses",
-      "Remarks",     // ✅ added
-      "Status",      // ✅ added
-      "submittedAt",
+      "Remarks",
+      "Status",
     ];
 
     const headersList = expectedHeaders.filter((h) => h in allRecords[0]);
