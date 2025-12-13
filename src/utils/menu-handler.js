@@ -23,7 +23,7 @@ export function showMainMenu(sock, sender) {
   const state = getMenuState(sender);
   const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
   
-  const menuText = `🏠 *Main Menu* (${regNumber})
+  const menuText = `🏠 *Main Menu* (*${regNumber}*)
 
 Please select an option:
 
