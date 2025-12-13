@@ -75,7 +75,14 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
                 `🔍 *Fetch Records:*\n` +
                 `• today\n` +
                 `• yesterday\n` +
-                `• 15/11/2025\n\n` +
+                `• [DD/MM/YYYY]\n\n` +
+                `📊 *Average Reports:*\n` +
+                `• average today\n` +
+                `• average this week\n` +
+                `• average this month\n` +
+                `• average this year\n` +
+                `• average [MonthName]\n` +
+                `• average [MonthName] [Year]\n\n` +
                 `⚙️ *Other:*\n` +
                 `• clear - clear session\n` +
                 `• exit - back to menu\n\n` +
@@ -97,20 +104,27 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
                 `2️⃣ *Fetch Records*\n` +
                 `• daily today\n` +
                 `• daily yesterday\n` +
-                `• daily last 7\n` +
-                `• daily 15/11/2025\n\n` +
-                `3️⃣ *Check Status*\n` +
+                `• daily last [N]\n` +
+                `• daily [DD/MM/YYYY]\n\n` +
+                `3️⃣ *Average Reports*\n` +
+                `• daily average today\n` +
+                `• daily average this week\n` +
+                `• daily average this month\n` +
+                `• daily average this year\n` +
+                `• daily average [MonthName]\n` +
+                `• daily average [MonthName] [Year]\n\n` +
+                `4️⃣ *Check Status*\n` +
                 `• daily status initiated\n` +
                 `• daily status collected\n` +
                 `• daily status deposited\n\n` +
-                `4️⃣ *Update Status*\n` +
-                `• daily update status 15/11/2025 collected\n` +
-                `• daily update status 10/11/2025 to 15/11/2025 deposited\n\n` +
-                `5️⃣ *Employee (Manual Entry)*\n` +
-                `• daily driver 250 - set driver expense\n` +
-                `• daily conductor 150 - set conductor expense\n` +
-                `• daily driver 200 online - set as online payment\n\n` +
-                `6️⃣ *Other Commands*\n` +
+                `5️⃣ *Update Status*\n` +
+                `• daily update status [DD/MM/YYYY] [status]\n` +
+                `• daily update status [start] to [end] [status]\n\n` +
+                `6️⃣ *Employee (Manual Entry)*\n` +
+                `• daily driver [amount]\n` +
+                `• daily conductor [amount]\n` +
+                `• daily driver [amount] online\n\n` +
+                `7️⃣ *Other Commands*\n` +
                 `• daily clear - clear session\n` +
                 `• daily expense delete [name] - delete expense\n\n` +
                 `For detailed guide, see documentation.`

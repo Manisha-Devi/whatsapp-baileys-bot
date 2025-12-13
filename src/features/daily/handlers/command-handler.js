@@ -301,6 +301,99 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
       return true;
     }
 
+    const monthNames = {
+      'january': 0, 'jan': 0,
+      'february': 1, 'feb': 1,
+      'march': 2, 'mar': 2,
+      'april': 3, 'apr': 3,
+      'may': 4,
+      'june': 5, 'jun': 5,
+      'july': 6, 'jul': 6,
+      'august': 7, 'aug': 7,
+      'september': 8, 'sep': 8, 'sept': 8,
+      'october': 9, 'oct': 9,
+      'november': 10, 'nov': 10,
+      'december': 11, 'dec': 11
+    };
+
+    const monthYearMatch = lowerText.match(/^average\s+(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|sept|october|oct|november|nov|december|dec)(?:\s+(\d{4}))?$/i);
+    if (monthYearMatch) {
+      const monthName = monthYearMatch[1].toLowerCase();
+      const monthIndex = monthNames[monthName];
+      const year = monthYearMatch[2] ? parseInt(monthYearMatch[2]) : new Date().getFullYear();
+      
+      const startDate = new Date(year, monthIndex, 1);
+      const endDate = new Date(year, monthIndex + 1, 0);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      
+      let totalProfit = 0;
+      let totalCollection = 0;
+      let totalExpenses = 0;
+      let recordCount = 0;
+      
+      const iterDate = new Date(startDate);
+      while (iterDate <= endDate) {
+        const record = getRecordForBusAndDate(selectedBus, iterDate);
+        if (record) {
+          recordCount++;
+          
+          const cashCollection = parseFloat(record.TotalCashCollection?.amount || record.TotalCashCollection || 0);
+          const onlineCollection = parseFloat(record.Online?.amount || record.Online || 0);
+          const diesel = parseFloat(record.Diesel?.amount || record.Diesel || 0);
+          const adda = parseFloat(record.Adda?.amount || record.Adda || 0);
+          const union = parseFloat(record.Union?.amount || record.Union || 0);
+          
+          const extraExpTotal = (record.ExtraExpenses || []).reduce(
+            (sum, e) => sum + (parseFloat(e.amount) || 0), 0
+          );
+          const employExpTotal = (record.EmployExpenses || []).reduce(
+            (sum, e) => sum + (parseFloat(e.amount) || 0), 0
+          );
+          
+          const dayCollection = cashCollection + onlineCollection;
+          const dayExpenses = diesel + adda + union + extraExpTotal + employExpTotal;
+          const dayProfit = dayCollection - dayExpenses;
+          
+          totalCollection += dayCollection;
+          totalExpenses += dayExpenses;
+          totalProfit += dayProfit;
+        }
+        iterDate.setDate(iterDate.getDate() + 1);
+      }
+      
+      if (recordCount === 0) {
+        const monthFullName = startDate.toLocaleDateString('en-US', { month: 'long' });
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ No records found for *${selectedBus}* in ${monthFullName} ${year}.`,
+        });
+        return true;
+      }
+      
+      const avgProfit = (totalProfit / recordCount).toFixed(0);
+      const monthFullName = startDate.toLocaleDateString('en-US', { month: 'long' });
+      const startStr = `01/${String(monthIndex + 1).padStart(2, '0')}/${year}`;
+      const endStr = `${endDate.getDate().toString().padStart(2, '0')}/${String(monthIndex + 1).padStart(2, '0')}/${year}`;
+      
+      const msg = [
+        `📊 *Average Profit Report - ${monthFullName} ${year}*`,
+        `🚌 Bus: *${selectedBus}*`,
+        ``,
+        `📅 Period: ${startStr} to ${endStr}`,
+        `📈 Total Days with Data: ${recordCount}`,
+        ``,
+        `💰 *Breakdown:*`,
+        `📥 Total Collection: ₹${totalCollection.toLocaleString('en-IN')}`,
+        `📤 Total Expenses: ₹${totalExpenses.toLocaleString('en-IN')}`,
+        `💵 Net Profit: ₹${totalProfit.toLocaleString('en-IN')}`,
+        ``,
+        `✨ *Average Profit/Day: ₹${parseInt(avgProfit).toLocaleString('en-IN')}*`,
+      ].join("\n");
+      
+      await safeSendMessage(sock, sender, { text: msg });
+      return true;
+    }
+
     const averageMatch = lowerText.match(/^average\s+(today|this\s+week|this\s+month|this\s+year)$/i);
     if (averageMatch) {
       const period = averageMatch[1].toLowerCase();
