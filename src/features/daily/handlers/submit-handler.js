@@ -43,9 +43,14 @@ export async function handleSubmit(sock, sender, text, user) {
         ...cleanUser
       } = user;
 
+      // Filter out empty keys
+      const filteredUser = Object.fromEntries(
+        Object.entries(cleanUser).filter(([key]) => key !== '')
+      );
+      
       db.data[primaryKey] = {
         sender,
-        ...cleanUser,
+        ...filteredUser,
         submittedAt: new Date().toISOString(),
       };
 
@@ -105,9 +110,14 @@ export async function handleUpdateConfirmation(sock, sender, text, user) {
         ...cleanUser
       } = user;
 
+      // Filter out empty keys
+      const filteredUser = Object.fromEntries(
+        Object.entries(cleanUser).filter(([key]) => key !== '')
+      );
+      
       db.data[key] = {
         sender,
-        ...cleanUser,
+        ...filteredUser,
         submittedAt: new Date().toISOString(),
       };
 
