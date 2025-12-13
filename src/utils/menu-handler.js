@@ -61,17 +61,13 @@ export function showBusSelectionMenu(sock, sender) {
 
 export function showDailySubmenu(sock, sender) {
   const state = getMenuState(sender);
-  const busCode = state.selectedBus || 'N/A';
+  const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
   
-  const menuText = `📊 *Daily Reports Menu*
-🚌 Bus: *${busCode}*
+  const menuText = `📊 *Daily Menu* (${regNumber})
 
-Please select an option:
+Enter Command or Select Option:
 
-📝 Reply *Data* or *D* - for Data Entry
-📋 Reply *Status* or *S* - for Status Management
 ❓ Reply *Help* or *H* - for Help with Commands
-📊 Reply *Reports* or *R* - to View Daily Reports
 🔙 Reply *Exit* or *E* - to go back to Main Menu
 
 Type your choice:`;
@@ -101,29 +97,52 @@ Type your choice:`;
 
 export function showDailyDataHelp(sock, sender) {
   const state = getMenuState(sender);
-  const busCode = state.selectedBus || 'N/A';
+  const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
   
-  const helpText = `📊 *Daily Data Entry*
-🚌 Bus: *${busCode}*
+  const helpText = `📊 *Daily Help* (${regNumber})
 
-You can now enter fields directly without typing "daily":
+*Commands For Data Entry:*
+• Date [Date]
+• Diesel [Amount] [Mode]
+  Mode: Online or Cash (Default: Cash)
+• Adda [Amount] [Mode]
+  Mode: Online or Cash (Default: Cash)
+• Union [Amount] [Mode]
+  Mode: Online or Cash (Default: Cash)
+• Cash [Amount]
+  Amount: Total Cash Collected
+• Online [Amount]
+  Amount: Total Online Collected
+• Remarks [Text]
+• Submit
 
-*Example:*
-Dated 15/11/2025
-Diesel 5000
-Adda 200
-Union 150
-Total Cash Collection 25000
-Online 3000
-Remarks All ok
-Submit
+*Commands for Status Management:*
 
-*Commands:*
-• *Help* - Show this help
-• *Exit* - Back to Daily Menu
-• *Clear* - Clear current session
+View Status:
+• Initiated or I
+• Collected or C
+• Deposited or D
 
-Start entering your data now!`;
+Update:
+• Update [Date] [Type] Remarks [Text]
+  Type: Initiated / Collected / Deposited
+• Update [Date] to [Date] [Type] Remarks [Text]
+
+*Commands for Reports:*
+• Today
+• Yesterday
+• Last [Number] Days
+• [Date]
+• [Date] to [Date]
+• This [X]
+  X: Week / Month / Year
+• Average Today
+• Average [X]
+  X: Week / Month / Year / MonthName / MonthName Year
+
+*Other:*
+• Clear - Clear session
+• Exit - Back to Main Menu`;
 
   return sock.sendMessage(sender, { text: helpText });
 }
