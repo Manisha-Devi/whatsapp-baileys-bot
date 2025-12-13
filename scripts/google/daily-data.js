@@ -49,11 +49,13 @@ function syncBothWays() {
   for (const row of values) {
     const record = {};
     headers.forEach((h, i) => {
-      record[h] = tryParseJSON(row[i]); // 🧠 convert back objects
+      if (h && h.toString().trim() !== '') { // 🩹 Skip empty headers
+        record[h] = tryParseJSON(row[i]);
+      }
     });
     if (record.PrimaryKey) {
       const fixedKey = normalizeKey(record.PrimaryKey);
-      delete record.PrimaryKey; // 🩹 remove before sending
+      delete record.PrimaryKey;
       sheetData[fixedKey] = record;
     }
   }

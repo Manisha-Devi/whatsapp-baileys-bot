@@ -410,10 +410,18 @@ app.post("/update-daily-data", verifyApiKey, (req, res) => {
     }
 
     for (const [rawKey, record] of Object.entries(incoming)) {
+      // 🩹 Skip empty keys
+      if (!rawKey || rawKey.trim() === '') continue;
+      
       const key = normalizeKey(rawKey);   // 🧠 fix the key before using it
 
-      if (!existing[key] || existing[key].submittedAt < record.submittedAt) {
-        existing[key] = record;
+      // 🩹 Filter empty keys from record
+      const cleanRecord = Object.fromEntries(
+        Object.entries(record).filter(([k]) => k && k.trim() !== '')
+      );
+
+      if (!existing[key] || existing[key].submittedAt < cleanRecord.submittedAt) {
+        existing[key] = cleanRecord;
         updatedCount++;
       }
     }
