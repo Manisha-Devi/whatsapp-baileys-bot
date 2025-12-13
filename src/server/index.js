@@ -225,17 +225,9 @@ async function connectToWhatsApp() {
           return;
         }
         
-        if (menuState.mode === 'daily' && menuState.submode === 'data') {
+        if (menuState.mode === 'daily') {
           await handleIncomingMessageFromDaily(sock, msg, true);
-        } else if (menuState.mode === 'daily' && menuState.submode === 'status') {
-          await handleIncomingMessageFromDaily(sock, msg, true);
-        } else if (menuState.mode === 'daily' && menuState.submode === 'reports') {
-          await handleIncomingMessageFromDaily(sock, msg, true);
-        } else if (menuState.mode === 'booking' && menuState.submode === 'data') {
-          await handleIncomingMessageFromBooking(sock, msg, true);
-        } else if (menuState.mode === 'booking' && menuState.submode === 'status') {
-          await handleIncomingMessageFromBooking(sock, msg, true);
-        } else if (menuState.mode === 'booking' && menuState.submode === 'reports') {
+        } else if (menuState.mode === 'booking') {
           await handleIncomingMessageFromBooking(sock, msg, true);
         } else {
           if (sender && !sender.endsWith("@g.us")) {

@@ -506,50 +506,38 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
   } else if (state.mode && !state.submode) {
-    if (resolvedCommand === 'data') {
-      setMenuSubmode(sender, 'data');
-      if (state.mode === 'daily') {
-        await showDailyDataHelp(sock, sender);
-      } else if (state.mode === 'booking') {
-        await showBookingDataHelp(sock, sender);
-      }
-      return true;
-    }
-    if (resolvedCommand === 'status') {
-      setMenuSubmode(sender, 'status');
-      if (state.mode === 'daily') {
-        await showDailyStatusHelp(sock, sender);
-      } else if (state.mode === 'booking') {
-        await showBookingStatusHelp(sock, sender);
-      }
-      return true;
-    }
-    if (resolvedCommand === 'reports') {
-      setMenuSubmode(sender, 'reports');
-      if (state.mode === 'daily') {
-        await showDailyReportsHelp(sock, sender);
-      } else if (state.mode === 'booking') {
-        await showBookingReportsHelp(sock, sender);
-      }
-      return true;
-    }
     if (resolvedCommand === 'help') {
       if (state.mode === 'daily') {
-        await showDailySubmenu(sock, sender);
+        await showDailyDataHelp(sock, sender);
       } else if (state.mode === 'booking') {
         await showBookingSubmenu(sock, sender);
       }
       return true;
     }
+    if (resolvedCommand === 'data') {
+      if (state.mode === 'booking') {
+        setMenuSubmode(sender, 'data');
+        await showBookingDataHelp(sock, sender);
+      }
+      return true;
+    }
+    if (resolvedCommand === 'status') {
+      if (state.mode === 'booking') {
+        setMenuSubmode(sender, 'status');
+        await showBookingStatusHelp(sock, sender);
+      }
+      return true;
+    }
+    if (resolvedCommand === 'reports') {
+      if (state.mode === 'booking') {
+        setMenuSubmode(sender, 'reports');
+        await showBookingReportsHelp(sock, sender);
+      }
+      return true;
+    }
   } else if (state.submode) {
     if (resolvedCommand === 'help') {
-      if (state.mode === 'daily' && state.submode === 'data') {
-        await showDailyDataHelp(sock, sender);
-      } else if (state.mode === 'daily' && state.submode === 'status') {
-        await showDailyStatusHelp(sock, sender);
-      } else if (state.mode === 'daily' && state.submode === 'reports') {
-        await showDailyReportsHelp(sock, sender);
-      } else if (state.mode === 'booking' && state.submode === 'data') {
+      if (state.mode === 'booking' && state.submode === 'data') {
         await showBookingDataHelp(sock, sender);
       } else if (state.mode === 'booking' && state.submode === 'status') {
         await showBookingStatusHelp(sock, sender);

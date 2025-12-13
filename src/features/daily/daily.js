@@ -51,7 +51,7 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
       return;
     }
     
-    if (text === 'help' || text === '') {
+    if (text === '') {
       if (skipPrefixStripping) {
         await safeSendMessage(sock, sender, {
           text: `📊 *DAILY COMMANDS (Menu Mode)*\n🚌 Bus: *${selectedBus}*\n\n` +
@@ -142,10 +142,8 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     const handledClear = await handleClearCommand(sock, sender, text);
     if (handledClear) return;
 
-    if (menuState.mode === 'daily' && menuState.submode === 'reports') {
-      const handledReports = await handleReportsCommand(sock, sender, normalizedText, null);
-      if (handledReports) return;
-    }
+    const handledReports = await handleReportsCommand(sock, sender, normalizedText, null);
+    if (handledReports) return;
 
     if (!global.userData) global.userData = {};
     if (!global.userData[sender]) {
