@@ -75,12 +75,12 @@ function syncBothWays() {
     return Logger.log("❌ Failed to fetch server data: " + err);
   }
 
-  // --- STEP 4: Compare & Merge ---
+  // --- STEP 4: Compare & Merge using submittedAt ---
   const merged = { ...serverData };
   let newToServer = 0;
   let newToSheet = 0;
 
-  // → Push sheet data to server (sheet data overwrites server for existing keys)
+  // → Push sheet data to server if newer
   for (const [key, sheetRec] of Object.entries(sheetData)) {
     const serverRec = serverData[key];
     if (!serverRec) {
@@ -88,18 +88,31 @@ function syncBothWays() {
       merged[key] = sheetRec;
       newToServer++;
     } else {
-      // Update existing - sheet data takes priority
-      merged[key] = { ...serverRec, ...sheetRec };
-      newToServer++;
+      // Compare timestamps - newer wins
+      const sheetTime = sheetRec.submittedAt ? new Date(sheetRec.submittedAt) : new Date(0);
+      const serverTime = serverRec.submittedAt ? new Date(serverRec.submittedAt) : new Date(0);
+      
+      if (sheetTime > serverTime) {
+        merged[key] = sheetRec;
+        newToServer++;
+      }
     }
   }
 
-  // ← Pull missing server data into sheet
+  // ← Pull missing/newer server data into sheet
   for (const [key, serverRec] of Object.entries(serverData)) {
     const sheetRec = sheetData[key];
     if (!sheetRec) {
       merged[key] = serverRec;
       newToSheet++;
+    } else {
+      // Check if server has newer data
+      const sheetTime = sheetRec.submittedAt ? new Date(sheetRec.submittedAt) : new Date(0);
+      const serverTime = serverRec.submittedAt ? new Date(serverRec.submittedAt) : new Date(0);
+      
+      if (serverTime > sheetTime) {
+        newToSheet++;
+      }
     }
   }
 
@@ -141,6 +154,7 @@ function syncBothWays() {
       "CashHandover",
       "EmployExpenses",
       "ExtraExpenses",
+      "submittedAt",
       "Remarks",
       "Status",
     ];
