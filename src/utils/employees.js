@@ -74,23 +74,66 @@ function extractPhoneFromSender(sender) {
 }
 
 /**
- * Get user's full name by phone number
+ * Extract internal ID from WhatsApp sender ID (LID format)
+ * Handles formats like:
+ * - "24696179441690@lid"
+ * 
+ * @param {string} sender - WhatsApp sender ID
+ * @returns {string} Extracted internal ID
+ */
+function extractInternalIdFromSender(sender) {
+  if (!sender) return "";
+  // Handle @lid format
+  if (sender.includes("@lid")) {
+    return sender.replace("@lid", "").split(":")[0];
+  }
+  return "";
+}
+
+/**
+ * Get user's full name by sender ID
+ * Matches sender against users.json by:
+ * 1. internalId (for @lid format)
+ * 2. phone number (for @s.whatsapp.net format)
+ * 
+ * @param {string} sender - WhatsApp sender ID (e.g., "24696179441690@lid" or "919797304901@s.whatsapp.net")
+ * @returns {string|null} User's full name or null if not found
+ */
+export function getUserNameBySender(sender) {
+  if (!sender) return null;
+  
+  const users = getUsers();
+  let user = null;
+  
+  // Try matching by internalId first (for @lid format)
+  const internalId = extractInternalIdFromSender(sender);
+  if (internalId) {
+    user = users.find(u => u.internalId === internalId);
+  }
+  
+  // Fallback to phone matching (for @s.whatsapp.net format)
+  if (!user) {
+    const phone = extractPhoneFromSender(sender);
+    if (phone) {
+      user = users.find(u => u.phone === phone);
+    }
+  }
+  
+  if (!user) return null;
+  
+  const parts = [user.firstName, user.middleName, user.lastName].filter(Boolean);
+  return parts.join(" ") || null;
+}
+
+/**
+ * Get user's full name by phone number (legacy function)
  * Matches phone from WhatsApp sender ID against users.json
  * 
  * @param {string} sender - WhatsApp sender ID (e.g., "919797304901@s.whatsapp.net")
  * @returns {string|null} User's full name or null if not found
  */
 export function getUserNameByPhone(sender) {
-  const phone = extractPhoneFromSender(sender);
-  if (!phone) return null;
-  
-  const users = getUsers();
-  const user = users.find(u => u.phone === phone);
-  
-  if (!user) return null;
-  
-  const parts = [user.firstName, user.middleName, user.lastName].filter(Boolean);
-  return parts.join(" ") || null;
+  return getUserNameBySender(sender);
 }
 
 /**
