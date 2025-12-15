@@ -359,8 +359,9 @@ export async function handleStatusUpdate(sock, sender, normalizedText) {
         continue;
       }
 
-      // Update the status
+      // Update the status and submittedAt timestamp
       entry.Status = newStatus;
+      entry.submittedAt = new Date().toISOString();
       actuallyUpdated.push(key);
     }
 
