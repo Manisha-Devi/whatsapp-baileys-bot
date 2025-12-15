@@ -80,13 +80,22 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
             .join("\n")
         : "";
 
+    // Helper to format field with amount, mode and remarks
+    const formatField = (field, defaultVal = "0") => {
+      if (!field) return { amt: defaultVal, mode: "", remarks: "" };
+      const amt = field.amount || field || defaultVal;
+      const mode = field.mode === "online" ? " 💳" : "";
+      const remarks = field.remarks ? ` ${field.remarks}` : "";
+      return { amt, mode, remarks };
+    };
+
     // Extract amounts from record (handles both object and primitive formats)
-    const dieselAmt = record.Diesel?.amount || record.Diesel || "0";
-    const addaAmt = record.Adda?.amount || record.Adda || "0";
-    const unionAmt = record.Union?.amount || record.Union || "0";
-    const totalCashAmt = record.TotalCashCollection?.amount || record.TotalCashCollection || "0";
-    const onlineAmt = record.Online?.amount || record.Online || "0";
-    const cashHandoverAmt = record.CashHandover?.amount || record.CashHandover || "0";
+    const diesel = formatField(record.Diesel);
+    const adda = formatField(record.Adda);
+    const union = formatField(record.Union);
+    const totalCash = formatField(record.TotalCashCollection);
+    const online = formatField(record.Online);
+    const cashHandover = formatField(record.CashHandover);
 
     // Include bus code if available
     const busInfo = record.busCode ? `🚌 Bus: *${record.busCode}*\n` : "";
@@ -98,18 +107,18 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
       `📅 Dated: ${record.Dated || "___"}`,
       ``,
       `💰 *Expenses (Outflow):*`,
-      `⛽ Diesel: ₹${dieselAmt}${record.Diesel?.mode === "online" ? " 💳" : ""}`,
-      `🚌 Adda : ₹${addaAmt}${record.Adda?.mode === "online" ? " 💳" : ""}`,
-      `🤝 Union: ₹${unionAmt}${record.Union?.mode === "online" ? " 💳" : ""}`,
+      `⛽ Diesel: ₹${diesel.amt}${diesel.mode}${diesel.remarks}`,
+      `🚌 Adda : ₹${adda.amt}${adda.mode}${adda.remarks}`,
+      `🤝 Union: ₹${union.amt}${union.mode}${union.remarks}`,
       extraList ? `${extraList}` : "",
       ``,
       ...(employList ? [`👥 *Employ (Outflow):*`, employList, ``] : []),
       `💵 *Total Collection (Inflow):*`,
-      `💸 Total Cash Collection: ₹${totalCashAmt}`,
-      `💳 Online Collection: ₹${onlineAmt}`,
+      `💸 Total Cash Collection: ₹${totalCash.amt}${totalCash.remarks}`,
+      `💳 Online Collection: ₹${online.amt}${online.remarks}`,
       ``,
       `✨ *Total Hand Over:*`,
-      `💵 Cash Hand Over: ₹${cashHandoverAmt}`,
+      `💵 Cash Hand Over: ₹${cashHandover.amt}`,
       ``,
       `✅ Data Fetched successfully!`,
     ].filter(line => line !== "").join("\n");

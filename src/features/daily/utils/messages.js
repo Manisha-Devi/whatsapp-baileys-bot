@@ -68,14 +68,24 @@ export async function sendSummary(sock, jid, title, userData = {}) {
             .join("\n")
         : "";
 
+    // Helper to format field with amount, mode and remarks
+    const formatField = (field) => {
+      if (!field) return null;
+      const amt = field.amount || field;
+      if (amt === undefined || amt === null || amt === "") return null;
+      const mode = field.mode === "online" ? " 💳" : "";
+      const remarks = field.remarks ? ` ${field.remarks}` : "";
+      return { amt, mode, remarks };
+    };
+
     // Extract amounts, handling both object and primitive formats
     // Show "___" placeholder for missing values
-    const dieselAmt = userData.Diesel?.amount || userData.Diesel || "___";
-    const addaAmt = userData.Adda?.amount || userData.Adda || "___";
-    const unionAmt = userData.Union?.amount || userData.Union || "___";
-    const totalCashAmt = userData.TotalCashCollection?.amount || userData.TotalCashCollection || "___";
-    const onlineAmt = userData.Online?.amount || userData.Online || "___";
-    const cashHandoverAmt = userData.CashHandover?.amount || userData.CashHandover || "___";
+    const diesel = formatField(userData.Diesel);
+    const adda = formatField(userData.Adda);
+    const union = formatField(userData.Union);
+    const totalCash = formatField(userData.TotalCashCollection);
+    const online = formatField(userData.Online);
+    const cashHandover = formatField(userData.CashHandover);
 
     // Get bus information from menu state for display
     const menuState = getMenuState(jid);
@@ -92,18 +102,18 @@ export async function sendSummary(sock, jid, title, userData = {}) {
       `📅 Dated: ${userData.Dated || "___"}`,
       ``,
       `💰 *Expenses (Outflow):*`,
-      `⛽ Diesel: ₹${dieselAmt}${userData.Diesel?.mode === "online" ? " 💳" : ""}`,
-      `🚌 Adda : ₹${addaAmt}${userData.Adda?.mode === "online" ? " 💳" : ""}`,
-      `🤝 Union: ₹${unionAmt}${userData.Union?.mode === "online" ? " 💳" : ""}`,
+      `⛽ Diesel: ₹${diesel?.amt || "___"}${diesel?.mode || ""}${diesel?.remarks || ""}`,
+      `🚌 Adda : ₹${adda?.amt || "___"}${adda?.mode || ""}${adda?.remarks || ""}`,
+      `🤝 Union: ₹${union?.amt || "___"}${union?.mode || ""}${union?.remarks || ""}`,
       extraList ? `${extraList}` : "",
       ``,
       ...(employList ? [`👥 *Employ (Outflow):*`, employList, ``] : []),
       `💵 *Total Collection (Inflow):*`,
-      `💸 Total Cash Collection: ₹${totalCashAmt}`,
-      `💳 Online Collection: ₹${onlineAmt}`,
+      `💸 Total Cash Collection: ₹${totalCash?.amt || "___"}${totalCash?.remarks || ""}`,
+      `💳 Online Collection: ₹${online?.amt || "___"}${online?.remarks || ""}`,
       ``,
       `✨ *Total Hand Over:*`,
-      `💵 Cash Hand Over: ₹${cashHandoverAmt}`,
+      `💵 Cash Hand Over: ₹${cashHandover?.amt || "___"}`,
       ...(userData.Remarks ? [`📝 *Remarks:* ${userData.Remarks}`] : []),
       ``,
       title ? `\n${title}` : "",
@@ -155,13 +165,22 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
             .join("\n")
         : "";
 
+    // Helper to format field with amount, mode and remarks
+    const formatField = (field, defaultVal = "0") => {
+      if (!field) return { amt: defaultVal, mode: "", remarks: "" };
+      const amt = field.amount || field || defaultVal;
+      const mode = field.mode === "online" ? " 💳" : "";
+      const remarks = field.remarks ? ` ${field.remarks}` : "";
+      return { amt, mode, remarks };
+    };
+
     // Extract amounts, using "0" for missing values (submitted data should be complete)
-    const dieselAmt = userData.Diesel?.amount || userData.Diesel || "0";
-    const addaAmt = userData.Adda?.amount || userData.Adda || "0";
-    const unionAmt = userData.Union?.amount || userData.Union || "0";
-    const totalCashAmt = userData.TotalCashCollection?.amount || userData.TotalCashCollection || "0";
-    const onlineAmt = userData.Online?.amount || userData.Online || "0";
-    const cashHandoverAmt = userData.CashHandover?.amount || userData.CashHandover || "0";
+    const diesel = formatField(userData.Diesel);
+    const adda = formatField(userData.Adda);
+    const union = formatField(userData.Union);
+    const totalCash = formatField(userData.TotalCashCollection);
+    const online = formatField(userData.Online);
+    const cashHandover = formatField(userData.CashHandover);
 
     // Get bus information for display
     const menuState = getMenuState(jid);
@@ -178,18 +197,18 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
       `📅 Dated: ${userData.Dated || "___"}`,
       ``,
       `💰 *Expenses (Outflow):*`,
-      `⛽ Diesel: ₹${dieselAmt}${userData.Diesel?.mode === "online" ? " 💳" : ""}`,
-      `🚌 Adda : ₹${addaAmt}${userData.Adda?.mode === "online" ? " 💳" : ""}`,
-      `🤝 Union: ₹${unionAmt}${userData.Union?.mode === "online" ? " 💳" : ""}`,
+      `⛽ Diesel: ₹${diesel.amt}${diesel.mode}${diesel.remarks}`,
+      `🚌 Adda : ₹${adda.amt}${adda.mode}${adda.remarks}`,
+      `🤝 Union: ₹${union.amt}${union.mode}${union.remarks}`,
       extraList ? `${extraList}` : "",
       ``,
       ...(employList ? [`👥 *Employ (Outflow):*`, employList, ``] : []),
       `💵 *Total Collection (Inflow):*`,
-      `💸 Total Cash Collection: ₹${totalCashAmt}`,
-      `💳 Online Collection: ₹${onlineAmt}`,
+      `💸 Total Cash Collection: ₹${totalCash.amt}${totalCash.remarks}`,
+      `💳 Online Collection: ₹${online.amt}${online.remarks}`,
       ``,
       `✨ *Total Hand Over:*`,
-      `💵 Cash Hand Over: ₹${cashHandoverAmt}`,
+      `💵 Cash Hand Over: ₹${cashHandover.amt}`,
       ...(userData.Remarks ? [`📝 *Remarks: ${userData.Remarks}*`] : []),
       ``,
       `✅ Data Submitted successfully!`,
