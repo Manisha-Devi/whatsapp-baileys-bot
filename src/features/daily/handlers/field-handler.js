@@ -229,9 +229,10 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     console.error("❌ Expense parsing error for", sender, ":", err);
   }
 
-  // If there are pending updates, ask user for confirmation on the first one
+  // If there are pending updates, store all and ask for confirmation on the first one
   if (pendingUpdates.length > 0) {
-    const first = pendingUpdates[0];
+    const first = pendingUpdates.shift();
+    user.pendingUpdates = pendingUpdates;
     user.waitingForUpdate = {
       field: first.field,
       value: first.value,
@@ -298,21 +299,47 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
       user.waitingForUpdate = null;
       recalculateCashHandover(user);
       
-      const completenessMsg = getCompletionMessage(user);
-      await sendSummary(
-        sock,
-        sender,
-        `✅ ${capitalize(field)} updated successfully!\n${completenessMsg}`,
-        user
-      );
+      await safeSendMessage(sock, sender, {
+        text: `✅ ${capitalize(field)} updated successfully!`,
+      });
+      
+      // Check if there are more pending updates
+      if (user.pendingUpdates && user.pendingUpdates.length > 0) {
+        const next = user.pendingUpdates.shift();
+        user.waitingForUpdate = {
+          field: next.field,
+          value: next.value,
+          type: next.type || "normal",
+        };
+        await safeSendMessage(sock, sender, { text: next.message });
+      } else {
+        user.pendingUpdates = null;
+        const completenessMsg = getCompletionMessage(user);
+        await sendSummary(sock, sender, completenessMsg, user);
+      }
       return true;
     } else if (/^no$/i.test(text)) {
-      // Cancel the update
+      // Cancel this update
       user.waitingForUpdate = null;
-      const completenessMsg = getCompletionMessage(user);
+      
       await safeSendMessage(sock, sender, {
-        text: `❎ Update cancelled.\n${completenessMsg}`,
+        text: `❎ Update cancelled.`,
       });
+      
+      // Check if there are more pending updates
+      if (user.pendingUpdates && user.pendingUpdates.length > 0) {
+        const next = user.pendingUpdates.shift();
+        user.waitingForUpdate = {
+          field: next.field,
+          value: next.value,
+          type: next.type || "normal",
+        };
+        await safeSendMessage(sock, sender, { text: next.message });
+      } else {
+        user.pendingUpdates = null;
+        const completenessMsg = getCompletionMessage(user);
+        await safeSendMessage(sock, sender, { text: completenessMsg });
+      }
       return true;
     }
     
