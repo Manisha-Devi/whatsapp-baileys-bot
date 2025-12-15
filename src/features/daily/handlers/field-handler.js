@@ -46,15 +46,16 @@ import { getEmployExpensesForBus } from "../../../utils/employees.js";
  */
 export async function handleFieldExtraction(sock, sender, normalizedText, user) {
   // Define regex patterns for each supported field type
+  // Format: fieldName amount [online] [remarks...]
   const fieldPatterns = {
     Dated: /date(?:d)?\s*[:\-]?\s*([\w\s,\/\-\(\)\*]+)/gi,
-    Diesel: /diesel\s*[:\-]?\s*\*?(\d+)\*?(?:\s*(online))?/gi,
-    Adda: /adda\s*[:\-]?\s*\*?(\d+)\*?(?:\s*(online))?/gi,
-    Union: /union\s*[:\-]?\s*\*?(\d+)\*?(?:\s*(online))?/gi,
-    TotalCashCollection: /(?:total\s*cash\s*collection|cash\s*collection|cash|total\s*collection)\s*[:\-]?\s*\*?(\d+)\*?/gi,
-    Online: /(?:online\s*collection|total\s*online|online)\s*[:\-]?\s*\*?(\d+)\*?/gi,
-    Driver: /driver\s*[:\-]?\s*\*?(\d+)\*?(?:\s*(online))?/gi,
-    Conductor: /conductor\s*[:\-]?\s*\*?(\d+)\*?(?:\s*(online))?/gi,
+    Diesel: /diesel\s*[:\-]?\s*\*?(\d+)\*?(?:\s+(online))?(?:\s+(.+?))?$/gim,
+    Adda: /adda\s*[:\-]?\s*\*?(\d+)\*?(?:\s+(online))?(?:\s+(.+?))?$/gim,
+    Union: /union\s*[:\-]?\s*\*?(\d+)\*?(?:\s+(online))?(?:\s+(.+?))?$/gim,
+    TotalCashCollection: /(?:total\s*cash\s*collection|cash\s*collection|cash|total\s*collection)\s*[:\-]?\s*\*?(\d+)\*?(?:\s+(.+?))?$/gim,
+    Online: /(?:online\s*collection|total\s*online|online)\s*[:\-]?\s*\*?(\d+)\*?(?:\s+(.+?))?$/gim,
+    Driver: /driver\s*[:\-]?\s*\*?(\d+)\*?(?:\s+(online))?(?:\s+(.+?))?$/gim,
+    Conductor: /conductor\s*[:\-]?\s*\*?(\d+)\*?(?:\s+(online))?(?:\s+(.+?))?$/gim,
   };
 
   let anyFieldFound = false;
@@ -136,12 +137,14 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
           continue;
         }
 
-        // Handle expense fields (Diesel, Adda, Union) with amount and optional mode
+        // Handle expense fields (Diesel, Adda, Union) with amount, optional mode and optional remarks
         if (["Diesel", "Adda", "Union"].includes(key)) {
           try {
             const amount = match[1].trim();
             const mode = match[2] ? "online" : "cash";
+            const remarks = match[3] ? match[3].trim() : "";
             const newVal = { amount, mode };
+            if (remarks) newVal.remarks = remarks;
 
             const existing = user[key];
             
@@ -175,7 +178,9 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
           try {
             const amount = parseFloat(match[1].trim());
             const mode = match[2] ? "online" : "cash";
+            const remarks = match[3] ? match[3].trim() : "";
             const newVal = { amount, mode, role: key };
+            if (remarks) newVal.remarks = remarks;
 
             // Initialize employee expenses with bus defaults if not exists or empty
             if (!user.EmployExpenses || user.EmployExpenses.length === 0) {
@@ -202,12 +207,15 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
               // Update existing entry (same role + same mode) - preserve the full name
               user.EmployExpenses[existingIndex].amount = amount;
               user.EmployExpenses[existingIndex].mode = mode;
+              if (remarks) user.EmployExpenses[existingIndex].remarks = remarks;
               if (!user.EmployExpenses[existingIndex].role) {
                 user.EmployExpenses[existingIndex].role = key;
               }
             } else {
               // Add new entry (different mode or new employee)
-              user.EmployExpenses.push({ name: key, role: key, amount, mode });
+              const newEntry = { name: key, role: key, amount, mode };
+              if (remarks) newEntry.remarks = remarks;
+              user.EmployExpenses.push(newEntry);
             }
           } catch (err) {
             console.error(`❌ Error parsing ${key} for ${sender}:`, err);
@@ -215,10 +223,12 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
           continue;
         }
 
-        // Handle collection fields (TotalCashCollection, Online)
+        // Handle collection fields (TotalCashCollection, Online) with optional remarks
         try {
           const value = match[1].trim();
+          const remarks = match[2] ? match[2].trim() : "";
           const newVal = { amount: value };
+          if (remarks) newVal.remarks = remarks;
           
           const existingAmount = user[key]?.amount || user[key];
           
@@ -242,19 +252,20 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     console.error("❌ Error during field extraction for", sender, ":", err);
   }
 
-  // Process inline expense entries (expense [name] [amount] [optional: online])
+  // Process inline expense entries (expense [name] [amount] [optional: online] [optional: remarks])
   try {
     // Initialize ExtraExpenses array if not exists
     if (!user.ExtraExpenses) user.ExtraExpenses = [];
     
     const expenseMatches = [
-      ...normalizedText.matchAll(/expense\s+([a-zA-Z]+)\s*[:\-]?\s*(\d+)(?:\s*(online))?/gi),
+      ...normalizedText.matchAll(/expense\s+([a-zA-Z]+)\s*[:\-]?\s*(\d+)(?:\s+(online))?(?:\s+(.+?))?$/gim),
     ];
     for (const match of expenseMatches) {
       try {
         const expenseName = match[1].trim();
         const amount = match[2].trim();
         const mode = match[3] ? "online" : "cash";
+        const remarks = match[4] ? match[4].trim() : "";
         anyFieldFound = true;
 
         // Check if this expense already exists
@@ -264,14 +275,20 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
 
         // Queue update confirmation if value differs
         if (existing && (existing.amount !== amount || existing.mode !== mode)) {
+          const newVal = { amount, mode };
+          if (remarks) newVal.remarks = remarks;
           pendingUpdates.push({
             field: expenseName,
-            value: { amount, mode },
+            value: newVal,
             type: "extra",
             message: `⚠️ Expense *${expenseName}* already has *${existing.amount} (${existing.mode})*.\nUpdate to *${amount} (${mode})*? (yes/no)`,
           });
         } else if (!existing) {
-          user.ExtraExpenses.push({ name: expenseName, amount, mode });
+          const newExpense = { name: expenseName, amount, mode };
+          if (remarks) newExpense.remarks = remarks;
+          user.ExtraExpenses.push(newExpense);
+        } else if (remarks) {
+          existing.remarks = remarks;
         }
       } catch (err) {
         console.error("❌ Error parsing an expense match for", sender, ":", err);
