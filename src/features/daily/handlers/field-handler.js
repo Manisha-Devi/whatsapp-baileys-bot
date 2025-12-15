@@ -169,6 +169,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
         }
 
         // Handle employee expense fields (Driver, Conductor) - stored in EmployExpenses array
+        // Each employee can have separate cash and online entries
         if (["Driver", "Conductor"].includes(key)) {
           try {
             const amount = parseFloat(match[1].trim());
@@ -180,26 +181,27 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
               user.EmployExpenses = getEmployExpensesForBus(selectedBus) || [];
             }
 
-            // Check if this employee already has an expense entry
+            // Find existing entry by BOTH name AND mode (allows separate cash/online entries)
             const existingIndex = user.EmployExpenses.findIndex(
-              (e) => e.name.toLowerCase() === key.toLowerCase()
+              (e) => e.name.toLowerCase() === key.toLowerCase() && e.mode === mode
             );
 
             const oldValue = existingIndex !== -1 ? user.EmployExpenses[existingIndex] : null;
 
-            // Check if value is different from existing
-            if (oldValue && (oldValue.amount !== amount || oldValue.mode !== mode)) {
+            // Check if value is different from existing (same name + same mode)
+            if (oldValue && oldValue.amount !== amount) {
               pendingUpdates.push({
-                field: key,
+                field: `${key} (${mode})`,
                 value: newVal,
                 type: "employee",
-                message: `⚠️ *${key}* already has value *₹${oldValue.amount} (${oldValue.mode})*.\nDo you want to update it to *₹${amount} (${mode})*? (yes/no)`,
+                employeeName: key,
+                message: `⚠️ *${key} (${mode})* already has value *₹${oldValue.amount}*.\nDo you want to update it to *₹${amount}*? (yes/no)`,
               });
             } else if (existingIndex !== -1) {
-              // Update existing
+              // Update existing entry (same name + same mode)
               user.EmployExpenses[existingIndex] = { name: key, amount, mode };
             } else {
-              // Add new
+              // Add new entry (different mode or new employee)
               user.EmployExpenses.push({ name: key, amount, mode });
             }
           } catch (err) {
@@ -282,6 +284,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       field: first.field,
       value: first.value,
       type: first.type || "normal",
+      employeeName: first.employeeName || null,
     };
     
     // Recalculate totals for fields that were applied without confirmation
@@ -314,15 +317,17 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
       const { field, value, type } = user.waitingForUpdate;
 
       // Handle employee expense update (Driver/Conductor)
+      // Find by name AND mode to support separate cash/online entries
       if (type === "employee") {
+        const employeeName = user.waitingForUpdate.employeeName || field.replace(/\s*\(.*\)/, "");
         const idx = user.EmployExpenses.findIndex(
-          (e) => e.name.toLowerCase() === field.toLowerCase()
+          (e) => e.name.toLowerCase() === employeeName.toLowerCase() && e.mode === value.mode
         );
         if (idx >= 0) {
           user.EmployExpenses[idx].amount = value.amount;
           user.EmployExpenses[idx].mode = value.mode;
         } else {
-          user.EmployExpenses.push({ name: field, amount: value.amount, mode: value.mode });
+          user.EmployExpenses.push({ name: employeeName, amount: value.amount, mode: value.mode });
         }
       } 
       // Handle extra expense update
@@ -361,6 +366,7 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
           field: next.field,
           value: next.value,
           type: next.type || "normal",
+          employeeName: next.employeeName || null,
         };
         await safeSendMessage(sock, sender, { text: next.message });
       } else {
@@ -384,6 +390,7 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
           field: next.field,
           value: next.value,
           type: next.type || "normal",
+          employeeName: next.employeeName || null,
         };
         await safeSendMessage(sock, sender, { text: next.message });
       } else {

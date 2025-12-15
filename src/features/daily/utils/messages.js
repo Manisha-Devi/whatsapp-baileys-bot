@@ -55,13 +55,14 @@ export async function sendSummary(sock, jid, title, userData = {}) {
             .join("\n")
         : "";
 
-    // Format employee expenses list with emoji indicators
+    // Format employee expenses list with mode labels (cash/online)
+    // Group by name and show separate entries for cash and online
     const employList =
       userData.EmployExpenses && userData.EmployExpenses.length > 0
         ? userData.EmployExpenses
             .map(
               (e) =>
-                `👤 ${capitalize(e.name)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`
+                `👤 ${capitalize(e.name)} (${e.mode}): ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`
             )
             .join("\n")
         : "";
@@ -140,13 +141,13 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
             .join("\n")
         : "";
 
-    // Format employee expenses list
+    // Format employee expenses list with mode labels (cash/online)
     const employList =
       userData.EmployExpenses && userData.EmployExpenses.length > 0
         ? userData.EmployExpenses
             .map(
               (e) =>
-                `👤 ${capitalize(e.name)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`
+                `👤 ${capitalize(e.name)} (${e.mode}): ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`
             )
             .join("\n")
         : "";

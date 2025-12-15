@@ -60,34 +60,37 @@ export async function handleEmployeeExpenseCommand(sock, sender, normalizedText,
     // Initialize employee expenses array if not exists
     if (!user.EmployExpenses) user.EmployExpenses = [];
 
-    // Check if this employee already has an expense entry
+    // Find existing entry by BOTH name AND mode (allows separate cash/online entries)
     const existingIndex = user.EmployExpenses.findIndex(
-      (e) => e.name.toLowerCase() === role.toLowerCase()
+      (e) => e.name.toLowerCase() === role.toLowerCase() && e.mode === mode
     );
 
     const oldValue = existingIndex !== -1 ? user.EmployExpenses[existingIndex] : null;
 
-    // If value exists and is different, ask for confirmation before updating
-    if (oldValue && (oldValue.amount !== amount || oldValue.mode !== mode)) {
+    // If value exists for same name+mode and amount is different, ask for confirmation
+    if (oldValue && oldValue.amount !== amount) {
       user.waitingForUpdate = {
-        field: role,
+        field: `${role} (${mode})`,
         value: { amount, mode },
         type: "employee",
+        employeeName: role,
       };
       await safeSendMessage(sock, sender, {
-        text: `⚠️ *${role}* already has value *₹${oldValue.amount} (${oldValue.mode})*.\nDo you want to update it to *₹${amount} (${mode})*? (yes/no)`,
+        text: `⚠️ *${role} (${mode})* already has value *₹${oldValue.amount}*.\nDo you want to update it to *₹${amount}*? (yes/no)`,
       });
       return true;
     }
 
     // Add or update the employee expense
     if (existingIndex !== -1) {
+      // Update existing entry (same name + same mode)
       user.EmployExpenses[existingIndex] = {
         name: role,
         amount: amount,
         mode,
       };
     } else {
+      // Add new entry (different mode or new employee)
       user.EmployExpenses.push({
         name: role,
         amount: amount,
@@ -99,7 +102,7 @@ export async function handleEmployeeExpenseCommand(sock, sender, normalizedText,
     recalculateCashHandover(user);
     const completenessMsg = getCompletionMessage(user);
     
-    const actionMsg = `✅ *${role}* added: ₹${amount}${mode === "online" ? " (online)" : " (cash)"}!`;
+    const actionMsg = `✅ *${role} (${mode})* added: ₹${amount}!`;
     
     await sendSummary(sock, sender, `${actionMsg}\n${completenessMsg}`, user);
     return true;
