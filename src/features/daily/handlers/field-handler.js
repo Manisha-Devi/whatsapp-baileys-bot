@@ -283,7 +283,13 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       value: first.value,
       type: first.type || "normal",
     };
-    await safeSendMessage(sock, sender, { text: first.message });
+    
+    // Recalculate totals for fields that were applied without confirmation
+    recalculateCashHandover(user);
+    const completenessMsg = getCompletionMessage(user);
+    
+    // Send summary with the update prompt combined
+    await sendSummary(sock, sender, `${completenessMsg}\n\n${first.message}`, user);
     return { handled: true, anyFieldFound };
   }
 
