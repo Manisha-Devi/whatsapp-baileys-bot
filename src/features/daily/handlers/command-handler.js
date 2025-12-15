@@ -100,7 +100,7 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
       `💰 *Expenses (Outflow):*`,
       `⛽ Diesel: ₹${dieselAmt}${record.Diesel?.mode === "online" ? " 💳" : ""}`,
       `🚌 Adda : ₹${addaAmt}${record.Adda?.mode === "online" ? " 💳" : ""}`,
-      `🤝 Union Fees: ₹${unionAmt}${record.Union?.mode === "online" ? " 💳" : ""}`,
+      `🤝 Union: ₹${unionAmt}${record.Union?.mode === "online" ? " 💳" : ""}`,
       extraList ? `${extraList}` : "",
       ``,
       ...(employList ? [`👥 *Employ (Outflow):*`, employList, ``] : []),

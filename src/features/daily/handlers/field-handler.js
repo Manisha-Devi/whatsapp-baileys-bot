@@ -9,7 +9,7 @@
  * - Dated: Date of the report
  * - Diesel: Fuel expense
  * - Adda: Bus stand fee
- * - Union: Union fees
+ * - Union: Union expense
  * - TotalCashCollection: Cash received
  * - Online: Online payment collection
  * - Extra expenses: Custom expense categories
