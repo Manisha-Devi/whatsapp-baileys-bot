@@ -77,6 +77,7 @@ export async function handleSubmit(sock, sender, text, user) {
         awaitingCancelChoice,
         pendingPrimaryKey,
         confirmingUpdate,
+        pendingUpdates,
         ...cleanUser
       } = user;
 
@@ -171,6 +172,7 @@ export async function handleUpdateConfirmation(sock, sender, text, user) {
         awaitingCancelChoice,
         pendingPrimaryKey,
         confirmingUpdate,
+        pendingUpdates,
         ...cleanUser
       } = user;
 
