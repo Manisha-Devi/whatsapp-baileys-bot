@@ -79,6 +79,8 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
   try {
     // Process each field pattern against the input text
     for (const [key, regex] of Object.entries(fieldPatterns)) {
+      // Reset regex lastIndex to avoid stale state from previous calls
+      regex.lastIndex = 0;
       let match;
       while ((match = regex.exec(normalizedText)) !== null) {
         anyFieldFound = true;
