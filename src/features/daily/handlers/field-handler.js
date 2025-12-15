@@ -313,8 +313,9 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     recalculateCashHandover(user);
     const completenessMsg = getCompletionMessage(user);
     
-    // Send summary with the update prompt combined
-    await sendSummary(sock, sender, `${completenessMsg}\n\n${first.message}`, user);
+    // Send summary first, then update prompt as separate message
+    await sendSummary(sock, sender, completenessMsg, user);
+    await safeSendMessage(sock, sender, { text: first.message });
     return { handled: true, anyFieldFound };
   }
 
