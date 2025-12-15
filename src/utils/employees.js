@@ -148,19 +148,26 @@ export function getActiveEmployeesByBus(busCode) {
 
 /**
  * Get employee expenses formatted for daily reports
- * Converts active employees to expense objects with their roles and daily wages
+ * Converts active employees to expense objects with their full names, roles and daily wages
  * All employee expenses are treated as cash payments
  * 
  * @param {string} busCode - The bus code to get expenses for
- * @returns {Array} Array of expense objects with name, amount, and mode
+ * @returns {Array} Array of expense objects with name, role, amount, and mode
  */
 export function getEmployExpensesForBus(busCode) {
   const activeEmployees = getActiveEmployeesByBus(busCode);
-  return activeEmployees.map((emp) => ({
-    name: emp.role,      // Use the role (e.g., "Driver", "Conductor") as the expense name
-    amount: emp.daily,   // Daily wage amount
-    mode: "cash",        // All employee payments are in cash
-  }));
+  return activeEmployees.map((emp) => {
+    // Build full name from firstName, middleName, lastName
+    const nameParts = [emp.firstName, emp.middleName, emp.lastName].filter(Boolean);
+    const fullName = nameParts.join(" ") || emp.role;
+    
+    return {
+      name: fullName,      // Full name (e.g., "Sanjay Kumar")
+      role: emp.role,      // Role (e.g., "Driver", "Conductor")
+      amount: emp.daily,   // Daily wage amount
+      mode: "cash",        // All employee payments are in cash
+    };
+  });
 }
 
 /**

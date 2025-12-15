@@ -170,39 +170,44 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
 
         // Handle employee expense fields (Driver, Conductor) - stored in EmployExpenses array
         // Each employee can have separate cash and online entries
+        // Lookup by ROLE (not name) since name now contains full employee name
         if (["Driver", "Conductor"].includes(key)) {
           try {
             const amount = parseFloat(match[1].trim());
             const mode = match[2] ? "online" : "cash";
-            const newVal = { amount, mode };
+            const newVal = { amount, mode, role: key };
 
             // Initialize employee expenses with bus defaults if not exists or empty
             if (!user.EmployExpenses || user.EmployExpenses.length === 0) {
               user.EmployExpenses = getEmployExpensesForBus(selectedBus) || [];
             }
 
-            // Find existing entry by BOTH name AND mode (allows separate cash/online entries)
+            // Find existing entry by ROLE AND mode (allows separate cash/online entries)
             const existingIndex = user.EmployExpenses.findIndex(
-              (e) => e.name.toLowerCase() === key.toLowerCase() && e.mode === mode
+              (e) => (e.role || e.name)?.toLowerCase() === key.toLowerCase() && e.mode === mode
             );
 
             const oldValue = existingIndex !== -1 ? user.EmployExpenses[existingIndex] : null;
 
-            // Check if value is different from existing (same name + same mode)
+            // Check if value is different from existing (same role + same mode)
             if (oldValue && oldValue.amount !== amount) {
               pendingUpdates.push({
                 field: `${key} (${mode})`,
                 value: newVal,
                 type: "employee",
-                employeeName: key,
+                employeeRole: key,
                 message: `⚠️ *${key} (${mode})* already has value *₹${oldValue.amount}*.\nDo you want to update it to *₹${amount}*? (yes/no)`,
               });
             } else if (existingIndex !== -1) {
-              // Update existing entry (same name + same mode)
-              user.EmployExpenses[existingIndex] = { name: key, amount, mode };
+              // Update existing entry (same role + same mode) - preserve the full name
+              user.EmployExpenses[existingIndex].amount = amount;
+              user.EmployExpenses[existingIndex].mode = mode;
+              if (!user.EmployExpenses[existingIndex].role) {
+                user.EmployExpenses[existingIndex].role = key;
+              }
             } else {
               // Add new entry (different mode or new employee)
-              user.EmployExpenses.push({ name: key, amount, mode });
+              user.EmployExpenses.push({ name: key, role: key, amount, mode });
             }
           } catch (err) {
             console.error(`❌ Error parsing ${key} for ${sender}:`, err);
@@ -317,17 +322,20 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
       const { field, value, type } = user.waitingForUpdate;
 
       // Handle employee expense update (Driver/Conductor)
-      // Find by name AND mode to support separate cash/online entries
+      // Find by ROLE AND mode to support separate cash/online entries
       if (type === "employee") {
-        const employeeName = user.waitingForUpdate.employeeName || field.replace(/\s*\(.*\)/, "");
+        const employeeRole = user.waitingForUpdate.employeeRole || field.replace(/\s*\(.*\)/, "");
         const idx = user.EmployExpenses.findIndex(
-          (e) => e.name.toLowerCase() === employeeName.toLowerCase() && e.mode === value.mode
+          (e) => (e.role || e.name)?.toLowerCase() === employeeRole.toLowerCase() && e.mode === value.mode
         );
         if (idx >= 0) {
           user.EmployExpenses[idx].amount = value.amount;
           user.EmployExpenses[idx].mode = value.mode;
+          if (!user.EmployExpenses[idx].role) {
+            user.EmployExpenses[idx].role = employeeRole;
+          }
         } else {
-          user.EmployExpenses.push({ name: employeeName, amount: value.amount, mode: value.mode });
+          user.EmployExpenses.push({ name: employeeRole, role: employeeRole, amount: value.amount, mode: value.mode });
         }
       } 
       // Handle extra expense update
@@ -366,7 +374,7 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
           field: next.field,
           value: next.value,
           type: next.type || "normal",
-          employeeName: next.employeeName || null,
+          employeeRole: next.employeeRole || null,
         };
         await safeSendMessage(sock, sender, { text: next.message });
       } else {
@@ -390,7 +398,7 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
           field: next.field,
           value: next.value,
           type: next.type || "normal",
-          employeeName: next.employeeName || null,
+          employeeRole: next.employeeRole || null,
         };
         await safeSendMessage(sock, sender, { text: next.message });
       } else {

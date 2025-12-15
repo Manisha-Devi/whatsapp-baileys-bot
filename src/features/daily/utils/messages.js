@@ -55,13 +55,15 @@ export async function sendSummary(sock, jid, title, userData = {}) {
             .join("\n")
         : "";
 
-    // Format employee expenses list - show 💳 indicator for online only
+    // Format employee expenses list - show name, role, and 💳 indicator for online
     const employList =
       userData.EmployExpenses && userData.EmployExpenses.length > 0
         ? userData.EmployExpenses
             .map(
-              (e) =>
-                `👤 ${capitalize(e.name)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`
+              (e) => {
+                const roleLabel = e.role ? ` (${e.role})` : "";
+                return `👤 ${capitalize(e.name)}${roleLabel}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`;
+              }
             )
             .join("\n")
         : "";
@@ -140,13 +142,15 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
             .join("\n")
         : "";
 
-    // Format employee expenses list - show 💳 indicator for online only
+    // Format employee expenses list - show name, role, and 💳 indicator for online
     const employList =
       userData.EmployExpenses && userData.EmployExpenses.length > 0
         ? userData.EmployExpenses
             .map(
-              (e) =>
-                `👤 ${capitalize(e.name)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`
+              (e) => {
+                const roleLabel = e.role ? ` (${e.role})` : "";
+                return `👤 ${capitalize(e.name)}${roleLabel}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`;
+              }
             )
             .join("\n")
         : "";
