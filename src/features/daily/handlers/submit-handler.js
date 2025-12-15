@@ -17,6 +17,7 @@ import { safeSendMessage, safeDbRead, safeDbWrite } from "../utils/helpers.js";
 import { sendSubmittedSummary } from "../utils/messages.js";
 import { resolveCommand } from "../../../utils/menu-handler.js";
 import { getMenuState } from "../../../utils/menu-state.js";
+import { getUserNameByPhone } from "../../../utils/employees.js";
 
 /**
  * Handles the submit confirmation flow for saving a daily record.
@@ -84,9 +85,10 @@ export async function handleSubmit(sock, sender, text, user) {
         Object.entries(cleanUser).filter(([key]) => key !== '')
       );
       
-      // Save the record to database with sender info and timestamp
+      // Save the record to database with sender name and timestamp
+      const senderName = getUserNameByPhone(sender) || sender;
       db.data[primaryKey] = {
-        sender,
+        sender: senderName,
         ...filteredUser,
         submittedAt: new Date().toISOString(),
       };
@@ -178,8 +180,9 @@ export async function handleUpdateConfirmation(sock, sender, text, user) {
       );
       
       // Overwrite the existing record with new data
+      const senderName = getUserNameByPhone(sender) || sender;
       db.data[key] = {
-        sender,
+        sender: senderName,
         ...filteredUser,
         submittedAt: new Date().toISOString(),
       };

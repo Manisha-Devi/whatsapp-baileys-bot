@@ -12,9 +12,86 @@ import fs from "fs";
 
 // Path to the employee data file
 const employeeFile = "./src/data/employee.json";
+const usersFile = "./src/data/users.json";
 
 // Cache for employee data to avoid repeated file reads
 let employeesData = null;
+let usersData = null;
+
+/**
+ * Load users data from the JSON file
+ * Returns cached data if already loaded
+ * 
+ * @returns {Object} Object containing users array
+ */
+function loadUsers() {
+  try {
+    if (!fs.existsSync(usersFile)) {
+      console.warn("⚠️ users.json not found");
+      return { users: [] };
+    }
+    const data = fs.readFileSync(usersFile, "utf-8");
+    return JSON.parse(data);
+  } catch (err) {
+    console.error("❌ Error loading users:", err);
+    return { users: [] };
+  }
+}
+
+/**
+ * Get all users (with caching)
+ * Uses cached data if available to improve performance
+ * 
+ * @returns {Array} Array of user objects
+ */
+export function getUsers() {
+  if (!usersData) {
+    usersData = loadUsers();
+  }
+  return usersData.users || [];
+}
+
+/**
+ * Extract phone number from WhatsApp sender ID
+ * Handles formats like:
+ * - "919797304901@s.whatsapp.net"
+ * - "919797304901:2@s.whatsapp.net" (multi-device with device suffix)
+ * - "+919797304901@s.whatsapp.net"
+ * 
+ * @param {string} sender - WhatsApp sender ID
+ * @returns {string} Extracted phone number (last 10 digits)
+ */
+function extractPhoneFromSender(sender) {
+  if (!sender) return "";
+  let phone = sender.replace("@s.whatsapp.net", "");
+  phone = phone.split(":")[0];
+  phone = phone.replace(/^\+/, "");
+  phone = phone.replace(/\D/g, "");
+  if (phone.length > 10) {
+    phone = phone.slice(-10);
+  }
+  return phone;
+}
+
+/**
+ * Get user's full name by phone number
+ * Matches phone from WhatsApp sender ID against users.json
+ * 
+ * @param {string} sender - WhatsApp sender ID (e.g., "919797304901@s.whatsapp.net")
+ * @returns {string|null} User's full name or null if not found
+ */
+export function getUserNameByPhone(sender) {
+  const phone = extractPhoneFromSender(sender);
+  if (!phone) return null;
+  
+  const users = getUsers();
+  const user = users.find(u => u.phone === phone);
+  
+  if (!user) return null;
+  
+  const parts = [user.firstName, user.middleName, user.lastName].filter(Boolean);
+  return parts.join(" ") || null;
+}
 
 /**
  * Load employee data from the JSON file
