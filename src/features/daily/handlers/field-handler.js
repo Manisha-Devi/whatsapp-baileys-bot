@@ -48,7 +48,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
   // Define regex patterns for each supported field type
   // Format: fieldName amount [online] [remarks...]
   const fieldPatterns = {
-    Dated: /date(?:d)?\s*[:\-]?\s*([\w\s,\/\-\(\)\*]+)/gi,
+    Dated: /\bdate(?:d)?\s*[:\-]?\s*([\w\s,\/\-\(\)\*]+)/gi,
     Diesel: /diesel[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online)[ \t]*\.?)?(?:[ \t]+(.+?))?[ \t]*$/gim,
     Adda: /adda[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online)[ \t]*\.?)?(?:[ \t]+(.+?))?[ \t]*$/gim,
     Union: /union[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online)[ \t]*\.?)?(?:[ \t]+(.+?))?[ \t]*$/gim,
