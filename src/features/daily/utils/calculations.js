@@ -128,6 +128,10 @@ export function getCompletionMessage(user) {
 
     // All fields are complete - prompt for submission
     if (missing.length === 0) {
+      // Don't show submit prompt if waiting for update confirmation
+      if (user.waitingForUpdate) {
+        return "⚠️ All Data Entered.";
+      }
       if (!user.waitingForSubmit) user.waitingForSubmit = true;
       return "⚠️ All Data Entered.\nDo you want to Submit now? (yes/no)";
     } else {
