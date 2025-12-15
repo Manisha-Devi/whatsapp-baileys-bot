@@ -19,13 +19,13 @@
  */
 
 import db from "../../../utils/db.js";
-import { safeSendMessage, safeDbRead, safeDbWrite } from "../utils/helpers.js";
+import { safeSendMessage, safeDbRead } from "../utils/helpers.js";
 import { formatExistingForMessage, capitalize } from "../utils/formatters.js";
 import { parseDate, formatDate, getPrimaryKey } from "./date-handler.js";
 import { recalculateCashHandover, getCompletionMessage } from "../utils/calculations.js";
 import { sendSummary } from "../utils/messages.js";
 import { getMenuState } from "../../../utils/menu-state.js";
-import { getEmployExpensesForBus, getUserNameByPhone } from "../../../utils/employees.js";
+import { getEmployExpensesForBus } from "../../../utils/employees.js";
 
 /**
  * Extracts and processes multiple data fields from user input text.
@@ -297,49 +297,6 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
       // Clear pending update and recalculate totals
       user.waitingForUpdate = null;
       recalculateCashHandover(user);
-      
-      // If editing existing record, persist field change and update submittedAt
-      if (user.editingExisting && user.pendingPrimaryKey) {
-        const ok = await safeDbRead();
-        if (ok && db.data[user.pendingPrimaryKey]) {
-          const record = db.data[user.pendingPrimaryKey];
-          
-          // Apply the specific field change to the stored record
-          if (type === "employee") {
-            if (!record.EmployExpenses) record.EmployExpenses = [];
-            const idx = record.EmployExpenses.findIndex(
-              (e) => e.name && e.name.toLowerCase() === field.toLowerCase()
-            );
-            if (idx >= 0) {
-              record.EmployExpenses[idx] = { name: field, amount: value.amount, mode: value.mode };
-            } else {
-              record.EmployExpenses.push({ name: field, amount: value.amount, mode: value.mode });
-            }
-          } else if (type === "extra") {
-            if (!record.ExtraExpenses) record.ExtraExpenses = [];
-            const idx = record.ExtraExpenses.findIndex(
-              (e) => e.name && e.name.toLowerCase() === field.toLowerCase()
-            );
-            if (idx >= 0) {
-              record.ExtraExpenses[idx] = { name: field, amount: value.amount || value, mode: value.mode || "cash" };
-            } else {
-              record.ExtraExpenses.push({ name: field, amount: value.amount || value, mode: value.mode || "cash" });
-            }
-          } else {
-            record[field] = value;
-          }
-          
-          // Recalculate derived values on the stored record
-          recalculateCashHandover(record);
-          
-          // Update sender name and submittedAt timestamp
-          const senderName = getUserNameByPhone(sender) || record.sender || sender;
-          record.sender = senderName;
-          record.submittedAt = new Date().toISOString();
-          
-          await safeDbWrite();
-        }
-      }
       
       const completenessMsg = getCompletionMessage(user);
       await sendSummary(
