@@ -1,21 +1,21 @@
 /**
  * ============================================================
- * 🔁 Google Sheet ↔ Server Two-Way Sync Script
+ * Two-Way Sync Script: Google Sheet <-> Node.js Server
  * ============================================================
  * 
- * YEH SCRIPT KYA KARTA HAI:
- * - Google Sheet se data leke Server pe bhejta hai
- * - Server se data leke Google Sheet mein update karta hai
- * - Dono taraf sync hota hai (Two-Way)
+ * WHAT THIS SCRIPT DOES:
+ * - Reads data from Google Sheet and sends it to the server
+ * - Fetches data from server and updates Google Sheet
+ * - Two-way synchronization (both directions)
  * 
- * KAISE KAAM KARTA HAI:
- * 1. Sheet se saara data padhta hai
- * 2. Server se saara data lata hai (GET request)
- * 3. Dono ko compare karta hai - jo naya/updated hai wo rakhta hai
- * 4. Merged data server pe bhejta hai (POST request)
- * 5. Agar server pe naya data mila, sheet bhi update karta hai
+ * HOW IT WORKS:
+ * 1. Reads all data from the Sheet
+ * 2. Fetches all data from Server (GET request)
+ * 3. Compares both datasets - keeps newer/updated records
+ * 4. Sends merged data to server (POST request)
+ * 5. If server has new data, updates the Sheet
  * 
- * IMPORTANT: submittedAt timestamp se decide hota hai ki kaunsa data naya hai
+ * IMPORTANT: The submittedAt timestamp determines which record is newer
  * 
  * Author: Pankaj
  * ============================================================
@@ -23,186 +23,186 @@
 
 function syncBothWays() {
   // ========================================
-  // 📌 CONFIGURATION - Yahan apni settings dalo
+  // CONFIGURATION - Set your settings here
   // ========================================
   
-  // Sheet ka naam jahan daily data hai
+  // Name of the sheet containing daily data
   const SHEET_NAME = "DailyData";
   
-  // Server ke URLs - yahan se data aata/jaata hai
-  const SERVER_GET = "https://bot.sukoononline.com/daily_data.json";   // Data lene ke liye
-  const SERVER_POST = "https://bot.sukoononline.com/update-daily-data"; // Data bhejne ke liye
+  // Server URLs - where data is fetched from and sent to
+  const SERVER_GET = "https://bot.sukoononline.com/daily_data.json";   // For fetching data
+  const SERVER_POST = "https://bot.sukoononline.com/update-daily-data"; // For sending data
   
-  // API Key - Server ke saath authentication ke liye (apna key dalo)
-  const API_KEY = "MySuperSecretKey12345"; // <-- APNA ACTUAL KEY YAHAN DALO
+  // API Key - for authentication with the server (replace with your actual key)
+  const API_KEY = "MySuperSecretKey12345"; // <-- PUT YOUR ACTUAL KEY HERE
 
   // ========================================
-  // 🛠️ HELPER FUNCTIONS - Internal use ke liye
+  // HELPER FUNCTIONS - For internal use
   // ========================================
   
   /**
-   * JSON String ko Object mein convert karta hai
-   * Example: '{"name":"Ali"}' → {name: "Ali"}
+   * Converts JSON strings to JavaScript objects
+   * Example: '{"name":"Ali"}' becomes {name: "Ali"}
    * 
-   * Kab use hota hai: Jab Sheet mein object/array as string saved ho
+   * When used: When Sheet has objects/arrays saved as strings
    * 
-   * @param {any} value - Koi bhi value
-   * @returns {any} - Agar JSON hai toh parsed object, warna same value
+   * @param {any} value - Any value
+   * @returns {any} - If JSON, returns parsed object; otherwise returns same value
    */
   function tryParseJSON(value) {
     try {
-      // Sirf string values check karo
+      // Only check string values
       if (typeof value === "string") {
         const trimmed = value.trim();
-        // Agar { ya [ se start hota hai, toh JSON ho sakta hai
+        // If starts with { or [, it might be JSON
         if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-          return JSON.parse(trimmed); // Parse karke object/array return karo
+          return JSON.parse(trimmed); // Parse and return object/array
         }
       }
     } catch (err) {
-      // Agar parse fail ho, kuch mat karo (original value return hogi)
+      // If parsing fails, do nothing (original value will be returned)
     }
-    return value; // Original value return karo
+    return value; // Return original value
   }
 
   /**
-   * 7-digit PrimaryKey ko 8-digit mein convert karta hai
-   * Example: "1112025" → "01112025"
+   * Converts 7-digit PrimaryKey to 8-digit format
+   * Example: "1112025" becomes "01112025"
    * 
-   * Kyun zaroori hai: Dates kabhi kabhi 01122025 ki jagah 1122025 aa jaati hai
-   * Yeh unhe fix karta hai taaki sab consistent rahe
+   * Why needed: Dates sometimes come as 1122025 instead of 01122025
+   * This fixes them to keep everything consistent
    * 
    * @param {string} key - PrimaryKey (date format: DDMMYYYY)
    * @returns {string} - Fixed 8-digit key
    */
   function normalizeKey(key) {
-    // Agar exactly 7 digits hai
+    // If exactly 7 digits
     if (/^\d{7}$/.test(key)) {
-      return key.padStart(8, "0"); // Aage 0 lagao
+      return key.padStart(8, "0"); // Add leading zero
     }
-    return key; // Already sahi hai toh wahi return karo
+    return key; // Already correct, return as is
   }
 
   // ========================================
-  // 📊 STEP 1: Sheet Reference Lo
+  // STEP 1: Get Sheet Reference
   // ========================================
   
-  // Active spreadsheet mein se DailyData sheet kholo
+  // Open the DailyData sheet from the active spreadsheet
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
   
-  // Agar sheet nahi mili toh error log karo aur exit karo
+  // If sheet not found, log error and exit
   if (!sheet) {
-    return Logger.log("❌ Sheet not found: " + SHEET_NAME);
+    return Logger.log("Sheet not found: " + SHEET_NAME);
   }
 
   // ========================================
-  // 📖 STEP 2: Sheet Se Data Padho
+  // STEP 2: Read Data from Sheet
   // ========================================
   
-  // Sheet ka saara data 2D array mein lo
+  // Get all sheet data as a 2D array
   // Example: [["PrimaryKey", "Diesel", ...], ["01122025", 500, ...], ...]
   const values = sheet.getDataRange().getValues();
   
-  // Pehli row headers hai, use alag nikalo
-  // shift() pehla element remove karke return karta hai
+  // First row is headers, extract them separately
+  // shift() removes and returns the first element
   const headers = values.shift(); // ["PrimaryKey", "Diesel", "Adda", ...]
   
-  // Sheet data ko object mein convert karenge
+  // Convert sheet data to an object
   // Format: { "01122025": {Diesel: 500, Adda: 100, ...}, ... }
   const sheetData = {};
 
-  // Har row ko process karo (headers ke baad wali rows)
+  // Process each row (rows after headers)
   for (const row of values) {
-    const record = {}; // Ek record banao
+    const record = {}; // Create a record object
     
-    // Har column ko header ke saath map karo
+    // Map each column to its header
     headers.forEach((h, i) => {
-      // 🩹 IMPORTANT: Empty headers skip karo (yeh "":"" bug fix karta hai)
-      // Agar header khali hai ya sirf spaces hai, toh skip karo
+      // IMPORTANT: Skip empty headers (this fixes the "":"" bug)
+      // If header is empty or only whitespace, skip it
       if (h && h.toString().trim() !== '') {
-        // Value ko record mein dalo (JSON parse karke)
+        // Add value to record (parse JSON if applicable)
         record[h] = tryParseJSON(row[i]);
       }
     });
     
-    // Sirf valid records process karo (jismein PrimaryKey ho)
+    // Only process valid records (those with PrimaryKey)
     if (record.PrimaryKey) {
-      // PrimaryKey fix karo (7-digit → 8-digit)
+      // Fix PrimaryKey (7-digit to 8-digit)
       const fixedKey = normalizeKey(record.PrimaryKey);
       
-      // PrimaryKey record se hatao (key alag store hogi)
+      // Remove PrimaryKey from record (key will be stored separately)
       delete record.PrimaryKey;
       
-      // sheetData mein add karo
+      // Add to sheetData
       // Key = PrimaryKey, Value = record object
       sheetData[fixedKey] = record;
     }
   }
 
   // ========================================
-  // 🌐 STEP 3: Server Se Data Lo (GET Request)
+  // STEP 3: Fetch Data from Server (GET Request)
   // ========================================
   
-  let serverData = {}; // Server ka data yahan aayega
+  let serverData = {}; // Server data will be stored here
   
   try {
-    // Server se data fetch karo with API Key authentication
+    // Fetch data from server with API Key authentication
     const response = UrlFetchApp.fetch(SERVER_GET, {
       method: "get",                              // GET request
-      muteHttpExceptions: true,                   // Errors ko catch karne do
+      muteHttpExceptions: true,                   // Allow catching errors
       headers: { 
-        Authorization: "Bearer " + API_KEY        // API Key header mein bhejo
+        Authorization: "Bearer " + API_KEY        // Send API Key in header
       },
     });
     
-    // Agar success (200 OK)
+    // If success (200 OK)
     if (response.getResponseCode() === 200) {
-      // Response text ko JSON parse karo
+      // Parse response text as JSON
       serverData = JSON.parse(response.getContentText() || "{}");
     } else {
-      // Koi aur status code aaya
-      Logger.log("⚠️ Server responded: " + response.getResponseCode());
+      // Some other status code received
+      Logger.log("Server responded: " + response.getResponseCode());
     }
   } catch (err) {
-    // Network error ya kuch aur problem
-    return Logger.log("❌ Failed to fetch server data: " + err);
+    // Network error or other problem
+    return Logger.log("Failed to fetch server data: " + err);
   }
 
   // ========================================
-  // 🔄 STEP 4: Compare & Merge Data
+  // STEP 4: Compare & Merge Data
   // ========================================
   
-  // Merged data - server data se start karo, phir sheet data merge karo
-  const merged = { ...serverData }; // Server data copy karo
+  // Merged data - start with server data, then merge sheet data
+  const merged = { ...serverData }; // Copy server data
   
-  // Counters - kitne records sync hue
-  let newToServer = 0;  // Sheet → Server bhejne wale
-  let newToSheet = 0;   // Server → Sheet laane wale
+  // Counters - how many records are synced
+  let newToServer = 0;  // Records to send: Sheet -> Server
+  let newToSheet = 0;   // Records to receive: Server -> Sheet
 
   // -----------------------------------------
-  // 📤 Sheet ke records check karo - Server pe bhejna hai?
+  // Check Sheet records - Need to send to Server?
   // -----------------------------------------
   for (const [key, sheetRec] of Object.entries(sheetData)) {
-    const serverRec = serverData[key]; // Server pe yeh record hai?
+    const serverRec = serverData[key]; // Does this record exist on server?
     
     if (!serverRec) {
-      // ✅ Naya record - Server pe nahi hai, add karo
+      // NEW RECORD - Not on server, add it
       merged[key] = sheetRec;
       newToServer++;
     } else {
-      // 🕐 Dono jagah hai - Timestamp compare karo, naya wala rakho
+      // EXISTS IN BOTH - Compare timestamps, keep newer one
       
-      // Sheet record ka time (agar nahi hai toh 1970 maano)
+      // Sheet record timestamp (if not available, assume 1970)
       const sheetTime = sheetRec.submittedAt 
         ? new Date(sheetRec.submittedAt) 
         : new Date(0);
       
-      // Server record ka time
+      // Server record timestamp
       const serverTime = serverRec.submittedAt 
         ? new Date(serverRec.submittedAt) 
         : new Date(0);
       
-      // Agar Sheet wala naya hai toh usse rakho
+      // If Sheet version is newer, use it
       if (sheetTime > serverTime) {
         merged[key] = sheetRec;
         newToServer++;
@@ -211,17 +211,17 @@ function syncBothWays() {
   }
 
   // -----------------------------------------
-  // 📥 Server ke records check karo - Sheet mein laana hai?
+  // Check Server records - Need to bring to Sheet?
   // -----------------------------------------
   for (const [key, serverRec] of Object.entries(serverData)) {
-    const sheetRec = sheetData[key]; // Sheet mein yeh record hai?
+    const sheetRec = sheetData[key]; // Does this record exist in sheet?
     
     if (!sheetRec) {
-      // ✅ Naya record - Sheet mein nahi hai, add hoga
+      // NEW RECORD - Not in sheet, will be added
       merged[key] = serverRec;
       newToSheet++;
     } else {
-      // 🕐 Dono jagah hai - Check karo server wala naya hai?
+      // EXISTS IN BOTH - Check if server version is newer
       const sheetTime = sheetRec.submittedAt 
         ? new Date(sheetRec.submittedAt) 
         : new Date(0);
@@ -229,7 +229,7 @@ function syncBothWays() {
         ? new Date(serverRec.submittedAt) 
         : new Date(0);
       
-      // Agar Server wala naya hai
+      // If Server version is newer
       if (serverTime > sheetTime) {
         newToSheet++;
       }
@@ -237,52 +237,52 @@ function syncBothWays() {
   }
 
   // ========================================
-  // 📤 STEP 5: Merged Data Server Pe Bhejo (POST Request)
+  // STEP 5: Send Merged Data to Server (POST Request)
   // ========================================
   
   try {
     // POST request options
     const postOptions = {
       method: "post",                             // POST request
-      contentType: "application/json",            // JSON data bhej rahe hai
+      contentType: "application/json",            // Sending JSON data
       payload: JSON.stringify(merged),            // Merged data as JSON string
-      muteHttpExceptions: true,                   // Errors catch karo
+      muteHttpExceptions: true,                   // Catch errors
       headers: { 
         Authorization: "Bearer " + API_KEY        // API Key authentication
       },
     };
     
-    // Server pe data bhejo
+    // Send data to server
     const resp = UrlFetchApp.fetch(SERVER_POST, postOptions);
     
     // Log success message
     Logger.log(
-      `✅ Pushed ${newToServer} record(s) to server. Response: ${resp.getResponseCode()}`
+      `Pushed ${newToServer} record(s) to server. Response: ${resp.getResponseCode()}`
     );
   } catch (err) {
-    Logger.log("❌ Failed to push to server: " + err);
+    Logger.log("Failed to push to server: " + err);
   }
 
   // ========================================
-  // 📥 STEP 6: Sheet Update Karo (Agar Server Se Naya Data Aaya)
+  // STEP 6: Update Sheet (If New Data from Server)
   // ========================================
   
-  // Sirf tab update karo jab server se naye records aaye
+  // Only update if there are new records from server
   if (newToSheet > 0) {
     
-    // Merged object ko array mein convert karo
-    // Har record mein PrimaryKey bhi daalo (sheet ke liye)
+    // Convert merged object to array
+    // Add PrimaryKey to each record (needed for sheet)
     const allRecords = Object.entries(merged).map(([key, rec]) => ({
       PrimaryKey: key,  // Key as PrimaryKey column
-      ...rec,           // Baaki saari fields
+      ...rec,           // All other fields
     }));
 
-    // Sheet mein columns ka order - yeh wahi order hai jo aapki sheet mein hai
+    // Column order in sheet - matches your sheet structure
     const expectedHeaders = [
       "PrimaryKey",        // Unique ID (DDMMYYYY + BusCode)
-      "sender",            // WhatsApp number jisne submit kiya
+      "sender",            // WhatsApp number that submitted
       "Dated",             // Date (DD/MM/YYYY format)
-      "busCode",           // Bus ka code (UP35AT1234)
+      "busCode",           // Bus code (UP35AT1234)
       "Diesel",            // Diesel expense
       "Adda",              // Adda expense
       "Union",             // Union expense
@@ -291,43 +291,43 @@ function syncBothWays() {
       "CashHandover",      // Cash handover
       "EmployExpenses",    // Employee expenses
       "ExtraExpenses",     // Extra expenses
-      "submittedAt",       // Kab submit hua (timestamp)
-      "Remarks",           // Koi remarks
+      "submittedAt",       // Submission timestamp
+      "Remarks",           // Any remarks
       "Status",            // Status (approved/pending etc)
     ];
 
-    // Sirf wahi headers rakho jo actually data mein hai
+    // Keep only headers that actually exist in data
     const headersList = expectedHeaders.filter((h) => h in allRecords[0]);
 
-    // Records ko rows mein convert karo (2D array)
-    // Har row mein values headers ke order mein hongi
+    // Convert records to rows (2D array)
+    // Each row has values in header order
     const rows = allRecords.map((rec) =>
       headersList.map((h) =>
-        // Agar object hai toh JSON string banao, warna direct value
+        // If object, convert to JSON string; otherwise use direct value
         typeof rec[h] === "object" ? JSON.stringify(rec[h]) : rec[h] || ""
       )
     );
 
-    // Sheet clear karo (purana data hatao)
+    // Clear sheet (remove old data)
     sheet.clearContents();
     
-    // Headers likho (Row 1)
+    // Write headers (Row 1)
     sheet.getRange(1, 1, 1, headersList.length).setValues([headersList]);
     
-    // Data rows likho (Row 2 onwards)
+    // Write data rows (Row 2 onwards)
     sheet.getRange(2, 1, rows.length, headersList.length).setValues(rows);
   }
 
   // ========================================
-  // ✅ STEP 7: Success Message
+  // STEP 7: Success Message
   // ========================================
   
-  // User ko notification dikhao (bottom right corner)
+  // Show notification to user (bottom right corner)
   SpreadsheetApp.getActiveSpreadsheet().toast(
-    `✅ Sync Complete → Sent: ${newToServer}, ← Received: ${newToSheet}`,
+    `Sync Complete - Sent: ${newToServer}, Received: ${newToSheet}`,
     "Daily Data Sync"
   );
 
-  // Console mein bhi log karo
-  Logger.log(`🔁 Sync Done. Sent: ${newToServer}, Received: ${newToSheet}`);
+  // Also log to console
+  Logger.log(`Sync Done. Sent: ${newToServer}, Received: ${newToSheet}`);
 }
