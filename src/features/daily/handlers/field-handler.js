@@ -1,3 +1,23 @@
+/**
+ * Field Handler Module
+ * 
+ * This module handles the extraction and processing of various data fields
+ * from user messages for daily bus report entries. It supports multi-line
+ * input parsing and handles field update confirmations.
+ * 
+ * Supported fields:
+ * - Dated: Date of the report
+ * - Diesel: Fuel expense
+ * - Adda: Bus stand fee
+ * - Union: Union fees
+ * - TotalCashCollection: Cash received
+ * - Online: Online payment collection
+ * - Extra expenses: Custom expense categories
+ * - Remarks: Additional notes
+ * 
+ * @module features/daily/handlers/field-handler
+ */
+
 import db from "../../../utils/db.js";
 import { safeSendMessage, safeDbRead } from "../utils/helpers.js";
 import { formatExistingForMessage, capitalize } from "../utils/formatters.js";
@@ -7,7 +27,25 @@ import { sendSummary } from "../utils/messages.js";
 import { getMenuState } from "../../../utils/menu-state.js";
 import { getEmployExpensesForBus } from "../../../utils/employees.js";
 
+/**
+ * Extracts and processes multiple data fields from user input text.
+ * Supports parsing various field formats and handles existing value conflicts.
+ * 
+ * Field patterns supported:
+ * - "dated: DD/MM/YYYY" or "dated today"
+ * - "diesel: 500" or "diesel 500 online"
+ * - "adda: 100" or "union: 50"
+ * - "cash collection: 5000" or "online: 2000"
+ * - "expense food 200"
+ * 
+ * @param {Object} sock - WhatsApp socket connection instance
+ * @param {string} sender - Sender's phone number/ID
+ * @param {string} normalizedText - Normalized user input text (may be multi-line)
+ * @param {Object} user - User's session data object
+ * @returns {Promise<{handled: boolean, anyFieldFound: boolean}>} Processing result
+ */
 export async function handleFieldExtraction(sock, sender, normalizedText, user) {
+  // Define regex patterns for each supported field type
   const fieldPatterns = {
     Dated: /date(?:d)?\s*[:\-]?\s*([\w\s,\/\-\(\)\*]+)/gi,
     Diesel: /diesel\s*[:\-]?\s*\*?(\d+)\*?(?:\s*(online))?/gi,
@@ -20,9 +58,11 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
   let anyFieldFound = false;
   let pendingUpdates = [];
 
+  // Get currently selected bus from menu state
   const menuState = getMenuState(sender);
   const selectedBus = menuState.selectedBus;
 
+  // Require a bus to be selected before entering data
   if (!selectedBus) {
     await safeSendMessage(sock, sender, {
       text: "⚠️ No bus selected. Please type *Entry* to select a bus first.",
@@ -33,11 +73,13 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
   user.busCode = selectedBus;
 
   try {
+    // Process each field pattern against the input text
     for (const [key, regex] of Object.entries(fieldPatterns)) {
       let match;
       while ((match = regex.exec(normalizedText)) !== null) {
         anyFieldFound = true;
 
+        // Special handling for date field
         if (key === "Dated") {
           try {
             let value = match[1].trim();
@@ -50,16 +92,19 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
               return { handled: true, anyFieldFound };
             }
 
+            // Format date and generate primary key for database lookup
             const formatted = formatDate(targetDate);
             const primaryKey = getPrimaryKey(selectedBus, targetDate);
 
             user.Dated = formatted;
             user.pendingPrimaryKey = primaryKey;
 
+            // Initialize employee expenses if not set
             if (!user.EmployExpenses || user.EmployExpenses.length === 0) {
               user.EmployExpenses = getEmployExpensesForBus(selectedBus);
             }
 
+            // Check if record already exists for this date
             const ok = await safeDbRead();
             if (!ok) {
               await safeSendMessage(sock, sender, {
@@ -68,6 +113,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
               return { handled: true, anyFieldFound };
             }
 
+            // If record exists, ask user whether to fetch and update it
             if (db.data[primaryKey]) {
               user.confirmingFetch = true;
               const day = String(targetDate.getDate()).padStart(2, "0");
@@ -88,6 +134,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
           continue;
         }
 
+        // Handle expense fields (Diesel, Adda, Union) with amount and optional mode
         if (["Diesel", "Adda", "Union"].includes(key)) {
           try {
             const amount = match[1].trim();
@@ -95,12 +142,15 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
             const newVal = { amount, mode };
 
             const existing = user[key];
+            
+            // Check if value is different from existing
             const isDifferent =
               existing &&
               ((typeof existing === "object" &&
                 (existing.amount !== amount || existing.mode !== mode)) ||
                 (typeof existing !== "object" && String(existing) !== amount));
 
+            // Queue update confirmation if value differs
             if (isDifferent) {
               pendingUpdates.push({
                 field: key,
@@ -116,11 +166,14 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
           continue;
         }
 
+        // Handle collection fields (TotalCashCollection, Online)
         try {
           const value = match[1].trim();
           const newVal = { amount: value };
           
           const existingAmount = user[key]?.amount || user[key];
+          
+          // Queue update confirmation if value differs
           if (existingAmount && existingAmount !== value) {
             const label = key.replace(/([A-Z])/g, " $1").trim();
             pendingUpdates.push({
@@ -140,6 +193,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     console.error("❌ Error during field extraction for", sender, ":", err);
   }
 
+  // Process inline expense entries (expense [name] [amount] [optional: online])
   try {
     const expenseMatches = [
       ...normalizedText.matchAll(/expense\s+([a-zA-Z]+)\s*[:\-]?\s*(\d+)(?:\s*(online))?/gi),
@@ -151,10 +205,12 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
         const mode = match[3] ? "online" : "cash";
         anyFieldFound = true;
 
+        // Check if this expense already exists
         const existing = user.ExtraExpenses.find(
           (e) => e.name.toLowerCase() === expenseName.toLowerCase()
         );
 
+        // Queue update confirmation if value differs
         if (existing && (existing.amount !== amount || existing.mode !== mode)) {
           pendingUpdates.push({
             field: expenseName,
@@ -173,6 +229,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     console.error("❌ Expense parsing error for", sender, ":", err);
   }
 
+  // If there are pending updates, ask user for confirmation on the first one
   if (pendingUpdates.length > 0) {
     const first = pendingUpdates[0];
     user.waitingForUpdate = {
@@ -187,6 +244,16 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
   return { handled: false, anyFieldFound };
 }
 
+/**
+ * Handles user's confirmation response for field update requests.
+ * Processes "yes" to apply the update or "no" to cancel.
+ * 
+ * @param {Object} sock - WhatsApp socket connection instance
+ * @param {string} sender - Sender's phone number/ID
+ * @param {string} text - User's response text (yes/no)
+ * @param {Object} user - User's session data object
+ * @returns {Promise<boolean>} True if confirmation was handled, false otherwise
+ */
 export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
   if (!user.waitingForUpdate) return false;
 
@@ -194,6 +261,7 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
     if (/^yes$/i.test(text)) {
       const { field, value, type } = user.waitingForUpdate;
 
+      // Handle employee expense update (Driver/Conductor)
       if (type === "employee") {
         const idx = user.EmployExpenses.findIndex(
           (e) => e.name.toLowerCase() === field.toLowerCase()
@@ -204,7 +272,9 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
         } else {
           user.EmployExpenses.push({ name: field, amount: value.amount, mode: value.mode });
         }
-      } else if (type === "extra") {
+      } 
+      // Handle extra expense update
+      else if (type === "extra") {
         const idx = user.ExtraExpenses.findIndex(
           (e) => e.name.toLowerCase() === field.toLowerCase()
         );
@@ -218,10 +288,13 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
         } else {
           user.ExtraExpenses.push({ name: field, amount: value.amount || value, mode: value.mode || "cash" });
         }
-      } else {
+      } 
+      // Handle normal field update (Diesel, Adda, Union, etc.)
+      else {
         user[field] = value;
       }
 
+      // Clear pending update and recalculate totals
       user.waitingForUpdate = null;
       recalculateCashHandover(user);
       const completenessMsg = getCompletionMessage(user);
@@ -233,6 +306,7 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
       );
       return true;
     } else if (/^no$/i.test(text)) {
+      // Cancel the update
       user.waitingForUpdate = null;
       const completenessMsg = getCompletionMessage(user);
       await safeSendMessage(sock, sender, {
@@ -252,6 +326,20 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
   }
 }
 
+/**
+ * Handles the remarks command to add or clear notes on a record.
+ * Format: "remarks [text]" to add, or "remarks" alone to clear.
+ * 
+ * @param {Object} sock - WhatsApp socket connection instance
+ * @param {string} sender - Sender's phone number/ID
+ * @param {string} normalizedText - Normalized user input text
+ * @param {Object} user - User's session data object
+ * @returns {Promise<boolean>} True if command was handled, false otherwise
+ * 
+ * @example
+ * // Input: "remarks Bus was late due to traffic" - Adds the remark
+ * // Input: "remarks" - Clears existing remarks
+ */
 export async function handleRemarksCommand(sock, sender, normalizedText, user) {
   const remarksMatch = normalizedText.match(/^remarks\s*(.*)$/i);
   if (!remarksMatch) return false;
@@ -266,6 +354,7 @@ export async function handleRemarksCommand(sock, sender, normalizedText, user) {
         : `🧹 Remarks cleared.`,
     });
 
+    // Show current data summary after updating remarks
     const completenessMsg = getCompletionMessage(user);
     await sendSummary(
       sock,

@@ -1,28 +1,61 @@
+/**
+ * daily_status.js - Daily Report Status Management
+ * 
+ * This module handles viewing and updating the status of daily reports.
+ * Reports go through three statuses:
+ * - Initiated: Report has been created/submitted
+ * - Collected: Cash has been collected from the driver/conductor
+ * - Deposited: Cash has been deposited to the bank/owner
+ * 
+ * Provides commands to:
+ * - View all reports with a specific status
+ * - Update status for single date or date range
+ * - Add remarks when updating status
+ */
+
 import db, { statusDb } from "../../utils/db.js";
 import { safeSendMessage } from "./utils/helpers.js";
 import { getMenuState } from "../../utils/menu-state.js";
 
+/**
+ * Convert a value to a number, returning 0 if invalid
+ * 
+ * @param {any} value - Value to convert
+ * @returns {number} The numeric value or 0
+ */
 function toNum(value) {
   const n = Number(value);
   return isNaN(n) ? 0 : n;
 }
 
+/**
+ * Format a date string into a human-readable format
+ * Converts "15/11/2025" to "Saturday, 15 November 2025"
+ * 
+ * @param {string} dateInput - Date string in various formats
+ * @returns {string} Formatted date string or original if parsing fails
+ */
 function formatFullDate(dateInput) {
   try {
     if (!dateInput) return "Unknown Date";
 
+    // If already in full format, return as-is
     if (dateInput.includes(",") && dateInput.includes(" ")) return dateInput;
 
     let dateObj;
+    // Parse DD/MM/YYYY format
     if (dateInput.includes("/")) {
       const [day, month, year] = dateInput.split("/");
       dateObj = new Date(`${year}-${month}-${day}`);
     } else {
+      // Try parsing other formats
       dateObj = new Date(dateInput);
     }
 
+    // Return original if parsing failed
     if (isNaN(dateObj.getTime())) return dateInput;
 
+    // Format as full date with weekday
     return dateObj.toLocaleDateString("en-GB", {
       weekday: "long",
       day: "2-digit",
@@ -34,13 +67,25 @@ function formatFullDate(dateInput) {
   }
 }
 
+/**
+ * Handle commands to view daily reports by status
+ * Matches patterns like: "initiated", "i", "status collected", "c", "deposited"
+ * 
+ * @param {Object} sock - The WhatsApp socket connection
+ * @param {string} sender - The WhatsApp sender ID
+ * @param {string} normalizedText - The user's message text
+ * @returns {Promise<boolean>} True if command was handled, false otherwise
+ */
 export async function handleDailyStatus(sock, sender, normalizedText) {
   try {
+    // Match status view commands with shortcuts
+    // Examples: "initiated", "i", "status collected", "c", "deposited", "d"
     const match = normalizedText.match(/^(?:status\s+)?(initiated|collected|deposited|i|c|d)$/i);
     if (!match) return false;
 
     const rawStatus = match[1].toLowerCase();
     
+    // Map shortcuts to full status names
     const statusMap = {
       'i': 'Initiated',
       'c': 'Collected',
@@ -52,6 +97,7 @@ export async function handleDailyStatus(sock, sender, normalizedText) {
     
     const statusQuery = statusMap[rawStatus];
 
+    // Get selected bus from menu state
     const menuState = getMenuState(sender);
     const selectedBus = menuState.selectedBus;
 
@@ -62,16 +108,19 @@ export async function handleDailyStatus(sock, sender, normalizedText) {
       return true;
     }
 
+    // Read all daily data from database
     await db.read();
     const data = db.data || {};
 
+    // Filter entries for this bus and status
     const filtered = Object.entries(data)
       .filter(([key, entry]) => {
-        const keyBus = key.split('_')[0];
+        const keyBus = key.split('_')[0];  // Key format: BUSXXX_DD/MM/YYYY
         return keyBus === selectedBus && entry.Status === statusQuery;
       })
       .map(([key, entry]) => ({ key, ...entry }));
 
+    // Handle case when no entries found
     if (filtered.length === 0) {
       await safeSendMessage(sock, sender, {
         text: `✅ No entries found for *${selectedBus}* with status: *${statusQuery}*`,
@@ -79,24 +128,29 @@ export async function handleDailyStatus(sock, sender, normalizedText) {
       return true;
     }
 
+    // Sort entries by date (newest first)
     filtered.sort((a, b) => {
       const dateA = new Date(a.Dated || a.key.split('_')[1]);
       const dateB = new Date(b.Dated || b.key.split('_')[1]);
       return dateB - dateA;
     });
 
+    // Build response message
     let msg = `📊 *Status: ${statusQuery}*\n🚌 Bus: *${selectedBus}*\n\n`;
 
     let totalCash = 0;
     let totalCount = 0;
 
+    // Add each entry to the message
     for (const entry of filtered) {
       const dateFormatted = formatFullDate(entry.Dated || entry.key.split('_')[1]);
       msg += `📅 ${dateFormatted}\n`;
 
+      // Get cash amounts from entry (handle both object and direct value formats)
       const cashHandoverAmt = entry.CashHandover?.amount || entry.CashHandover || "0";
       const totalCollectionAmt = entry.TotalCashCollection?.amount || entry.TotalCashCollection || "0";
 
+      // Show cash handover if available, otherwise show total collection
       if (cashHandoverAmt && cashHandoverAmt !== "0") {
         msg += `💵 Cash Handover: ₹${cashHandoverAmt}\n\n`;
         totalCash += toNum(cashHandoverAmt);
@@ -108,6 +162,7 @@ export async function handleDailyStatus(sock, sender, normalizedText) {
       totalCount++;
     }
 
+    // Add summary totals
     msg += `📊 *Total Entries:* ${totalCount}\n`;
     msg += `💰 *Total Cash Handover:* ₹${totalCash}`;
 
@@ -122,6 +177,12 @@ export async function handleDailyStatus(sock, sender, normalizedText) {
   }
 }
 
+/**
+ * Parse a date string in DD/MM/YYYY format to a Date object
+ * 
+ * @param {string} s - Date string to parse
+ * @returns {Date|null} Parsed Date object or null if invalid
+ */
 function parseDateStr(s) {
   const parts = String(s).trim().split("/");
   if (parts.length !== 3) return null;
@@ -131,18 +192,38 @@ function parseDateStr(s) {
   return isNaN(dt.getTime()) ? null : dt;
 }
 
+/**
+ * Normalize a date key string (trim whitespace)
+ * 
+ * @param {string} raw - Raw date string
+ * @returns {string} Normalized date string
+ */
 function normalizeKey(raw) {
   let k = String(raw).replace(/\//g, "/").trim();
   return k;
 }
 
+/**
+ * Parse a date expression into an array of date keys
+ * Handles:
+ * - Single date: "15/11/2025"
+ * - Date range: "10/11/2025 to 15/11/2025"
+ * - Comma-separated: "10/11/2025, 12/11/2025, 15/11/2025"
+ * 
+ * @param {string} expr - Date expression to parse
+ * @returns {Array<string>} Array of date keys in DD/MM/YYYY format
+ */
 function parseDatesExpression(expr) {
   expr = String(expr).trim();
+  
+  // Check for date range (e.g., "10/11/2025 to 15/11/2025")
   const rangeMatch = expr.match(/^(.+?)\s+to\s+(.+)$/i);
   if (rangeMatch) {
     const s = parseDateStr(rangeMatch[1].trim());
     const e = parseDateStr(rangeMatch[2].trim());
     if (!s || !e) return [];
+    
+    // Generate all dates in the range
     const keys = [];
     for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
       const day = String(d.getDate()).padStart(2, "0");
@@ -153,6 +234,7 @@ function parseDatesExpression(expr) {
     return keys;
   }
 
+  // Check for comma-separated dates
   if (expr.includes(",")) {
     return expr
       .split(",")
@@ -160,13 +242,28 @@ function parseDatesExpression(expr) {
       .filter(Boolean);
   }
 
+  // Single date
   return [normalizeKey(expr)];
 }
 
+// Only these statuses can be set via update command
 const ALLOWED_STATUSES = new Set(["collected", "deposited"]);
 
+/**
+ * Handle commands to update the status of daily reports
+ * Matches patterns like:
+ * - "update 15/11/2025 collected"
+ * - "update 10/11/2025 to 15/11/2025 deposited"
+ * - "update 15/11/2025 collected remark all done"
+ * 
+ * @param {Object} sock - The WhatsApp socket connection
+ * @param {string} sender - The WhatsApp sender ID
+ * @param {string} normalizedText - The user's message text
+ * @returns {Promise<boolean>} True if command was handled, false otherwise
+ */
 export async function handleStatusUpdate(sock, sender, normalizedText) {
   try {
+    // Match update command pattern with optional remark
     const match = normalizedText.match(
       /^update\s+(.+?)\s+(collected|deposited|c|d)(?:\s+remark\s+(.+))?$/i
     );
@@ -176,6 +273,7 @@ export async function handleStatusUpdate(sock, sender, normalizedText) {
     const requestedStatusRaw = match[2].trim().toLowerCase();
     const remarksRaw = match[3]?.trim() ?? null;
 
+    // Map shortcuts to full status names
     const statusShortcuts = {
       'c': 'collected',
       'd': 'deposited',
@@ -185,6 +283,7 @@ export async function handleStatusUpdate(sock, sender, normalizedText) {
     
     const requestedStatusLower = statusShortcuts[requestedStatusRaw];
     
+    // Validate status
     if (!requestedStatusLower) {
       await safeSendMessage(sock, sender, {
         text:
@@ -193,6 +292,7 @@ export async function handleStatusUpdate(sock, sender, normalizedText) {
       return true;
     }
 
+    // Get selected bus from menu state
     const menuState = getMenuState(sender);
     const selectedBus = menuState.selectedBus;
 
@@ -203,8 +303,10 @@ export async function handleStatusUpdate(sock, sender, normalizedText) {
       return true;
     }
 
+    // Capitalize first letter for storage
     const newStatus = requestedStatusLower.charAt(0).toUpperCase() + requestedStatusLower.slice(1);
 
+    // Parse the date expression into individual dates
     const normalizedDates = parseDatesExpression(datesExpr);
     if (!normalizedDates || normalizedDates.length === 0) {
       await safeSendMessage(sock, sender, {
@@ -213,6 +315,7 @@ export async function handleStatusUpdate(sock, sender, normalizedText) {
       return true;
     }
 
+    // Read current data from databases
     await db.read();
     const data = db.data || {};
 
@@ -220,6 +323,7 @@ export async function handleStatusUpdate(sock, sender, normalizedText) {
     let logData = statusDb.data || [];
     if (!Array.isArray(logData)) logData = [];
 
+    // Build set of already logged entries to prevent duplicate updates
     const alreadyLogged = new Set();
     for (const lg of logData) {
       if (lg.busCode === selectedBus && Array.isArray(lg.updatedKeys)) {
@@ -232,29 +336,35 @@ export async function handleStatusUpdate(sock, sender, normalizedText) {
     const actuallyUpdated = [];
     const actuallySkipped = [];
 
+    // Process each date
     for (const dateKey of normalizedDates) {
-      const key = `${selectedBus}_${dateKey}`;
+      const key = `${selectedBus}_${dateKey}`;  // Key format: BUSXXX_DD/MM/YYYY
       const entry = data[key];
 
+      // Skip if no record exists for this date
       if (!entry) {
         actuallySkipped.push(`${dateKey} (no record found)`);
         continue;
       }
 
+      // Skip if already logged in status history
       if (alreadyLogged.has(key)) {
         actuallySkipped.push(`${dateKey} (already logged earlier)`);
         continue;
       }
 
+      // Skip if already at the requested status
       if (entry.Status === newStatus) {
         actuallySkipped.push(`${dateKey} (already ${newStatus})`);
         continue;
       }
 
+      // Update the status
       entry.Status = newStatus;
       actuallyUpdated.push(key);
     }
 
+    // Persist updates to daily data database
     if (actuallyUpdated.length > 0) {
       try {
         await db.write();
@@ -267,6 +377,7 @@ export async function handleStatusUpdate(sock, sender, normalizedText) {
       }
     }
 
+    // Log the status update to status history
     if (actuallyUpdated.length > 0) {
       const newLog = {
         updatedOn: new Date().toISOString(),
@@ -288,6 +399,7 @@ export async function handleStatusUpdate(sock, sender, normalizedText) {
       }
     }
 
+    // Build response message
     const replyParts = [];
     if (actuallyUpdated.length > 0) {
       const datesList = actuallyUpdated.map(k => k.split('_')[1]).join(", ");
@@ -300,6 +412,7 @@ export async function handleStatusUpdate(sock, sender, normalizedText) {
     }
     if (remarksRaw) replyParts.push(`📝 Remarks: ${remarksRaw}`);
 
+    // Handle case where nothing was updated
     if (replyParts.length === 0) {
       replyParts.push(`⚠️ No matching entries updated for *${selectedBus}*: ${normalizedDates.join(", ")}`);
     }

@@ -1,3 +1,23 @@
+/**
+ * Booking Module - Main Entry Point
+ * 
+ * This module serves as the main handler for the booking feature of the WhatsApp bot.
+ * It processes incoming messages related to bus/vehicle bookings and routes them
+ * to appropriate handlers for processing.
+ * 
+ * Implemented Features:
+ * - Create new bookings with customer details
+ * - Check booking status (pending, confirmed, completed, cancelled)
+ * - Update booking status
+ * - Display help information for booking commands
+ * 
+ * Features Under Development:
+ * - Fetch existing bookings by ID, date, or phone number (placeholder only)
+ * - Booking reports
+ * 
+ * @module features/bookings/booking
+ */
+
 import { handleBookingStatus, handleBookingStatusUpdate } from "./booking_status.js";
 import { safeSendMessage } from "./utils/helpers.js";
 import { handleClearCommand, handleBookingCommand } from "./handlers/command-handler.js";
@@ -6,8 +26,35 @@ import { handleSubmit } from "./handlers/submit-handler.js";
 import { sendSummary, getCompletionMessage } from "./utils/messages.js";
 import { getMenuState } from "../../utils/menu-state.js";
 
+/**
+ * Main handler for incoming WhatsApp messages related to booking functionality.
+ * Routes messages to appropriate sub-handlers based on message content.
+ * 
+ * Message processing flow:
+ * 1. Validate message structure
+ * 2. Check for help command
+ * 3. Handle booking status queries and updates
+ * 4. Handle clear command
+ * 5. Initialize booking session if needed
+ * 6. Extract booking fields from message
+ * 7. Handle submission
+ * 8. Show data entry summary
+ * 
+ * @param {Object} sock - WhatsApp socket connection instance
+ * @param {Object} msg - Incoming message object from Baileys
+ * @param {boolean} skipPrefixStripping - If true, don't strip "booking" prefix (for menu mode)
+ * @returns {Promise<void>}
+ * 
+ * @example
+ * // Direct call with prefix stripping (normal mode)
+ * await handleIncomingMessageFromBooking(sock, msg, false);
+ * 
+ * // Menu mode (no prefix stripping needed)
+ * await handleIncomingMessageFromBooking(sock, msg, true);
+ */
 export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStripping = false) {
   try {
+    // Validate message structure
     if (!msg || !msg.key) {
       console.warn("⚠️ Received malformed or empty msg:", msg);
       return;
@@ -15,21 +62,25 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
 
     const sender = msg.key.remoteJid;
     
+    // Ignore group messages - booking is for individual users only
     if (sender && sender.endsWith("@g.us")) {
       console.log("🚫 Ignored group message from:", sender);
       return;
     }
 
+    // Extract message text content
     const messageContent =
       msg.message?.conversation || msg.message?.extendedTextMessage?.text;
     if (!messageContent) return;
+    
+    // Ignore messages sent by the bot itself
     if (msg.key.fromMe) return;
 
     const textRaw = String(messageContent);
     let normalizedText = textRaw.trim();
     let text = normalizedText.toLowerCase();
     
-    // Strip "booking" prefix only if not in menu mode
+    // Strip "booking" prefix unless in menu mode where prefix is already stripped
     if (!skipPrefixStripping) {
       const bookingPrefixMatch = normalizedText.match(/^booking[\s\-:]*/i);
       if (bookingPrefixMatch) {
@@ -39,9 +90,10 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
       }
     }
     
-    // Handle help command
+    // Handle help command - show available booking commands
     if (text === 'help' || text === '') {
       if (skipPrefixStripping) {
+        // Menu mode help - shorter format, no prefix needed
         await safeSendMessage(sock, sender, {
           text: `🚌 *BOOKING COMMANDS (Menu Mode)*\n\n` +
                 `📝 *Booking Entry:*\n` +
@@ -69,6 +121,7 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
                 `No "booking" prefix needed in menu mode!`
         });
       } else {
+        // Normal mode help - full format with "booking" prefix examples
         await safeSendMessage(sock, sender, {
           text: `🚌 *BOOKING FEATURE COMMANDS*\n\n` +
                 `1️⃣ *Create New Booking*\n` +
@@ -103,15 +156,19 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
       return;
     }
 
+    // Try to handle booking status query (e.g., "status pending")
     const handledBookingStatus = await handleBookingStatus(sock, sender, normalizedText);
     if (handledBookingStatus) return;
 
+    // Try to handle booking status update (e.g., "update status BK001 confirmed")
     const handledStatusUpdate = await handleBookingStatusUpdate(sock, sender, normalizedText);
     if (handledStatusUpdate) return;
 
+    // Try to handle clear command to reset booking session
     const handledClear = await handleClearCommand(sock, sender, text);
     if (handledClear) return;
 
+    // Check if user is in booking reports mode (feature under development)
     const menuState = getMenuState(sender);
     if (menuState.mode === 'booking' && menuState.submode === 'reports') {
       await safeSendMessage(sock, sender, {
@@ -120,7 +177,10 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
       return;
     }
 
+    // Initialize global booking data storage if not exists
     if (!global.bookingData) global.bookingData = {};
+    
+    // Initialize user's booking session with default values if not exists
     if (!global.bookingData[sender]) {
       global.bookingData[sender] = {
         BookingDate: new Date().toISOString().split('T')[0],
@@ -139,6 +199,7 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
         waitingForSubmit: false,
       };
 
+      // Show welcome message only in normal mode (not menu mode)
       if (!skipPrefixStripping) {
         await safeSendMessage(sock, sender, {
           text: "👋 Welcome to Booking System!\n\n📝 Start your message with *booking*\n\nExample:\nbooking\nCustomer Name Rahul\nCustomer Phone 9876543210\nPickup Location Delhi\n...\n\nType *booking help* for all commands.",
@@ -148,17 +209,22 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
 
     const user = global.bookingData[sender];
 
+    // Try to handle booking lookup commands (by ID or date)
     const handledBookingCmd = await handleBookingCommand(sock, sender, normalizedText, user);
     if (handledBookingCmd) return;
 
+    // Extract booking fields from the message
     const fieldResult = await handleFieldExtraction(sock, sender, normalizedText, user);
     if (fieldResult.handled) return;
 
+    // Try to handle submit command
     const handledSubmit = await handleSubmit(sock, sender, text, user);
     if (handledSubmit) return;
 
+    // If no fields were found in the message, don't show summary
     if (!fieldResult.anyFieldFound) return;
 
+    // Show current booking summary with completion status
     const completenessMsg = getCompletionMessage(user);
     await sendSummary(sock, sender, completenessMsg, user);
 

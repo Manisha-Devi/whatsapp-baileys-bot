@@ -1,8 +1,46 @@
+/**
+ * Booking Submit Handler Module
+ * 
+ * This module handles the submission of completed booking entries.
+ * It validates all required fields, generates a unique booking ID,
+ * and saves the booking to the database.
+ * 
+ * @module features/bookings/handlers/submit-handler
+ */
+
 import { safeSendMessage, safeDbRead, safeDbWrite } from "../utils/helpers.js";
 import { bookingsDb } from "../../../utils/db.js";
 
+/**
+ * Handles the submission of a booking entry.
+ * Validates all required fields, generates a unique booking ID,
+ * calculates balance amount, and saves to the database.
+ * 
+ * Required fields for submission:
+ * - CustomerName
+ * - CustomerPhone
+ * - PickupLocation
+ * - DropLocation
+ * - TravelDate
+ * - VehicleType
+ * - NumberOfPassengers
+ * - TotalFare
+ * - AdvancePaid
+ * 
+ * @param {Object} sock - WhatsApp socket connection instance
+ * @param {string} sender - Sender's phone number/ID
+ * @param {string} text - Lowercase user input text
+ * @param {Object} user - User's booking session data object
+ * @returns {Promise<boolean>} True if submission was handled, false otherwise
+ * 
+ * @example
+ * // When user types "submit" and all fields are complete
+ * // Creates booking with ID like "BK123456" and saves to database
+ */
 export async function handleSubmit(sock, sender, text, user) {
+  // Only process if user typed "submit" and is ready for submission
   if (text === "submit" && user.waitingForSubmit) {
+    // Define required fields for a complete booking
     const requiredFields = [
       "CustomerName",
       "CustomerPhone",
@@ -15,6 +53,7 @@ export async function handleSubmit(sock, sender, text, user) {
       "AdvancePaid",
     ];
 
+    // Check for missing required fields
     const missingFields = requiredFields.filter((field) => !user[field]);
 
     if (missingFields.length > 0) {
@@ -24,11 +63,12 @@ export async function handleSubmit(sock, sender, text, user) {
       return true;
     }
 
-    // Parse and validate numeric fields
+    // Parse and validate numeric fields (remove commas if present)
     const totalFare = Number(String(user.TotalFare).replace(/,/g, ''));
     const advancePaid = Number(String(user.AdvancePaid).replace(/,/g, ''));
     const numPassengers = Number(user.NumberOfPassengers);
 
+    // Validate total fare
     if (isNaN(totalFare) || totalFare <= 0) {
       await safeSendMessage(sock, sender, {
         text: `⚠️ Invalid Total Fare. Please enter a valid number.`,
@@ -36,6 +76,7 @@ export async function handleSubmit(sock, sender, text, user) {
       return true;
     }
 
+    // Validate advance paid
     if (isNaN(advancePaid) || advancePaid < 0) {
       await safeSendMessage(sock, sender, {
         text: `⚠️ Invalid Advance Paid. Please enter a valid number.`,
@@ -43,6 +84,7 @@ export async function handleSubmit(sock, sender, text, user) {
       return true;
     }
 
+    // Validate number of passengers
     if (isNaN(numPassengers) || numPassengers <= 0) {
       await safeSendMessage(sock, sender, {
         text: `⚠️ Invalid Number of Passengers. Please enter a valid number.`,
@@ -50,8 +92,10 @@ export async function handleSubmit(sock, sender, text, user) {
       return true;
     }
 
+    // Calculate balance amount
     const balanceAmount = totalFare - advancePaid;
 
+    // Validate that advance doesn't exceed total fare
     if (balanceAmount < 0) {
       await safeSendMessage(sock, sender, {
         text: `⚠️ Advance Paid (₹${advancePaid}) cannot be greater than Total Fare (₹${totalFare}).`,
@@ -59,6 +103,7 @@ export async function handleSubmit(sock, sender, text, user) {
       return true;
     }
 
+    // Generate unique booking ID using timestamp
     const bookingId = `BK${Date.now().toString().slice(-6)}`;
     
     // Prepare booking record for database
@@ -81,7 +126,7 @@ export async function handleSubmit(sock, sender, text, user) {
       submittedBy: sender,
     };
 
-    // Save to database
+    // Save booking to database
     await safeDbRead(bookingsDb);
     bookingsDb.data[bookingId] = bookingRecord;
     const saved = await safeDbWrite(bookingsDb);
@@ -93,6 +138,7 @@ export async function handleSubmit(sock, sender, text, user) {
       return true;
     }
     
+    // Build and send confirmation summary
     let summary = `✅ *Booking Submitted - ${bookingId}*\n\n`;
     summary += `👤 Customer: ${bookingRecord.CustomerName}\n`;
     summary += `📱 Phone: ${bookingRecord.CustomerPhone}\n`;
@@ -108,6 +154,7 @@ export async function handleSubmit(sock, sender, text, user) {
 
     await safeSendMessage(sock, sender, { text: summary });
 
+    // Clear user's booking session after successful submission
     delete global.bookingData[sender];
     return true;
   }

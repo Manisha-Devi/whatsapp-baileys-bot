@@ -1,10 +1,50 @@
+/**
+ * Messages Module
+ * 
+ * This module provides message formatting and sending utilities for daily reports.
+ * It generates formatted WhatsApp messages for displaying data summaries,
+ * both during data entry and after successful submission.
+ * 
+ * Message types:
+ * - Summary: Shows current data entry progress with all fields
+ * - Submitted Summary: Final confirmation after data is saved
+ * 
+ * @module features/daily/utils/messages
+ */
+
 import { safeSendMessage } from "./helpers.js";
 import { capitalize } from "./formatters.js";
 
 import { getMenuState } from "../../../utils/menu-state.js";
 
+/**
+ * Sends a formatted summary of the user's current data entry progress.
+ * Displays all expense categories, collections, and calculated cash handover.
+ * Used during the data entry process to show what's been entered so far.
+ * 
+ * @param {Object} sock - WhatsApp socket connection instance
+ * @param {string} jid - Recipient's WhatsApp JID
+ * @param {string} title - Additional title/message to append at the end
+ * @param {Object} userData - User's session data with entered values
+ * @param {string} userData.Dated - Date of the report
+ * @param {Object} userData.Diesel - Diesel expense {amount, mode}
+ * @param {Object} userData.Adda - Adda expense {amount, mode}
+ * @param {Object} userData.Union - Union expense {amount, mode}
+ * @param {Object} userData.TotalCashCollection - Cash collection {amount}
+ * @param {Object} userData.Online - Online collection {amount}
+ * @param {Object} userData.CashHandover - Calculated cash handover {amount}
+ * @param {Array} userData.ExtraExpenses - Extra expenses array
+ * @param {Array} userData.EmployExpenses - Employee expenses array
+ * @param {string} userData.Remarks - Optional remarks
+ * @param {boolean} userData.editingExisting - Whether editing an existing record
+ * @returns {Promise<void>}
+ * 
+ * @example
+ * await sendSummary(sock, sender, "Please confirm the data", userData);
+ */
 export async function sendSummary(sock, jid, title, userData = {}) {
   try {
+    // Format extra expenses list with emoji indicators
     const extraList =
       userData.ExtraExpenses && userData.ExtraExpenses.length > 0
         ? userData.ExtraExpenses
@@ -15,6 +55,7 @@ export async function sendSummary(sock, jid, title, userData = {}) {
             .join("\n")
         : "";
 
+    // Format employee expenses list with emoji indicators
     const employList =
       userData.EmployExpenses && userData.EmployExpenses.length > 0
         ? userData.EmployExpenses
@@ -25,6 +66,8 @@ export async function sendSummary(sock, jid, title, userData = {}) {
             .join("\n")
         : "";
 
+    // Extract amounts, handling both object and primitive formats
+    // Show "___" placeholder for missing values
     const dieselAmt = userData.Diesel?.amount || userData.Diesel || "___";
     const addaAmt = userData.Adda?.amount || userData.Adda || "___";
     const unionAmt = userData.Union?.amount || userData.Union || "___";
@@ -32,12 +75,16 @@ export async function sendSummary(sock, jid, title, userData = {}) {
     const onlineAmt = userData.Online?.amount || userData.Online || "___";
     const cashHandoverAmt = userData.CashHandover?.amount || userData.CashHandover || "___";
 
+    // Get bus information from menu state for display
     const menuState = getMenuState(jid);
     const regNumber = menuState?.selectedBusInfo?.registrationNumber;
     const busInfo = regNumber || userData.busCode || "";
+    
+    // Add labels for context (editing vs new entry)
     const editingLabel = userData.editingExisting ? " (Editing)" : "";
     const titleBus = busInfo ? ` (${busInfo})` : "";
 
+    // Build the complete message with sections
     const msg = [
       `✅ *Daily Data Entry${titleBus}${editingLabel}*`,
       `📅 Dated: ${userData.Dated || "___"}`,
@@ -67,8 +114,22 @@ export async function sendSummary(sock, jid, title, userData = {}) {
   }
 }
 
+/**
+ * Sends a formatted summary after successful data submission.
+ * Similar to sendSummary but includes confirmation message and
+ * shows "0" instead of "___" for missing values since data is final.
+ * 
+ * @param {Object} sock - WhatsApp socket connection instance
+ * @param {string} jid - Recipient's WhatsApp JID
+ * @param {Object} userData - User's submitted data with all values
+ * @returns {Promise<void>}
+ * 
+ * @example
+ * await sendSubmittedSummary(sock, sender, submittedData);
+ */
 export async function sendSubmittedSummary(sock, jid, userData = {}) {
   try {
+    // Format extra expenses list
     const extraList =
       userData.ExtraExpenses && userData.ExtraExpenses.length > 0
         ? userData.ExtraExpenses
@@ -79,6 +140,7 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
             .join("\n")
         : "";
 
+    // Format employee expenses list
     const employList =
       userData.EmployExpenses && userData.EmployExpenses.length > 0
         ? userData.EmployExpenses
@@ -89,6 +151,7 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
             .join("\n")
         : "";
 
+    // Extract amounts, using "0" for missing values (submitted data should be complete)
     const dieselAmt = userData.Diesel?.amount || userData.Diesel || "0";
     const addaAmt = userData.Adda?.amount || userData.Adda || "0";
     const unionAmt = userData.Union?.amount || userData.Union || "0";
@@ -96,12 +159,16 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
     const onlineAmt = userData.Online?.amount || userData.Online || "0";
     const cashHandoverAmt = userData.CashHandover?.amount || userData.CashHandover || "0";
 
+    // Get bus information for display
     const menuState = getMenuState(jid);
     const regNumber = menuState?.selectedBusInfo?.registrationNumber;
     const busInfo = regNumber || userData.busCode || "";
+    
+    // Add update label if this was an edit
     const updateLabel = userData.editingExisting ? " (Updated)" : "";
     const titleBus = busInfo ? ` (${busInfo})` : "";
 
+    // Build the complete submitted summary message
     const msg = [
       `✅ *Data Submitted${titleBus}${updateLabel}*`,
       `📅 Dated: ${userData.Dated || "___"}`,

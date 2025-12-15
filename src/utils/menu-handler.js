@@ -1,3 +1,15 @@
+/**
+ * menu-handler.js - Menu Navigation and Display Handler
+ * 
+ * This module handles:
+ * - Displaying all menu screens (main menu, submenus, help screens)
+ * - Processing menu navigation commands
+ * - User authentication flow
+ * - Command alias resolution (e.g., 'd' -> 'daily', 'e' -> 'exit')
+ * 
+ * This is the central hub for all menu-related interactions.
+ */
+
 import { 
   getMenuState, 
   setMenuMode, 
@@ -19,6 +31,13 @@ import {
   getBusBySelection
 } from './bus-selection.js';
 
+/**
+ * Display the main menu to a user
+ * Shows options for Daily, Booking, Switch bus, and Exit
+ * 
+ * @param {Object} sock - The WhatsApp socket connection
+ * @param {string} sender - The WhatsApp sender ID
+ */
 export function showMainMenu(sock, sender) {
   const state = getMenuState(sender);
   const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
@@ -37,21 +56,37 @@ Type your choice:`;
   return sock.sendMessage(sender, { text: menuText });
 }
 
+/**
+ * Display the bus selection menu
+ * Shows numbered list of available buses for selection
+ * 
+ * @param {Object} sock - The WhatsApp socket connection
+ * @param {string} sender - The WhatsApp sender ID
+ */
 export function showBusSelectionMenu(sock, sender) {
   const state = getMenuState(sender);
   const buses = state.availableBuses;
   const user = state.user;
   
+  // Handle case where no buses are available
   if (!buses || buses.length === 0) {
     return sock.sendMessage(sender, {
       text: "⚠️ No buses available. Please contact admin."
     });
   }
   
+  // Format and send the bus selection menu
   const menuText = formatBusSelectionMenu(buses, user?.role === 'Admin');
   return sock.sendMessage(sender, { text: menuText });
 }
 
+/**
+ * Display the Daily submenu
+ * Shows options within the Daily section
+ * 
+ * @param {Object} sock - The WhatsApp socket connection
+ * @param {string} sender - The WhatsApp sender ID
+ */
 export function showDailySubmenu(sock, sender) {
   const state = getMenuState(sender);
   const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
@@ -68,6 +103,13 @@ Type your choice:`;
   return sock.sendMessage(sender, { text: menuText });
 }
 
+/**
+ * Display the Booking submenu
+ * Shows options within the Booking section
+ * 
+ * @param {Object} sock - The WhatsApp socket connection
+ * @param {string} sender - The WhatsApp sender ID
+ */
 export function showBookingSubmenu(sock, sender) {
   const state = getMenuState(sender);
   const busCode = state.selectedBus || 'N/A';
@@ -88,6 +130,13 @@ Type your choice:`;
   return sock.sendMessage(sender, { text: menuText });
 }
 
+/**
+ * Display comprehensive help for Daily data entry
+ * Shows all available commands for entering daily report data
+ * 
+ * @param {Object} sock - The WhatsApp socket connection
+ * @param {string} sender - The WhatsApp sender ID
+ */
 export function showDailyDataHelp(sock, sender) {
   const state = getMenuState(sender);
   const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
@@ -140,6 +189,13 @@ Update:
   return sock.sendMessage(sender, { text: helpText });
 }
 
+/**
+ * Display help for Daily status management
+ * Shows how to view and update daily report statuses
+ * 
+ * @param {Object} sock - The WhatsApp socket connection
+ * @param {string} sender - The WhatsApp sender ID
+ */
 export function showDailyStatusHelp(sock, sender) {
   const helpText = `📋 *Daily Status Management*
 
@@ -164,6 +220,13 @@ Enter your command now!`;
   return sock.sendMessage(sender, { text: helpText });
 }
 
+/**
+ * Display help for Booking data entry
+ * Shows the format for entering new bookings
+ * 
+ * @param {Object} sock - The WhatsApp socket connection
+ * @param {string} sender - The WhatsApp sender ID
+ */
 export function showBookingDataHelp(sock, sender) {
   const helpText = `🚌 *Booking Data Entry*
 
@@ -191,6 +254,13 @@ Start entering your data now!`;
   return sock.sendMessage(sender, { text: helpText });
 }
 
+/**
+ * Display help for Booking status management
+ * Shows how to view and update booking statuses
+ * 
+ * @param {Object} sock - The WhatsApp socket connection
+ * @param {string} sender - The WhatsApp sender ID
+ */
 export function showBookingStatusHelp(sock, sender) {
   const helpText = `📋 *Booking Status Management*
 
@@ -214,6 +284,13 @@ Enter your command now!`;
   return sock.sendMessage(sender, { text: helpText });
 }
 
+/**
+ * Display help for Daily reports
+ * Shows various date formats for viewing reports
+ * 
+ * @param {Object} sock - The WhatsApp socket connection
+ * @param {string} sender - The WhatsApp sender ID
+ */
 export function showDailyReportsHelp(sock, sender) {
   const helpText = `📊 *Daily Reports*
 
@@ -243,6 +320,13 @@ Enter your report query now!`;
   return sock.sendMessage(sender, { text: helpText });
 }
 
+/**
+ * Display help for Booking reports
+ * Shows various date formats for viewing booking reports
+ * 
+ * @param {Object} sock - The WhatsApp socket connection
+ * @param {string} sender - The WhatsApp sender ID
+ */
 export function showBookingReportsHelp(sock, sender) {
   const helpText = `📊 *Booking Reports*
 
@@ -265,6 +349,13 @@ Enter your report query now!`;
   return sock.sendMessage(sender, { text: helpText });
 }
 
+/**
+ * Get a human-readable path showing current menu location
+ * Used for debugging and understanding navigation state
+ * 
+ * @param {Object} state - The user's menu state object
+ * @returns {string} A breadcrumb-style path like "Main Menu -> Daily Menu -> Data Entry"
+ */
 function getCurrentMenuPath(state) {
   let path = "🏠 Main Menu";
   
@@ -291,6 +382,10 @@ function getCurrentMenuPath(state) {
   return path;
 }
 
+/**
+ * Command aliases mapping
+ * Allows users to type shortcuts instead of full command names
+ */
 const commandAliases = {
   'entry': ['entry'],
   'exit': ['exit', 'e'],
@@ -307,12 +402,22 @@ const commandAliases = {
   'switch': ['switch', 'sw']
 };
 
+/**
+ * Resolve a user's input to a standard command name
+ * Handles context-sensitive aliases (e.g., 'd' means 'daily' in main menu, 'data' in submenu)
+ * 
+ * @param {string} input - The user's raw input text
+ * @param {Object|null} menuState - The user's current menu state (for context)
+ * @returns {string} The resolved command name
+ */
 export function resolveCommand(input, menuState = null) {
   const lower = input.toLowerCase().trim();
   
+  // Determine context for proper alias resolution
   const isMainMenu = menuState && menuState.mode === null && menuState.selectedBus;
   const isInSubmenu = menuState && menuState.mode !== null && menuState.submode === null;
   
+  // In main menu, single-letter shortcuts have specific meanings
   if (isMainMenu) {
     const mainMenuAliases = {
       'd': 'daily',
@@ -324,6 +429,7 @@ export function resolveCommand(input, menuState = null) {
     }
   }
   
+  // In submenus, single-letter shortcuts have different meanings
   if (isInSubmenu) {
     const submenuAliases = {
       'd': 'data',
@@ -336,20 +442,40 @@ export function resolveCommand(input, menuState = null) {
     }
   }
   
+  // Check general command aliases
   for (const [command, aliases] of Object.entries(commandAliases)) {
     if (aliases.includes(lower)) {
       return command;
     }
   }
+  
+  // Return original input if no alias match
   return lower;
 }
 
+/**
+ * Extract phone number from WhatsApp sender ID
+ * Sender ID format: "919876543210@s.whatsapp.net"
+ * 
+ * @param {string} sender - The WhatsApp sender ID
+ * @returns {string|null} The phone number portion or null
+ */
 function extractPhoneFromSender(sender) {
   const match = sender.match(/^(\d+)@/);
   return match ? match[1] : null;
 }
 
+/**
+ * Main menu navigation handler
+ * Processes all menu-related commands and manages navigation flow
+ * 
+ * @param {Object} sock - The WhatsApp socket connection
+ * @param {string} sender - The WhatsApp sender ID
+ * @param {string} text - The user's message text
+ * @returns {Promise<boolean>} True if the message was handled by menu system, false otherwise
+ */
 export async function handleMenuNavigation(sock, sender, text) {
+  // Ignore group messages and broadcast lists
   if (!sender || sender.endsWith("@g.us") || sender.endsWith("@broadcast")) {
     return false;
   }
@@ -358,10 +484,12 @@ export async function handleMenuNavigation(sock, sender, text) {
   const lowerText = text.toLowerCase().trim();
   const resolvedCommand = resolveCommand(text, state);
 
+  // Handle 'entry' command - initial authentication
   if (resolvedCommand === 'entry') {
     const phoneNumber = extractPhoneFromSender(sender);
     const user = getUserByPhone(phoneNumber);
     
+    // Check if user is registered
     if (!user) {
       await sock.sendMessage(sender, {
         text: "❌ *Access Denied*\n\nYour number is not registered in the system.\nPlease contact admin for access."
@@ -369,6 +497,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
     
+    // Get available buses for this user
     const buses = getBusesForUser(user);
     
     if (buses.length === 0) {
@@ -378,8 +507,10 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
     
+    // Mark user as authenticated
     setUserAuthenticated(sender, user, buses);
     
+    // If only one bus, auto-select it
     if (buses.length === 1) {
       setSelectedBus(sender, buses[0].busCode, buses[0]);
       await sock.sendMessage(sender, {
@@ -387,12 +518,14 @@ export async function handleMenuNavigation(sock, sender, text) {
       });
       await showMainMenu(sock, sender);
     } else {
+      // Multiple buses - show selection menu
       setAwaitingBusSelection(sender, true);
       await showBusSelectionMenu(sock, sender);
     }
     return true;
   }
 
+  // Handle bus selection when awaiting
   if (state.awaitingBusSelection) {
     const buses = state.availableBuses;
     const selectedBus = getBusBySelection(buses, text);
@@ -405,6 +538,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       await showMainMenu(sock, sender);
       return true;
     } else {
+      // Invalid selection
       await sock.sendMessage(sender, {
         text: `❌ Invalid selection. Please enter a number between 1 and ${buses.length}.`
       });
@@ -412,6 +546,7 @@ export async function handleMenuNavigation(sock, sender, text) {
     }
   }
 
+  // Require authentication before proceeding
   if (!state.isAuthenticated || !state.selectedBus) {
     if (!state.awaitingBusSelection) {
       await sock.sendMessage(sender, {
@@ -422,6 +557,7 @@ export async function handleMenuNavigation(sock, sender, text) {
     return false;
   }
 
+  // Handle 'switch' command - change to a different bus
   if (resolvedCommand === 'switch') {
     switchBus(sender);
     setAwaitingBusSelection(sender, true);
@@ -429,6 +565,7 @@ export async function handleMenuNavigation(sock, sender, text) {
     return true;
   }
 
+  // Handle 'menu' command - show current menu screen
   if (resolvedCommand === 'menu') {
     if (!state.mode) {
       await showMainMenu(sock, sender);
@@ -452,6 +589,7 @@ export async function handleMenuNavigation(sock, sender, text) {
     return true;
   }
 
+  // Handle direct help commands with feature prefix
   if (lowerText === 'daily help') {
     await showDailyDataHelp(sock, sender);
     return true;
@@ -462,11 +600,13 @@ export async function handleMenuNavigation(sock, sender, text) {
     return true;
   }
 
+  // Handle 'exit' and 'home' commands - navigate back
   if (resolvedCommand === 'exit' || resolvedCommand === 'home') {
     const currentMode = state.mode;
     const currentSubmode = state.submode;
 
     if (currentSubmode) {
+      // In submode - go back to mode menu
       exitToPreviousLevel(sender);
       if (currentMode === 'daily') {
         await showDailySubmenu(sock, sender);
@@ -475,10 +615,12 @@ export async function handleMenuNavigation(sock, sender, text) {
       }
       return true;
     } else if (currentMode) {
+      // In mode - go back to main menu
       exitToHome(sender);
       await showMainMenu(sock, sender);
       return true;
     } else {
+      // At main menu - full logout
       fullLogout(sender);
       await sock.sendMessage(sender, { 
         text: "👋 Menu closed. Send *Entry* anytime to open the menu again." 
@@ -487,6 +629,7 @@ export async function handleMenuNavigation(sock, sender, text) {
     }
   }
 
+  // Handle mode selection from main menu
   if (!state.mode) {
     if (resolvedCommand === 'daily') {
       setMenuMode(sender, 'daily');
@@ -499,6 +642,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
   } else if (state.mode && !state.submode) {
+    // Handle navigation within mode menus (submenu selection)
     if (resolvedCommand === 'help') {
       if (state.mode === 'daily') {
         await showDailyDataHelp(sock, sender);
@@ -529,6 +673,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
   } else if (state.submode) {
+    // Handle help command within submodes
     if (resolvedCommand === 'help') {
       if (state.mode === 'booking' && state.submode === 'data') {
         await showBookingDataHelp(sock, sender);
@@ -541,5 +686,6 @@ export async function handleMenuNavigation(sock, sender, text) {
     }
   }
 
+  // Message was not handled by menu system - let feature handlers process it
   return false;
 }
