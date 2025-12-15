@@ -148,22 +148,36 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
 
             const existing = user[key];
             
-            // Check if value is different from existing
+            // Check if any value is different from existing (amount, mode, or remarks)
             const isDifferent =
               existing &&
-              ((typeof existing === "object" &&
-                (existing.amount !== amount || existing.mode !== mode)) ||
-                (typeof existing !== "object" && String(existing) !== amount));
+              typeof existing === "object" &&
+              (existing.amount !== amount || 
+               existing.mode !== mode || 
+               (remarks && existing.remarks !== remarks));
 
             // Queue update confirmation if value differs
             if (isDifferent) {
+              const oldAmt = existing.amount || existing;
+              const oldMode = existing.mode || "cash";
+              const oldRemarks = existing.remarks || "";
+              
+              let msg = `⚠️ *${key}*\nAlready Have:\nAmount: ₹${oldAmt}\nMode: ${capitalize(oldMode)}`;
+              if (oldRemarks) msg += `\nRemark: ${oldRemarks}`;
+              msg += `\n\nDo you want to update it to:\nAmount: ₹${amount}\nMode: ${capitalize(mode)}`;
+              if (remarks) msg += `\nRemark: ${remarks}`;
+              msg += `\n\n(Yes or Y / No or N)`;
+              
               pendingUpdates.push({
                 field: key,
                 value: newVal,
-                message: `⚠️ ${key} already has value *${formatExistingForMessage(existing)}*.\nDo you want to update it to *${amount} (${mode})*? (yes/no)`,
+                message: msg,
               });
-            } else {
+            } else if (!existing) {
               user[key] = newVal;
+            } else {
+              // Same amount/mode, just update remarks if provided
+              if (remarks) existing.remarks = remarks;
             }
           } catch (err) {
             console.error(`❌ Error parsing ${key} for ${sender}:`, err);
@@ -195,13 +209,23 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
             const oldValue = existingIndex !== -1 ? user.EmployExpenses[existingIndex] : null;
 
             // Check if value is different from existing (same role + same mode)
-            if (oldValue && oldValue.amount !== amount) {
+            const isDifferent = oldValue && (oldValue.amount !== amount || (remarks && oldValue.remarks !== remarks));
+            
+            if (isDifferent) {
+              const oldRemarks = oldValue.remarks || "";
+              
+              let msg = `⚠️ *${key}*\nAlready Have:\nAmount: ₹${oldValue.amount}\nMode: ${capitalize(mode)}`;
+              if (oldRemarks) msg += `\nRemark: ${oldRemarks}`;
+              msg += `\n\nDo you want to update it to:\nAmount: ₹${amount}\nMode: ${capitalize(mode)}`;
+              if (remarks) msg += `\nRemark: ${remarks}`;
+              msg += `\n\n(Yes or Y / No or N)`;
+              
               pendingUpdates.push({
                 field: `${key} (${mode})`,
                 value: newVal,
                 type: "employee",
                 employeeRole: key,
-                message: `⚠️ *${key} (${mode})* already has value *₹${oldValue.amount}*.\nDo you want to update it to *₹${amount}*? (yes/no)`,
+                message: msg,
               });
             } else if (existingIndex !== -1) {
               // Update existing entry (same role + same mode) - preserve the full name
@@ -230,18 +254,32 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
           const newVal = { amount: value };
           if (remarks) newVal.remarks = remarks;
           
-          const existingAmount = user[key]?.amount || user[key];
+          const existing = user[key];
+          const existingAmount = existing?.amount || existing;
+          const existingRemarks = existing?.remarks || "";
           
-          // Queue update confirmation if value differs
-          if (existingAmount && existingAmount !== value) {
+          // Check if value is different from existing (amount or remarks)
+          const isDifferent = existingAmount && (existingAmount !== value || (remarks && existingRemarks !== remarks));
+          
+          if (isDifferent) {
             const label = key.replace(/([A-Z])/g, " $1").trim();
+            
+            let msg = `⚠️ *${label}*\nAlready Have:\nAmount: ₹${existingAmount}`;
+            if (existingRemarks) msg += `\nRemark: ${existingRemarks}`;
+            msg += `\n\nDo you want to update it to:\nAmount: ₹${value}`;
+            if (remarks) msg += `\nRemark: ${remarks}`;
+            msg += `\n\n(Yes or Y / No or N)`;
+            
             pendingUpdates.push({
               field: key,
               value: newVal,
-              message: `⚠️ ${label} already has value *${existingAmount}*.\nDo you want to update it to *${value}*? (yes/no)`,
+              message: msg,
             });
-          } else {
+          } else if (!existingAmount) {
             user[key] = newVal;
+          } else {
+            // Same amount, just update remarks if provided
+            if (remarks && existing) existing.remarks = remarks;
           }
         } catch (err) {
           console.error(`❌ Error parsing generic field ${key} for ${sender}:`, err);
@@ -336,7 +374,7 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
   if (!user.waitingForUpdate) return false;
 
   try {
-    if (/^yes$/i.test(text)) {
+    if (/^(yes|y)$/i.test(text)) {
       const { field, value, type } = user.waitingForUpdate;
 
       // Handle employee expense update (Driver/Conductor)
@@ -401,7 +439,7 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
         await sendSummary(sock, sender, completenessMsg, user);
       }
       return true;
-    } else if (/^no$/i.test(text)) {
+    } else if (/^(no|n)$/i.test(text)) {
       // Cancel this update
       user.waitingForUpdate = null;
       
