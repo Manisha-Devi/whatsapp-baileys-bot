@@ -53,6 +53,8 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     Union: /union\s*[:\-]?\s*\*?(\d+)\*?(?:\s*(online))?/gi,
     TotalCashCollection: /(?:total\s*cash\s*collection|cash\s*collection|cash|total\s*collection)\s*[:\-]?\s*\*?(\d+)\*?/gi,
     Online: /(?:online\s*collection|total\s*online|online)\s*[:\-]?\s*\*?(\d+)\*?/gi,
+    Driver: /driver\s*[:\-]?\s*\*?(\d+)\*?(?:\s*(online))?/gi,
+    Conductor: /conductor\s*[:\-]?\s*\*?(\d+)\*?(?:\s*(online))?/gi,
   };
 
   let anyFieldFound = false;
@@ -166,6 +168,46 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
           continue;
         }
 
+        // Handle employee expense fields (Driver, Conductor) - stored in EmployExpenses array
+        if (["Driver", "Conductor"].includes(key)) {
+          try {
+            const amount = parseFloat(match[1].trim());
+            const mode = match[2] ? "online" : "cash";
+            const newVal = { amount, mode };
+
+            // Initialize employee expenses with bus defaults if not exists or empty
+            if (!user.EmployExpenses || user.EmployExpenses.length === 0) {
+              user.EmployExpenses = getEmployExpensesForBus(selectedBus) || [];
+            }
+
+            // Check if this employee already has an expense entry
+            const existingIndex = user.EmployExpenses.findIndex(
+              (e) => e.name.toLowerCase() === key.toLowerCase()
+            );
+
+            const oldValue = existingIndex !== -1 ? user.EmployExpenses[existingIndex] : null;
+
+            // Check if value is different from existing
+            if (oldValue && (oldValue.amount !== amount || oldValue.mode !== mode)) {
+              pendingUpdates.push({
+                field: key,
+                value: newVal,
+                type: "employee",
+                message: `⚠️ *${key}* already has value *₹${oldValue.amount} (${oldValue.mode})*.\nDo you want to update it to *₹${amount} (${mode})*? (yes/no)`,
+              });
+            } else if (existingIndex !== -1) {
+              // Update existing
+              user.EmployExpenses[existingIndex] = { name: key, amount, mode };
+            } else {
+              // Add new
+              user.EmployExpenses.push({ name: key, amount, mode });
+            }
+          } catch (err) {
+            console.error(`❌ Error parsing ${key} for ${sender}:`, err);
+          }
+          continue;
+        }
+
         // Handle collection fields (TotalCashCollection, Online)
         try {
           const value = match[1].trim();
@@ -195,6 +237,9 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
 
   // Process inline expense entries (expense [name] [amount] [optional: online])
   try {
+    // Initialize ExtraExpenses array if not exists
+    if (!user.ExtraExpenses) user.ExtraExpenses = [];
+    
     const expenseMatches = [
       ...normalizedText.matchAll(/expense\s+([a-zA-Z]+)\s*[:\-]?\s*(\d+)(?:\s*(online))?/gi),
     ];
