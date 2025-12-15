@@ -259,6 +259,10 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     const handledExpenseCmd = await handleExpenseCommand(sock, sender, normalizedText, user);
     if (handledExpenseCmd) return;
 
+    // Handle field update confirmation (must come BEFORE submit to prevent submit from catching Yes/No)
+    const handledFieldUpdate = await handleFieldUpdateConfirmation(sock, sender, text, user);
+    if (handledFieldUpdate) return;
+
     // Handle field extraction from multi-line input
     // Extracts fields like "Dated 15/11/2025", "Diesel 5000", etc.
     const fieldResult = await handleFieldExtraction(sock, sender, normalizedText, user);
@@ -267,10 +271,6 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     // Handle submit command
     const handledSubmit = await handleSubmit(sock, sender, text, user);
     if (handledSubmit) return;
-
-    // Handle field update confirmation
-    const handledFieldUpdate = await handleFieldUpdateConfirmation(sock, sender, text, user);
-    if (handledFieldUpdate) return;
 
     // If no fields were found in the message, exit
     if (!fieldResult.anyFieldFound) return;
