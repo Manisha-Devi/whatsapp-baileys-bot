@@ -56,6 +56,11 @@ Incoming WhatsApp messages are routed by orchestrators to specific handlers. Han
   - `src/data/buses.json`: Bus inventory with status and details.
 - **Switch Bus**: Users can switch between their assigned buses using "Switch" or "S" command from main menu.
 
+## Multi-Line Field Input (Updated Dec 2025)
+- **Unified Field Extraction**: The `handleFieldExtraction` function in `field-handler.js` now handles Driver/Conductor patterns alongside Diesel, Adda, Union, etc.
+- **Pending Updates Queue**: When multi-line input contains fields that need update confirmation, all pending updates are queued and prompted sequentially.
+- **Employee Expense Defaults**: When processing Driver/Conductor fields, the system loads bus-specific employee defaults from `getEmployExpensesForBus` before comparison.
+
 ## API Security
 - Bearer token authentication for all REST endpoints using environment variables.
 
