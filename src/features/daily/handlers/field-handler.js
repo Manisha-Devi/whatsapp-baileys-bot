@@ -320,11 +320,19 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
         if (existing && (existing.amount !== amount || existing.mode !== mode)) {
           const newVal = { amount, mode };
           if (remarks) newVal.remarks = remarks;
+          
+          const oldRemarks = existing.remarks || "";
+          let msg = `⚠️ *${capitalize(expenseName)}*\nAlready Have:\nAmount: ₹${existing.amount}\nMode: ${capitalize(existing.mode)}`;
+          if (oldRemarks) msg += `\nRemark: ${oldRemarks}`;
+          msg += `\n\nDo you want to update it to:\nAmount: ₹${amount}\nMode: ${capitalize(mode)}`;
+          if (remarks) msg += `\nRemark: ${remarks}`;
+          msg += `\n\n(Yes or Y / No or N)`;
+          
           pendingUpdates.push({
             field: expenseName,
             value: newVal,
             type: "extra",
-            message: `⚠️ Expense *${expenseName}* already has *${existing.amount} (${existing.mode})*.\nUpdate to *${amount} (${mode})*? (yes/no)`,
+            message: msg,
           });
         } else if (!existing) {
           const newExpense = { name: expenseName, amount, mode };

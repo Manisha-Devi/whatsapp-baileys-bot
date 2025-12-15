@@ -76,9 +76,14 @@ export async function handleEmployeeExpenseCommand(sock, sender, normalizedText,
         type: "employee",
         employeeRole: role,
       };
-      await safeSendMessage(sock, sender, {
-        text: `⚠️ *${role} (${mode})* already has value *₹${oldValue.amount}*.\nDo you want to update it to *₹${amount}*? (yes/no)`,
-      });
+      
+      const oldRemarks = oldValue.remarks || "";
+      let msg = `⚠️ *${role}*\nAlready Have:\nAmount: ₹${oldValue.amount}\nMode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`;
+      if (oldRemarks) msg += `\nRemark: ${oldRemarks}`;
+      msg += `\n\nDo you want to update it to:\nAmount: ₹${amount}\nMode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`;
+      msg += `\n\n(Yes or Y / No or N)`;
+      
+      await safeSendMessage(sock, sender, { text: msg });
       return true;
     }
 
