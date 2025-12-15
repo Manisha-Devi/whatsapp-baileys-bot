@@ -60,6 +60,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
 
   let anyFieldFound = false;
   let pendingUpdates = [];
+  let anyNewFieldApplied = false; // Track if any new field was actually applied (not just queued for update)
 
   // Get currently selected bus from menu state
   const menuState = getMenuState(sender);
@@ -175,6 +176,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
               });
             } else if (!existing) {
               user[key] = newVal;
+              anyNewFieldApplied = true;
             } else {
               // Same amount/mode, just update remarks if provided
               if (remarks) existing.remarks = remarks;
@@ -235,11 +237,13 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
               if (!user.EmployExpenses[existingIndex].role) {
                 user.EmployExpenses[existingIndex].role = key;
               }
+              anyNewFieldApplied = true;
             } else {
               // Add new entry (different mode or new employee)
               const newEntry = { name: key, role: key, amount, mode };
               if (remarks) newEntry.remarks = remarks;
               user.EmployExpenses.push(newEntry);
+              anyNewFieldApplied = true;
             }
           } catch (err) {
             console.error(`❌ Error parsing ${key} for ${sender}:`, err);
@@ -277,6 +281,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
             });
           } else if (!existingAmount) {
             user[key] = newVal;
+            anyNewFieldApplied = true;
           } else {
             // Same amount, just update remarks if provided
             if (remarks && existing) existing.remarks = remarks;
@@ -325,6 +330,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
           const newExpense = { name: expenseName, amount, mode };
           if (remarks) newExpense.remarks = remarks;
           user.ExtraExpenses.push(newExpense);
+          anyNewFieldApplied = true;
         } else if (remarks) {
           existing.remarks = remarks;
         }
@@ -347,12 +353,17 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       employeeName: first.employeeName || null,
     };
     
-    // Recalculate totals for fields that were applied without confirmation
-    recalculateCashHandover(user);
-    const completenessMsg = getCompletionMessage(user);
+    // Only send summary if new fields were applied (not just update confirmations)
+    if (anyNewFieldApplied) {
+      // Recalculate totals for fields that were applied without confirmation
+      recalculateCashHandover(user);
+      const completenessMsg = getCompletionMessage(user);
+      
+      // Send summary first, then update prompt as separate message
+      await sendSummary(sock, sender, completenessMsg, user);
+    }
     
-    // Send summary first, then update prompt as separate message
-    await sendSummary(sock, sender, completenessMsg, user);
+    // Always send the update confirmation prompt
     await safeSendMessage(sock, sender, { text: first.message });
     return { handled: true, anyFieldFound };
   }
