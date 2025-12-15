@@ -126,11 +126,14 @@ export function getCompletionMessage(user) {
       return false;
     });
 
-    // All fields are complete - show message to type Submit
+    // All fields are complete - prompt for submission
     if (missing.length === 0) {
-      // Don't auto-set waitingForSubmit - user must explicitly type "submit"
-      // This prevents accidental submission when confirming field updates
-      return "✅ All Data Entered.\nType *Submit* when ready.";
+      // Don't show submit prompt if waiting for update confirmation
+      if (user.waitingForUpdate) {
+        return "⚠️ All Data Entered.";
+      }
+      if (!user.waitingForSubmit) user.waitingForSubmit = true;
+      return "⚠️ All Data Entered.\nDo you want to Submit now? (yes/no)";
     } else {
       // Some fields are missing - show which ones
       if (user.waitingForSubmit) user.waitingForSubmit = false;
