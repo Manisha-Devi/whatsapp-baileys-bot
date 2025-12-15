@@ -49,13 +49,13 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
   // Format: fieldName amount [online] [remarks...]
   const fieldPatterns = {
     Dated: /date(?:d)?\s*[:\-]?\s*([\w\s,\/\-\(\)\*]+)/gi,
-    Diesel: /diesel\s*[:\-]?\s*\*?(\d+)\*?(?:\s+(online))?(?:\s+(.+?))?$/gim,
-    Adda: /adda\s*[:\-]?\s*\*?(\d+)\*?(?:\s+(online))?(?:\s+(.+?))?$/gim,
-    Union: /union\s*[:\-]?\s*\*?(\d+)\*?(?:\s+(online))?(?:\s+(.+?))?$/gim,
-    TotalCashCollection: /(?:total\s*cash\s*collection|cash\s*collection|cash|total\s*collection)\s*[:\-]?\s*\*?(\d+)\*?(?:\s+(.+?))?$/gim,
-    Online: /(?:online\s*collection|total\s*online|online)\s*[:\-]?\s*\*?(\d+)\*?(?:\s+(.+?))?$/gim,
-    Driver: /driver\s*[:\-]?\s*\*?(\d+)\*?(?:\s+(online))?(?:\s+(.+?))?$/gim,
-    Conductor: /conductor\s*[:\-]?\s*\*?(\d+)\*?(?:\s+(online))?(?:\s+(.+?))?$/gim,
+    Diesel: /diesel[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online))?(?:[ \t]+(.+?))?$/gim,
+    Adda: /adda[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online))?(?:[ \t]+(.+?))?$/gim,
+    Union: /union[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online))?(?:[ \t]+(.+?))?$/gim,
+    TotalCashCollection: /(?:total[ \t]*cash[ \t]*collection|cash[ \t]*collection|cash|total[ \t]*collection)[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(.+?))?$/gim,
+    Online: /(?:online[ \t]*collection|total[ \t]*online|online)[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(.+?))?$/gim,
+    Driver: /driver[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online))?(?:[ \t]+(.+?))?$/gim,
+    Conductor: /conductor[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online))?(?:[ \t]+(.+?))?$/gim,
   };
 
   let anyFieldFound = false;
