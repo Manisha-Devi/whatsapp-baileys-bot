@@ -165,15 +165,16 @@ export async function handleSubmit(sock, sender, text, user) {
     BalanceAmount: user.editingExisting 
       ? { Amount: balanceAmount, Date: new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) }
       : { Amount: balanceAmount },
-    Status: user.editingExisting ? "Initiated" : "Pending",
-    Remarks: user.Remarks || "",
-    submittedAt: new Date().toISOString(),
     // Post-Booking expense fields (always included, empty by default)
     Diesel: user.Diesel || null,
     Adda: user.Adda || null,
     Union: user.Union || null,
     EmployExpenses: user.EmployExpenses || [],
     ExtraExpenses: user.ExtraExpenses || [],
+    // Status and metadata at the end
+    Status: user.editingExisting ? "Initiated" : "Pending",
+    Remarks: user.Remarks || "",
+    submittedAt: new Date().toISOString(),
   };
 
   const isUpdate = user.editingExisting;
