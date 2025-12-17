@@ -45,6 +45,9 @@ export async function handleDeposit(sock, sender, text, cashState) {
     let fromBookings = 0;
     let fromBalance = 0;
     
+    const dailyTotal = dailyEntries.reduce((sum, e) => sum + e.amount, 0);
+    const bookingTotal = bookingEntries.reduce((sum, e) => sum + e.amount, 0);
+    
     for (const entry of dailyEntries) {
       if (remainingToDeposit <= 0) break;
       
@@ -53,8 +56,6 @@ export async function handleDeposit(sock, sender, text, cashState) {
         fromDaily += entry.amount;
         remainingToDeposit -= entry.amount;
         await updateEntryStatus(entry.id, false);
-      } else {
-        break;
       }
     }
     
@@ -66,25 +67,27 @@ export async function handleDeposit(sock, sender, text, cashState) {
         fromBookings += entry.amount;
         remainingToDeposit -= entry.amount;
         await updateEntryStatus(entry.id, true);
-      } else {
-        break;
       }
     }
     
-    if (remainingToDeposit > 0 && remainingToDeposit <= previousBalance) {
-      fromBalance = remainingToDeposit;
-      remainingToDeposit = 0;
+    if (remainingToDeposit > 0 && previousBalance > 0) {
+      const useFromBalance = Math.min(remainingToDeposit, previousBalance);
+      fromBalance = useFromBalance;
+      remainingToDeposit -= useFromBalance;
     }
     
     if (remainingToDeposit > 0) {
-      const actuallyConsumed = fromDaily + fromBookings + fromBalance;
-      await safeSendMessage(sock, sender, {
-        text: `❌ Cannot deposit ₹${formatCurrency(depositAmount)}.\n\n` +
-              `Only ₹${formatCurrency(actuallyConsumed)} can be consumed from complete entries.\n\n` +
-              `💡 *Tip:* Deposit amounts must match the sum of complete entries.\n` +
-              `Available entries (FIFO order) shown in summary above.`
-      });
-      return false;
+      const remainingDaily = dailyTotal - fromDaily;
+      const remainingBooking = bookingTotal - fromBookings;
+      
+      if (remainingToDeposit <= remainingDaily) {
+        fromDaily += remainingToDeposit;
+        remainingToDeposit = 0;
+      } else if (remainingToDeposit <= remainingDaily + remainingBooking) {
+        fromDaily += remainingDaily;
+        fromBookings += (remainingToDeposit - remainingDaily);
+        remainingToDeposit = 0;
+      }
     }
     
     const newBalance = totalAvailable - depositAmount;
