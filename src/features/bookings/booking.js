@@ -183,6 +183,9 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
     // Initialize global booking data storage if not exists
     if (!global.bookingData) global.bookingData = {};
     
+    // Get bus info from selected bus
+    const busInfo = menuState.selectedBusInfo;
+    
     // Initialize user's booking session with default values if not exists
     if (!global.bookingData[sender]) {
       global.bookingData[sender] = {
@@ -191,9 +194,12 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
         CustomerPhone: null,
         PickupLocation: null,
         DropLocation: null,
-        TravelDate: null,
-        VehicleType: null,
-        NumberOfPassengers: null,
+        TravelDateFrom: null,
+        TravelDateTo: null,
+        BusCode: selectedBus || null,
+        RegistrationNumber: busInfo?.registrationNumber || null,
+        BusType: busInfo?.type || null,
+        Capacity: busInfo?.capacity || null,
         TotalFare: null,
         AdvancePaid: null,
         BalanceAmount: null,

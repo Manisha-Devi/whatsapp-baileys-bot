@@ -9,10 +9,12 @@
  */
 
 import { safeSendMessage } from "./helpers.js";
+import { getMenuState } from "../../../utils/menu-state.js";
 
 /**
  * Sends a formatted summary of the user's current booking entry progress.
  * Displays all entered fields with appropriate icons and formatting.
+ * Shows ₹___ for empty fields (similar to Daily summary).
  * 
  * @param {Object} sock - WhatsApp socket connection instance
  * @param {string} sender - Sender's phone number/ID
@@ -21,44 +23,47 @@ import { safeSendMessage } from "./helpers.js";
  * @returns {Promise<void>}
  */
 export async function sendSummary(sock, sender, completenessMsg, user) {
-  let msg = "📋 *Booking Details*\n\n";
-
-  if (user.CustomerName) msg += `👤 Customer: ${user.CustomerName}\n`;
-  if (user.CustomerPhone) msg += `📱 Phone: ${user.CustomerPhone}\n`;
+  // Get bus info from menu state for header
+  const menuState = getMenuState(sender);
+  const regNumber = menuState?.selectedBusInfo?.registrationNumber || user.RegistrationNumber || '';
+  const titleBus = regNumber ? ` (${regNumber})` : '';
   
-  if (user.PickupLocation && user.DropLocation) {
-    msg += `📍 Pickup: ${user.PickupLocation} → Drop: ${user.DropLocation}\n`;
-  } else {
-    if (user.PickupLocation) msg += `📍 Pickup: ${user.PickupLocation}\n`;
-    if (user.DropLocation) msg += `📍 Drop: ${user.DropLocation}\n`;
-  }
-  
+  // Format date range
+  let dateDisplay = "___";
   if (user.TravelDateFrom) {
-    if (user.TravelDateFrom === user.TravelDateTo) {
-      msg += `📅 Date: ${user.TravelDateFrom}\n`;
+    if (user.TravelDateFrom === user.TravelDateTo || !user.TravelDateTo) {
+      dateDisplay = user.TravelDateFrom;
     } else {
-      msg += `📅 Date: ${user.TravelDateFrom} to ${user.TravelDateTo}\n`;
+      dateDisplay = `${user.TravelDateFrom} to ${user.TravelDateTo}`;
     }
   }
   
-  if (user.BusCode) {
-    msg += `🚌 Bus: ${user.BusCode} (${user.RegistrationNumber})\n`;
-    msg += `🚐 Type: ${user.BusType} | Capacity: ${user.Capacity}\n`;
-  }
-  
-  if (user.TotalFare !== undefined && user.TotalFare !== null) {
-    msg += `💰 Total Fare: ₹${user.TotalFare.toLocaleString('en-IN')}\n`;
-  }
-  if (user.AdvancePaid !== undefined && user.AdvancePaid !== null) {
-    msg += `💵 Advance: ₹${user.AdvancePaid.toLocaleString('en-IN')}\n`;
-  }
-  if (user.BalanceAmount !== undefined && user.BalanceAmount !== null) {
-    msg += `💸 Balance: ₹${user.BalanceAmount.toLocaleString('en-IN')}\n`;
-  }
-  
-  if (user.Remarks) msg += `📝 Remarks: ${user.Remarks}\n`;
+  // Format amounts with ₹___ for missing values
+  const formatAmount = (val) => {
+    if (val === undefined || val === null || val === "") return "___";
+    return val.toLocaleString('en-IN');
+  };
 
-  msg += `\n${completenessMsg}`;
+  const msg = [
+    `📋 *Booking Entry${titleBus}*`,
+    ``,
+    `👤 *Customer Details:*`,
+    `👤 Name: ${user.CustomerName || "___"}`,
+    `📱 Mobile: ${user.CustomerPhone || "___"}`,
+    ``,
+    `📍 *Route Details:*`,
+    `🚏 Pickup: ${user.PickupLocation || "___"}`,
+    `🏁 Drop: ${user.DropLocation || "___"}`,
+    `📅 Date: ${dateDisplay}`,
+    ``,
+    `💰 *Payment Details:*`,
+    `💵 Total Fare: ₹${formatAmount(user.TotalFare)}`,
+    `💳 Advance: ₹${formatAmount(user.AdvancePaid)}`,
+    `💸 Balance: ₹${formatAmount(user.BalanceAmount)}`,
+    ...(user.Remarks ? [``, `📝 *Remarks:* ${user.Remarks}`] : []),
+    ``,
+    completenessMsg
+  ].join("\n");
 
   await safeSendMessage(sock, sender, { text: msg });
 }
@@ -82,13 +87,13 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
  * @returns {string} Status message indicating completion state or missing fields
  */
 export function getCompletionMessage(user) {
+  // BusCode is auto-set from selected bus, so not in required fields
   const requiredFieldsMap = {
     "CustomerName": "Name",
     "CustomerPhone": "Mobile",
     "PickupLocation": "Pickup",
     "DropLocation": "Drop",
     "TravelDateFrom": "Date",
-    "BusCode": "Bus",
     "TotalFare": "Fare",
     "AdvancePaid": "Advance",
   };
