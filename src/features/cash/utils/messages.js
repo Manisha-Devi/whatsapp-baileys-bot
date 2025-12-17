@@ -125,7 +125,14 @@ export async function sendDepositConfirmation(sock, jid, depositData) {
 }
 
 export async function sendNoCashAvailable(sock, jid, filterDate = null) {
-  let msg = `💰 *Cash Management*\n\n`;
+  const menuState = getMenuState(jid);
+  const regNumber = menuState?.selectedBusInfo?.registrationNumber || menuState?.selectedBus || '';
+  
+  let msg = `💰 *Cash Management*`;
+  if (regNumber) {
+    msg += ` (*${regNumber}*)`;
+  }
+  msg += `\n\n`;
   msg += `⚠️ No cash available for deposit`;
   if (filterDate) {
     msg += ` up to ${filterDate}`;
