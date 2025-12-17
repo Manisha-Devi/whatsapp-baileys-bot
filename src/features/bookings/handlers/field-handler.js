@@ -189,6 +189,21 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     anyFieldFound = true;
   }
 
+  // Extract Balance: "balance [amount]" - For Post-Booking phase
+  // Updates balance and recalculates TotalFare = Advance + NewBalance
+  if (user.editingExisting) {
+    const balanceMatch = normalizedText.match(/^balance\s+(\d+)$/i);
+    if (balanceMatch) {
+      const newBalance = parseInt(balanceMatch[1]);
+      user.BalanceAmount = newBalance;
+      // Recalculate TotalFare based on new balance
+      if (user.AdvancePaid !== undefined) {
+        user.TotalFare = user.AdvancePaid + newBalance;
+      }
+      anyFieldFound = true;
+    }
+  }
+
   // Extract Remarks: "remarks [text]"
   const remarksMatch = normalizedText.match(/^remarks\s+(.+)$/i);
   if (remarksMatch) {

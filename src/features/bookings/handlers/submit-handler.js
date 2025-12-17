@@ -162,9 +162,9 @@ export async function handleSubmit(sock, sender, text, user) {
     AdvancePaid: {
       Amount: advancePaid
     },
-    BalanceAmount: {
-      Amount: balanceAmount
-    },
+    BalanceAmount: user.editingExisting 
+      ? { Amount: balanceAmount, Date: new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) }
+      : { Amount: balanceAmount },
     Status: user.editingExisting ? "Initiated" : "Pending",
     Remarks: user.Remarks || "",
     submittedAt: new Date().toISOString(),
