@@ -112,17 +112,13 @@ Type your choice:`;
  */
 export function showBookingSubmenu(sock, sender) {
   const state = getMenuState(sender);
-  const busCode = state.selectedBus || 'N/A';
+  const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
   
-  const menuText = `🚌 *Booking Menu*
-🚌 Bus: *${busCode}*
+  const menuText = `🚌 *Booking Menu* (*${regNumber}*)
 
-Please select an option:
+Enter Command or Select Option:
 
-📝 Reply *Data* or *D* - for Booking Entry
-📋 Reply *Status* or *S* - for Status Management
 ❓ Reply *Help* or *H* - for Help with Commands
-📊 Reply *Reports* or *R* - to View Booking Reports
 🔙 Reply *Exit* or *E* - to go back to Main Menu
 
 Type your choice:`;
