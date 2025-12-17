@@ -89,7 +89,7 @@ export function getCompletionMessage(user) {
     "DropLocation": "Drop",
     "TravelDateFrom": "Date",
     "BusCode": "Bus",
-    "TotalFare": "Total Fare",
+    "TotalFare": "Fare",
     "AdvancePaid": "Advance",
   };
 

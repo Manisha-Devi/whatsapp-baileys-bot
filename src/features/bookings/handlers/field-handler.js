@@ -129,8 +129,8 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     }
   }
 
-  // Extract Total Fare: "total fare [amount]"
-  const fareMatch = normalizedText.match(/^total\s+fare\s+(\d+)$/i);
+  // Extract Fare: "fare [amount]" (displays as Total Fare in summary)
+  const fareMatch = normalizedText.match(/^fare\s+(\d+)$/i);
   if (fareMatch) {
     user.TotalFare = parseInt(fareMatch[1]);
     if (user.AdvancePaid) {
