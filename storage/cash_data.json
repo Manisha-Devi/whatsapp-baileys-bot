@@ -1,1 +1,20 @@
-{}
+{
+  "DEP_BUS102_17/12/2025_001": {
+    "depositId": "DEP_BUS102_17/12/2025_001",
+    "sender": "24696179441690@lid",
+    "busCode": "BUS102",
+    "amount": 3300,
+    "dailyEntries": [],
+    "bookingEntries": [],
+    "breakdown": {
+      "fromDaily": 3300,
+      "fromBookings": 0,
+      "fromBalance": 0
+    },
+    "balance": {
+      "Amount": 50
+    },
+    "remarks": "",
+    "depositedAt": "2025-12-17T07:34:04.735Z"
+  }
+}

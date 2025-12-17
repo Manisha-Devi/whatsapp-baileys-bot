@@ -48,46 +48,30 @@ export async function handleDeposit(sock, sender, text, cashState) {
     const dailyTotal = dailyEntries.reduce((sum, e) => sum + e.amount, 0);
     const bookingTotal = bookingEntries.reduce((sum, e) => sum + e.amount, 0);
     
-    for (const entry of dailyEntries) {
-      if (remainingToDeposit <= 0) break;
-      
-      if (entry.amount <= remainingToDeposit) {
-        usedDailyEntries.push(entry.id);
-        fromDaily += entry.amount;
-        remainingToDeposit -= entry.amount;
-        await updateEntryStatus(entry.id, false);
-      }
-    }
-    
-    for (const entry of bookingEntries) {
-      if (remainingToDeposit <= 0) break;
-      
-      if (entry.amount <= remainingToDeposit) {
-        usedBookingEntries.push(entry.id);
-        fromBookings += entry.amount;
-        remainingToDeposit -= entry.amount;
-        await updateEntryStatus(entry.id, true);
-      }
-    }
-    
-    if (remainingToDeposit > 0 && previousBalance > 0) {
+    if (previousBalance > 0) {
       const useFromBalance = Math.min(remainingToDeposit, previousBalance);
       fromBalance = useFromBalance;
       remainingToDeposit -= useFromBalance;
     }
     
-    if (remainingToDeposit > 0) {
-      const remainingDaily = dailyTotal - fromDaily;
-      const remainingBooking = bookingTotal - fromBookings;
+    for (const entry of dailyEntries) {
+      if (remainingToDeposit <= 0) break;
       
-      if (remainingToDeposit <= remainingDaily) {
-        fromDaily += remainingToDeposit;
-        remainingToDeposit = 0;
-      } else if (remainingToDeposit <= remainingDaily + remainingBooking) {
-        fromDaily += remainingDaily;
-        fromBookings += (remainingToDeposit - remainingDaily);
-        remainingToDeposit = 0;
-      }
+      const useAmount = Math.min(entry.amount, remainingToDeposit);
+      usedDailyEntries.push(entry.id);
+      fromDaily += useAmount;
+      remainingToDeposit -= useAmount;
+      await updateEntryStatus(entry.id, false);
+    }
+    
+    for (const entry of bookingEntries) {
+      if (remainingToDeposit <= 0) break;
+      
+      const useAmount = Math.min(entry.amount, remainingToDeposit);
+      usedBookingEntries.push(entry.id);
+      fromBookings += useAmount;
+      remainingToDeposit -= useAmount;
+      await updateEntryStatus(entry.id, true);
     }
     
     const newBalance = totalAvailable - depositAmount;
