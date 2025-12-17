@@ -168,6 +168,12 @@ export async function handleSubmit(sock, sender, text, user) {
     Status: user.editingExisting ? (user.Status || "Pending") : "Pending",
     Remarks: user.Remarks || "",
     submittedAt: new Date().toISOString(),
+    // Post-Booking expense fields (only when editing existing)
+    ...(user.editingExisting && {
+      Diesel: user.Diesel || null,
+      Adda: user.Adda || null,
+      EmployExpenses: user.EmployExpenses || [],
+    }),
   };
 
   const isUpdate = user.editingExisting;

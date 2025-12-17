@@ -196,5 +196,56 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     anyFieldFound = true;
   }
 
+  // Post-Booking expense fields (only when editing existing booking)
+  if (user.editingExisting) {
+    // Extract Diesel: "diesel [amount] [optional: online]"
+    const dieselMatch = normalizedText.match(/^diesel\s+(\d+)(?:\s+(online))?$/i);
+    if (dieselMatch) {
+      const amount = parseInt(dieselMatch[1]);
+      const mode = dieselMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
+      user.Diesel = { amount, mode };
+      anyFieldFound = true;
+    }
+
+    // Extract Adda: "adda [amount] [optional: online]"
+    const addaMatch = normalizedText.match(/^adda\s+(\d+)(?:\s+(online))?$/i);
+    if (addaMatch) {
+      const amount = parseInt(addaMatch[1]);
+      const mode = addaMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
+      user.Adda = { amount, mode };
+      anyFieldFound = true;
+    }
+
+    // Extract Driver expense: "driver [amount] [optional: online]"
+    const driverMatch = normalizedText.match(/^driver\s+(\d+)(?:\s+(online))?$/i);
+    if (driverMatch) {
+      const amount = parseInt(driverMatch[1]);
+      const mode = driverMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
+      if (!user.EmployExpenses) user.EmployExpenses = [];
+      const existingIndex = user.EmployExpenses.findIndex(e => (e.role || e.name)?.toLowerCase() === "driver" && e.mode === mode);
+      if (existingIndex !== -1) {
+        user.EmployExpenses[existingIndex].amount = amount;
+      } else {
+        user.EmployExpenses.push({ name: "Driver", role: "Driver", amount, mode });
+      }
+      anyFieldFound = true;
+    }
+
+    // Extract Conductor expense: "conductor [amount] [optional: online]"
+    const conductorMatch = normalizedText.match(/^conductor\s+(\d+)(?:\s+(online))?$/i);
+    if (conductorMatch) {
+      const amount = parseInt(conductorMatch[1]);
+      const mode = conductorMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
+      if (!user.EmployExpenses) user.EmployExpenses = [];
+      const existingIndex = user.EmployExpenses.findIndex(e => (e.role || e.name)?.toLowerCase() === "conductor" && e.mode === mode);
+      if (existingIndex !== -1) {
+        user.EmployExpenses[existingIndex].amount = amount;
+      } else {
+        user.EmployExpenses.push({ name: "Conductor", role: "Conductor", amount, mode });
+      }
+      anyFieldFound = true;
+    }
+  }
+
   return { handled: false, anyFieldFound };
 }

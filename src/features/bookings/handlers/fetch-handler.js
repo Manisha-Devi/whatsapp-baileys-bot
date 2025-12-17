@@ -11,6 +11,7 @@ import { bookingsDb } from "../../../utils/db.js";
 import { safeSendMessage, safeDbRead } from "../utils/helpers.js";
 import { sendSummary } from "../utils/messages.js";
 import { resolveCommand } from "../../../utils/menu-handler.js";
+import { getEmployExpensesForBus } from "../../../utils/employees.js";
 
 /**
  * Handles the confirmation response when user wants to fetch an existing booking.
@@ -54,6 +55,18 @@ export async function handleFetchConfirmation(sock, sender, text, user) {
         user.BalanceAmount = existingBooking.BalanceAmount?.Amount;
         user.Remarks = existingBooking.Remarks;
         user.Status = existingBooking.Status;
+        
+        // Load expense fields if they exist
+        user.Diesel = existingBooking.Diesel || null;
+        user.Adda = existingBooking.Adda || null;
+        
+        // Auto-fetch employee expenses for this bus if not already saved
+        if (existingBooking.EmployExpenses && existingBooking.EmployExpenses.length > 0) {
+          user.EmployExpenses = existingBooking.EmployExpenses;
+        } else {
+          // Get default employee expenses for this bus
+          user.EmployExpenses = getEmployExpensesForBus(existingBooking.BusCode) || [];
+        }
         
         // Set editing state
         user.confirmingFetch = false;
