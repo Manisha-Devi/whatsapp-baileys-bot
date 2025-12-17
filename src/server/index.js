@@ -831,122 +831,137 @@ app.post("/update-daily-data", verifyApiKey, (req, res) => {
 });
 
 // ----------------------------------------
-// GET DAILY STATUS Route (Protected)
+// GET BOOKINGS DATA Route (Protected)
 // ----------------------------------------
 
 /**
- * GET /daily_status.json
+ * GET /bookings_data.json
  * 
  * PROTECTED: API Key required
  * 
  * WHAT IT DOES:
- * - Returns daily status log file
- * - Tracks when which records were updated
+ * - Returns all booking records
+ * - Google Sheet sync fetches data from here
  */
-app.get("/daily_status.json", verifyApiKey, (req, res) => {
+app.get("/bookings_data.json", verifyApiKey, (req, res) => {
   try {
-    const data = fs.readFileSync("./storage/daily_status.json", "utf8");
+    const data = fs.readFileSync("./storage/bookings_data.json", "utf8");
     res.setHeader("Content-Type", "application/json");
     res.send(data);
   } catch {
-    res.status(500).json({ error: "Cannot read daily_status.json" });
+    res.status(500).json({ error: "Cannot read bookings_data.json" });
   }
 });
 
 // ----------------------------------------
-// UPDATE DAILY STATUS Route (Protected)
+// UPDATE BOOKINGS DATA Route (Protected)
 // ----------------------------------------
 
 /**
- * POST /update-daily-status
+ * POST /update-bookings-data
  * 
  * PROTECTED: API Key required
  * 
  * WHAT IT DOES:
- * - Updates status log
- * - Tracks when which records were updated
- * 
- * REQUEST BODY (Array):
- * [
- *   {
- *     updatedOn: "2025-12-13T10:00:00Z",
- *     updatedKeys: ["01122025UP35AT1234", "02122025UP35AT1234"],
- *     remarks: "Approved by admin"
- *   }
- * ]
- * 
- * RESPONSE:
- * { success: true, updated: 1 }
+ * - Saves booking data received from Google Sheet
+ * - Merges with existing data (compares submittedAt)
  */
-app.post("/update-daily-status", verifyApiKey, (req, res) => {
+app.post("/update-bookings-data", verifyApiKey, (req, res) => {
   try {
-    // Incoming data (array of log entries)
     const incoming = req.body;
-
-    const filePath = "./storage/daily_status.json";
-
-    // If file doesn't exist, create empty array
-    if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, JSON.stringify([], null, 2));
-    }
-
-    // Load existing logs
-    let existing = [];
+    
+    let existing = {};
     try {
-      existing = JSON.parse(fs.readFileSync(filePath, "utf8"));
-      if (!Array.isArray(existing)) existing = [];
-    } catch {
-      existing = [];
-    }
+      existing = JSON.parse(fs.readFileSync("./storage/bookings_data.json", "utf8"));
+    } catch {}
 
     let updatedCount = 0;
 
-    /**
-     * Converts 7-digit keys to 8-digit
-     */
-    function normalizeKey(key) {
-      if (/^\d{7}$/.test(key)) {
-        return key.padStart(8, "0");
-      }
-      return key;
-    }
+    for (const [key, record] of Object.entries(incoming)) {
+      if (!key || key.trim() === '') continue;
+      
+      const cleanRecord = Object.fromEntries(
+        Object.entries(record).filter(([k]) => k && k.trim() !== '')
+      );
 
-    // Check incoming is array
-    if (!Array.isArray(incoming)) {
-      return res.status(400).json({ error: "Incoming payload must be an array" });
-    }
-
-    // Process each log entry
-    for (const record of incoming) {
-      // Check required fields
-      if (!record.updatedKeys || !record.updatedOn) continue;
-
-      // Normalize keys
-      const normalizedKeys = record.updatedKeys.map((key) => normalizeKey(key));
-
-      // Create new log entry
-      const newLog = {
-        updatedOn: record.updatedOn,
-        updatedKeys: normalizedKeys,
-        remarks: record.remarks || null,
-      };
-
-      // Duplicate check (same updatedOn already exists?)
-      const exists = existing.find((e) => e.updatedOn === newLog.updatedOn);
-
-      // If not exists, add it
-      if (!exists) {
-        existing.push(newLog);
+      if (!existing[key] || existing[key].submittedAt < cleanRecord.submittedAt) {
+        existing[key] = cleanRecord;
         updatedCount++;
       }
     }
 
-    // Save updated log
-    fs.writeFileSync(filePath, JSON.stringify(existing, null, 2));
-
+    fs.writeFileSync("./storage/bookings_data.json", JSON.stringify(existing, null, 2));
+    
     res.json({ success: true, updated: updatedCount });
   } catch (err) {
-    console.error("Error updating daily_status.json:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ----------------------------------------
+// GET CASH DATA Route (Protected)
+// ----------------------------------------
+
+/**
+ * GET /cash_data.json
+ * 
+ * PROTECTED: API Key required
+ * 
+ * WHAT IT DOES:
+ * - Returns all cash deposit records
+ * - Google Sheet sync fetches data from here
+ */
+app.get("/cash_data.json", verifyApiKey, (req, res) => {
+  try {
+    const data = fs.readFileSync("./storage/cash_data.json", "utf8");
+    res.setHeader("Content-Type", "application/json");
+    res.send(data);
+  } catch {
+    res.status(500).json({ error: "Cannot read cash_data.json" });
+  }
+});
+
+// ----------------------------------------
+// UPDATE CASH DATA Route (Protected)
+// ----------------------------------------
+
+/**
+ * POST /update-cash-data
+ * 
+ * PROTECTED: API Key required
+ * 
+ * WHAT IT DOES:
+ * - Saves cash deposit data received from Google Sheet
+ * - Merges with existing data (compares depositedAt)
+ */
+app.post("/update-cash-data", verifyApiKey, (req, res) => {
+  try {
+    const incoming = req.body;
+    
+    let existing = {};
+    try {
+      existing = JSON.parse(fs.readFileSync("./storage/cash_data.json", "utf8"));
+    } catch {}
+
+    let updatedCount = 0;
+
+    for (const [key, record] of Object.entries(incoming)) {
+      if (!key || key.trim() === '') continue;
+      
+      const cleanRecord = Object.fromEntries(
+        Object.entries(record).filter(([k]) => k && k.trim() !== '')
+      );
+
+      if (!existing[key] || existing[key].depositedAt < cleanRecord.depositedAt) {
+        existing[key] = cleanRecord;
+        updatedCount++;
+      }
+    }
+
+    fs.writeFileSync("./storage/cash_data.json", JSON.stringify(existing, null, 2));
+    
+    res.json({ success: true, updated: updatedCount });
+  } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
 });
