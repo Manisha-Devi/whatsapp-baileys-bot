@@ -20,6 +20,7 @@ const dailyDataFile = "./storage/daily_data.json";
 const dailyStatusFile = "./storage/daily_status.json";
 const bookingsDataFile = "./storage/bookings_data.json";
 const bookingsStatusFile = "./storage/bookings_status.json";
+const cashDataFile = "./storage/cash_data.json";
 
 // Create daily_data.json if it doesn't exist or is empty
 // This file stores daily report entries keyed by bus code and date
@@ -43,6 +44,12 @@ if (!fs.existsSync(bookingsDataFile) || fs.statSync(bookingsDataFile).size === 0
 // This file tracks the status of bookings (pending/confirmed/completed)
 if (!fs.existsSync(bookingsStatusFile) || fs.statSync(bookingsStatusFile).size === 0) {
   fs.writeFileSync(bookingsStatusFile, JSON.stringify([], null, 2));
+}
+
+// Create cash_data.json if it doesn't exist or is empty
+// This file stores cash deposit records
+if (!fs.existsSync(cashDataFile) || fs.statSync(cashDataFile).size === 0) {
+  fs.writeFileSync(cashDataFile, JSON.stringify({}, null, 2));
 }
 
 // Initialize daily_data.json database using LowDB
@@ -121,8 +128,27 @@ try {
   await bookingsStatusDb.write();
 }
 
+// Initialize cash_data.json database using LowDB
+// Default structure is an empty object for storing cash deposit records
+const cashDataAdapter = new JSONFile(cashDataFile);
+const cashDb = new Low(cashDataAdapter, {});
+
+// Read and validate cash data database
+// If corrupted or invalid, reset to empty object
+try {
+  await cashDb.read();
+  if (!cashDb.data || typeof cashDb.data !== "object") {
+    cashDb.data = {};
+    await cashDb.write();
+  }
+} catch (err) {
+  console.error("⚠️ cash_data.json corrupted, resetting...");
+  cashDb.data = {};
+  await cashDb.write();
+}
+
 // Export daily data database as default (main database)
 export default db;
 
 // Export additional databases for use in other modules
-export { statusDb, bookingsDb, bookingsStatusDb };
+export { statusDb, bookingsDb, bookingsStatusDb, cashDb };
