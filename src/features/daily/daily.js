@@ -13,7 +13,7 @@
  * checks if it can process the message, and if so, handles it and returns.
  */
 
-import { handleDailyStatus, handleStatusUpdate } from "./daily_status.js";
+// Status commands removed - keeping simple data entry with Status: Initiated
 import { safeSendMessage } from "./utils/helpers.js";
 import { handleClearCommand, handleDailyCommand, handleReportsCommand } from "./handlers/command-handler.js";
 import { handleExpenseCommand, handleExpenseDelete, handleEmployeeExpenseCommand, handleEmployeeExpenseDelete } from "./handlers/expense-handler.js";
@@ -149,18 +149,11 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
                 `• daily average this year\n` +
                 `• daily average [MonthName]\n` +
                 `• daily average [MonthName] [Year]\n\n` +
-                `4️⃣ *Check Status*\n` +
-                `• daily status initiated\n` +
-                `• daily status collected\n` +
-                `• daily status deposited\n\n` +
-                `5️⃣ *Update Status*\n` +
-                `• daily update status [DD/MM/YYYY] [status]\n` +
-                `• daily update status [start] to [end] [status]\n\n` +
-                `6️⃣ *Employee (Manual Entry)*\n` +
+                `4️⃣ *Employee (Manual Entry)*\n` +
                 `• daily driver [amount]\n` +
                 `• daily conductor [amount]\n` +
                 `• daily driver [amount] online\n\n` +
-                `7️⃣ *Other Commands*\n` +
+                `5️⃣ *Other Commands*\n` +
                 `• daily clear - clear session\n` +
                 `• daily expense delete [name] - delete expense\n\n` +
                 `For detailed guide, see documentation.`
@@ -170,14 +163,6 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     }
 
     // Try each handler in order - first one to handle returns true
-    
-    // Handle status view commands (initiated/collected/deposited)
-    const handledDailyStatus = await handleDailyStatus(sock, sender, normalizedText);
-    if (handledDailyStatus) return;
-
-    // Handle status update commands (update [date] collected)
-    const handledStatusUpdate = await handleStatusUpdate(sock, sender, normalizedText);
-    if (handledStatusUpdate) return;
 
     // Handle "clear" command to reset session
     const handledClear = await handleClearCommand(sock, sender, text);
