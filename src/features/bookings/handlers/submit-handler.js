@@ -96,10 +96,10 @@ export async function handleSubmit(sock, sender, text, user) {
     return true;
   }
 
-  const bookingId = `BK${Date.now().toString().slice(-6)}`;
+  // BookingId format: BusCode_TravelDateFrom (e.g., BUS101_17/12/2025)
+  const bookingId = `${user.BusCode}_${user.TravelDateFrom}`;
   
   const bookingRecord = {
-    BookingId: bookingId,
     BookingDate: new Date().toLocaleDateString('en-IN'),
     CustomerName: user.CustomerName,
     CustomerPhone: user.CustomerPhone,
@@ -108,8 +108,6 @@ export async function handleSubmit(sock, sender, text, user) {
     TravelDateFrom: user.TravelDateFrom,
     TravelDateTo: user.TravelDateTo || user.TravelDateFrom,
     BusCode: user.BusCode,
-    RegistrationNumber: user.RegistrationNumber,
-    BusType: user.BusType,
     Capacity: user.Capacity,
     TotalFare: totalFare,
     AdvancePaid: advancePaid,
@@ -132,7 +130,7 @@ export async function handleSubmit(sock, sender, text, user) {
   }
   
   let summary = `✅ *Booking Confirmed!*\n`;
-  summary += `🎫 *Booking ID: ${bookingId}*\n\n`;
+  summary += `🎫 *${bookingId}*\n\n`;
   summary += `👤 Customer: ${bookingRecord.CustomerName}\n`;
   summary += `📱 Phone: ${bookingRecord.CustomerPhone}\n`;
   summary += `📍 Pickup: ${bookingRecord.PickupLocation} → Drop: ${bookingRecord.DropLocation}\n`;
@@ -143,8 +141,7 @@ export async function handleSubmit(sock, sender, text, user) {
     summary += `📅 Date: ${bookingRecord.TravelDateFrom} to ${bookingRecord.TravelDateTo}\n`;
   }
   
-  summary += `🚌 Bus: ${bookingRecord.BusCode} (${bookingRecord.RegistrationNumber})\n`;
-  summary += `🚐 Type: ${bookingRecord.BusType} | Capacity: ${bookingRecord.Capacity}\n`;
+  summary += `🚌 Bus: ${bookingRecord.BusCode} | Capacity: ${bookingRecord.Capacity}\n`;
   summary += `💰 Total Fare: ₹${bookingRecord.TotalFare.toLocaleString('en-IN')}\n`;
   summary += `💵 Advance: ₹${bookingRecord.AdvancePaid.toLocaleString('en-IN')}\n`;
   summary += `💸 Balance: ₹${bookingRecord.BalanceAmount.toLocaleString('en-IN')}\n`;
