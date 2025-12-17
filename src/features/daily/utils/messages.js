@@ -104,6 +104,29 @@ export async function sendSummary(sock, jid, title, userData = {}) {
     const online = formatField(userData.Online);
     const cashHandover = formatField(userData.CashHandover);
 
+    // Calculate Bachat (Profit) = Total Collection - Total Expenses
+    const getNumericValue = (field) => {
+      if (!field) return 0;
+      const amt = field.amount || field;
+      return Number(amt) || 0;
+    };
+    
+    const totalCollection = getNumericValue(userData.TotalCashCollection) + getNumericValue(userData.Online);
+    
+    let totalExpenses = getNumericValue(userData.Diesel) + getNumericValue(userData.Adda) + getNumericValue(userData.Union);
+    
+    // Add extra expenses
+    if (userData.ExtraExpenses && userData.ExtraExpenses.length > 0) {
+      totalExpenses += userData.ExtraExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    }
+    
+    // Add employee expenses
+    if (userData.EmployExpenses && userData.EmployExpenses.length > 0) {
+      totalExpenses += userData.EmployExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    }
+    
+    const bachat = totalCollection - totalExpenses;
+
     // Get bus information from menu state for display
     const menuState = getMenuState(jid);
     const regNumber = menuState?.selectedBusInfo?.registrationNumber;
@@ -132,6 +155,7 @@ export async function sendSummary(sock, jid, title, userData = {}) {
       ``,
       `✨ *Total Hand Over:*`,
       `💵 Cash Hand Over: ₹${cashHandover?.amt || "___"}`,
+      `📈 Bachat (Profit): ₹${totalCollection > 0 ? bachat.toLocaleString('en-IN') : "___"}`,
       ...(userData.Remarks ? [`📝 *Remarks:* ${userData.Remarks}`] : []),
       ``,
       title ? `\n${title}` : "",
@@ -214,6 +238,29 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
     const online = formatField(userData.Online);
     const cashHandover = formatField(userData.CashHandover);
 
+    // Calculate Bachat (Profit) = Total Collection - Total Expenses
+    const getNumericValue = (field) => {
+      if (!field) return 0;
+      const amt = field.amount || field;
+      return Number(amt) || 0;
+    };
+    
+    const totalCollection = getNumericValue(userData.TotalCashCollection) + getNumericValue(userData.Online);
+    
+    let totalExpenses = getNumericValue(userData.Diesel) + getNumericValue(userData.Adda) + getNumericValue(userData.Union);
+    
+    // Add extra expenses
+    if (userData.ExtraExpenses && userData.ExtraExpenses.length > 0) {
+      totalExpenses += userData.ExtraExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    }
+    
+    // Add employee expenses
+    if (userData.EmployExpenses && userData.EmployExpenses.length > 0) {
+      totalExpenses += userData.EmployExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    }
+    
+    const bachat = totalCollection - totalExpenses;
+
     // Get bus information for display
     const menuState = getMenuState(jid);
     const regNumber = menuState?.selectedBusInfo?.registrationNumber;
@@ -242,6 +289,7 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
       ``,
       `✨ *Total Hand Over:*`,
       `💵 Cash Hand Over: ₹${cashHandover.amt}`,
+      `📈 Bachat (Profit): ₹${bachat.toLocaleString('en-IN')}`,
       ...(userData.Remarks ? [`📝 *Remarks: ${userData.Remarks}*`] : []),
       ``,
       `✅ Data Submitted successfully!`,
