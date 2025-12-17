@@ -10,6 +10,12 @@
 
 import { safeSendMessage, safeDbRead, safeDbWrite } from "../utils/helpers.js";
 import { bookingsDb } from "../../../utils/db.js";
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
  * Handles the submission of a booking entry.
@@ -99,23 +105,69 @@ export async function handleSubmit(sock, sender, text, user) {
   // BookingId format: BusCode_TravelDateFrom (e.g., BUS101_17/12/2025)
   const bookingId = `${user.BusCode}_${user.TravelDateFrom}`;
   
+  // Calculate number of days between start and end dates
+  const startDate = user.TravelDateFrom;
+  const endDate = user.TravelDateTo || user.TravelDateFrom;
+  
+  let numberOfDays = 1;
+  try {
+    const [startDay, startMonth, startYear] = startDate.split('/').map(Number);
+    const [endDay, endMonth, endYear] = endDate.split('/').map(Number);
+    const start = new Date(startYear, startMonth - 1, startDay);
+    const end = new Date(endYear, endMonth - 1, endDay);
+    numberOfDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+  } catch (err) {
+    numberOfDays = 1;
+  }
+  
+  // Format booking date as "Day, DD Month YYYY"
+  const now = new Date();
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const formattedBookingDate = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  
+  // Get sender name from users.json
+  let senderName = sender;
+  try {
+    const usersPath = join(__dirname, "../../..", "data", "users.json");
+    const usersData = JSON.parse(readFileSync(usersPath, "utf-8"));
+    const phoneNumber = sender.replace('@s.whatsapp.net', '').replace(/^\+/, '');
+    const foundUser = usersData.users?.find(u => u.phone === phoneNumber || u.phone === `+${phoneNumber}`);
+    if (foundUser) {
+      senderName = foundUser.name;
+    }
+  } catch (err) {
+    // Keep sender as is if users.json read fails
+  }
+  
   const bookingRecord = {
-    BookingDate: new Date().toLocaleDateString('en-IN'),
+    Sender: senderName,
+    BookingDate: formattedBookingDate,
+    BusCode: user.BusCode,
     CustomerName: user.CustomerName,
     CustomerPhone: user.CustomerPhone,
-    PickupLocation: user.PickupLocation,
-    DropLocation: user.DropLocation,
-    TravelDateFrom: user.TravelDateFrom,
-    TravelDateTo: user.TravelDateTo || user.TravelDateFrom,
-    BusCode: user.BusCode,
+    Location: {
+      Pickup: user.PickupLocation,
+      Drop: user.DropLocation
+    },
+    Date: {
+      NoOfDays: numberOfDays,
+      Start: startDate,
+      End: endDate
+    },
     Capacity: user.Capacity,
-    TotalFare: totalFare,
-    AdvancePaid: advancePaid,
-    BalanceAmount: balanceAmount,
+    TotalFare: {
+      Amount: totalFare
+    },
+    AdvancePaid: {
+      Amount: advancePaid
+    },
+    BalanceAmount: {
+      Amount: balanceAmount
+    },
     Status: "Pending",
     Remarks: user.Remarks || "",
     submittedAt: new Date().toISOString(),
-    submittedBy: sender,
   };
 
   await safeDbRead(bookingsDb);
@@ -133,18 +185,18 @@ export async function handleSubmit(sock, sender, text, user) {
   summary += `🎫 *${bookingId}*\n\n`;
   summary += `👤 Customer: ${bookingRecord.CustomerName}\n`;
   summary += `📱 Phone: ${bookingRecord.CustomerPhone}\n`;
-  summary += `📍 Pickup: ${bookingRecord.PickupLocation} → Drop: ${bookingRecord.DropLocation}\n`;
+  summary += `📍 Pickup: ${bookingRecord.Location.Pickup} → Drop: ${bookingRecord.Location.Drop}\n`;
   
-  if (bookingRecord.TravelDateFrom === bookingRecord.TravelDateTo) {
-    summary += `📅 Date: ${bookingRecord.TravelDateFrom}\n`;
+  if (bookingRecord.Date.Start === bookingRecord.Date.End) {
+    summary += `📅 Date: ${bookingRecord.Date.Start}\n`;
   } else {
-    summary += `📅 Date: ${bookingRecord.TravelDateFrom} to ${bookingRecord.TravelDateTo}\n`;
+    summary += `📅 Date: ${bookingRecord.Date.Start} to ${bookingRecord.Date.End} (${bookingRecord.Date.NoOfDays} days)\n`;
   }
   
   summary += `🚌 Bus: ${bookingRecord.BusCode} | Capacity: ${bookingRecord.Capacity}\n`;
-  summary += `💰 Total Fare: ₹${bookingRecord.TotalFare.toLocaleString('en-IN')}\n`;
-  summary += `💵 Advance: ₹${bookingRecord.AdvancePaid.toLocaleString('en-IN')}\n`;
-  summary += `💸 Balance: ₹${bookingRecord.BalanceAmount.toLocaleString('en-IN')}\n`;
+  summary += `💰 Total Fare: ₹${bookingRecord.TotalFare.Amount.toLocaleString('en-IN')}\n`;
+  summary += `💵 Advance: ₹${bookingRecord.AdvancePaid.Amount.toLocaleString('en-IN')}\n`;
+  summary += `💸 Balance: ₹${bookingRecord.BalanceAmount.Amount.toLocaleString('en-IN')}\n`;
   summary += `📊 Status: ${bookingRecord.Status}\n`;
   if (bookingRecord.Remarks) summary += `📝 Remarks: ${bookingRecord.Remarks}\n`;
 
