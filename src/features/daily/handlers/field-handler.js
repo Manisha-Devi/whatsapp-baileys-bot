@@ -54,8 +54,10 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     Union: /union[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online)[ \t]*\.?)?(?:[ \t]+(.+?))?[ \t]*$/gim,
     TotalCashCollection: /(?:total[ \t]*cash[ \t]*collection|cash[ \t]*collection|cash|total[ \t]*collection)[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(.+?))?[ \t]*$/gim,
     Online: /(?:online[ \t]*collection|total[ \t]*online|online)[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(.+?))?[ \t]*$/gim,
-    Driver: /driver[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online)[ \t]*\.?)?(?:[ \t]+(.+?))?[ \t]*$/gim,
-    Conductor: /conductor[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online)[ \t]*\.?)?(?:[ \t]+(.+?))?[ \t]*$/gim,
+    Driver: /^driver[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online)[ \t]*\.?)?(?:[ \t]+(.+?))?[ \t]*$/gim,
+    Conductor: /^conductor[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online)[ \t]*\.?)?(?:[ \t]+(.+?))?[ \t]*$/gim,
+    TripDriver: /^trip[ \t]+driver[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online)[ \t]*\.?)?(?:[ \t]+(.+?))?[ \t]*$/gim,
+    TripConductor: /^trip[ \t]+conductor[ \t]*[:\-]?[ \t]*\*?(\d+)\*?(?:[ \t]+(online)[ \t]*\.?)?(?:[ \t]+(.+?))?[ \t]*$/gim,
   };
 
   let anyFieldFound = false;
@@ -189,15 +191,21 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
           continue;
         }
 
-        // Handle employee expense fields (Driver, Conductor) - stored in EmployExpenses array
-        // Each employee can have separate cash and online entries
+        // Handle employee expense fields (Driver, Conductor, TripDriver, TripConductor) - stored in EmployExpenses array
+        // Each employee can have separate cash and online entries, and separate dailySalary/trip types
         // Lookup by ROLE (not name) since name now contains full employee name
-        if (["Driver", "Conductor"].includes(key)) {
+        if (["Driver", "Conductor", "TripDriver", "TripConductor"].includes(key)) {
           try {
             const amount = parseFloat(match[1].trim());
             const mode = match[2] ? "online" : "cash";
             const remarks = match[3] ? match[3].trim() : "";
-            const newVal = { amount, mode, role: key };
+            
+            // Determine role and type based on key
+            const isTrip = key.startsWith("Trip");
+            const role = isTrip ? key.replace("Trip", "") : key;
+            const expenseType = isTrip ? "trip" : "dailySalary";
+            
+            const newVal = { amount, mode, role, type: expenseType };
             if (remarks) newVal.remarks = remarks;
 
             // Initialize employee expenses with bus defaults if not exists or empty
@@ -205,44 +213,52 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
               user.EmployExpenses = getEmployExpensesForBus(selectedBus) || [];
             }
 
-            // Find existing entry by ROLE AND mode (allows separate cash/online entries)
+            // Find existing entry by ROLE, TYPE, AND mode (allows separate cash/online and dailySalary/trip entries)
             const existingIndex = user.EmployExpenses.findIndex(
-              (e) => (e.role || e.name)?.toLowerCase() === key.toLowerCase() && e.mode === mode
+              (e) => (e.role || e.name)?.toLowerCase() === role.toLowerCase() && 
+                     e.mode === mode && 
+                     (e.type || "dailySalary") === expenseType
             );
 
             const oldValue = existingIndex !== -1 ? user.EmployExpenses[existingIndex] : null;
 
-            // Check if value is different from existing (same role + same mode)
+            // Check if value is different from existing (same role + same mode + same type)
             const isDifferent = oldValue && (oldValue.amount !== amount || (remarks && oldValue.remarks !== remarks));
+            
+            const displayLabel = isTrip ? `Trip ${role}` : role;
             
             if (isDifferent) {
               const oldRemarks = oldValue.remarks || "";
               
-              let msg = `⚠️ *${key}*\nAlready Have:\nAmount: ₹${oldValue.amount}\nMode: ${capitalize(mode)}`;
+              let msg = `⚠️ *${displayLabel}*\nAlready Have:\nAmount: ₹${oldValue.amount}\nMode: ${capitalize(mode)}`;
               if (oldRemarks) msg += `\nRemark: ${oldRemarks}`;
               msg += `\n\nDo you want to update it to:\nAmount: ₹${amount}\nMode: ${capitalize(mode)}`;
               if (remarks) msg += `\nRemark: ${remarks}`;
               msg += `\n\n(Yes or Y / No or N)`;
               
               pendingUpdates.push({
-                field: `${key} (${mode})`,
+                field: `${displayLabel} (${mode})`,
                 value: newVal,
                 type: "employee",
-                employeeRole: key,
+                employeeRole: role,
+                expenseType: expenseType,
                 message: msg,
               });
             } else if (existingIndex !== -1) {
-              // Update existing entry (same role + same mode) - preserve the full name
+              // Update existing entry (same role + same mode + same type) - preserve the full name
               user.EmployExpenses[existingIndex].amount = amount;
               user.EmployExpenses[existingIndex].mode = mode;
+              user.EmployExpenses[existingIndex].type = expenseType;
               if (remarks) user.EmployExpenses[existingIndex].remarks = remarks;
               if (!user.EmployExpenses[existingIndex].role) {
-                user.EmployExpenses[existingIndex].role = key;
+                user.EmployExpenses[existingIndex].role = role;
               }
               anyNewFieldApplied = true;
             } else {
-              // Add new entry (different mode or new employee)
-              const newEntry = { name: key, role: key, amount, mode };
+              // Add new entry (different mode/type or new employee)
+              const existingEmployee = user.EmployExpenses.find(e => (e.role || e.name)?.toLowerCase() === role.toLowerCase());
+              const employeeName = existingEmployee?.name || role;
+              const newEntry = { name: employeeName, role, type: expenseType, amount, mode };
               if (remarks) newEntry.remarks = remarks;
               user.EmployExpenses.push(newEntry);
               anyNewFieldApplied = true;

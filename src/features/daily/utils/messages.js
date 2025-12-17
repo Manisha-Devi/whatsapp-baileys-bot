@@ -55,18 +55,35 @@ export async function sendSummary(sock, jid, title, userData = {}) {
             .join("\n")
         : "";
 
-    // Format employee expenses list - show role only and 💳 indicator for online
-    const employList =
-      userData.EmployExpenses && userData.EmployExpenses.length > 0
-        ? userData.EmployExpenses
-            .map(
-              (e) => {
-                const displayName = e.role || e.name;
-                return `👤 ${capitalize(displayName)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`;
-              }
-            )
-            .join("\n")
-        : "";
+    // Format employee expenses list - separate dailySalary and trip types
+    let dailySalaryList = "";
+    let tripList = "";
+    
+    if (userData.EmployExpenses && userData.EmployExpenses.length > 0) {
+      const dailySalaryExpenses = userData.EmployExpenses.filter(e => !e.type || e.type === "dailySalary");
+      const tripExpenses = userData.EmployExpenses.filter(e => e.type === "trip");
+      
+      if (dailySalaryExpenses.length > 0) {
+        dailySalaryList = dailySalaryExpenses
+          .map(e => {
+            const displayName = e.role || e.name;
+            return `👤 ${capitalize(displayName)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`;
+          })
+          .join("\n");
+      }
+      
+      if (tripExpenses.length > 0) {
+        tripList = tripExpenses
+          .map(e => {
+            const displayName = e.role || e.name;
+            return `👤 ${capitalize(displayName)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`;
+          })
+          .join("\n");
+      }
+    }
+    
+    // Keep employList for backward compatibility (dailySalary only)
+    const employList = dailySalaryList;
 
     // Helper to format field with amount, mode and remarks
     const formatField = (field) => {
@@ -107,7 +124,8 @@ export async function sendSummary(sock, jid, title, userData = {}) {
       `🤝 Union: ₹${union?.amt || "___"}${union?.mode || ""}${union?.remarks || ""}`,
       extraList ? `${extraList}` : "",
       ``,
-      ...(employList ? [`👥 *Employ (Outflow):*`, employList, ``] : []),
+      ...(dailySalaryList ? [`👥 *Employee (Daily Salary):*`, dailySalaryList, ``] : []),
+      ...(tripList ? [`🚌 *Employee (Trip):*`, tripList, ``] : []),
       `💵 *Total Collection (Inflow):*`,
       `💸 Total Cash Collection: ₹${totalCash?.amt || "___"}${totalCash?.remarks || ""}`,
       `💳 Online Collection: ₹${online?.amt || "___"}${online?.remarks || ""}`,
@@ -152,18 +170,32 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
             .join("\n")
         : "";
 
-    // Format employee expenses list - show role only and 💳 indicator for online
-    const employList =
-      userData.EmployExpenses && userData.EmployExpenses.length > 0
-        ? userData.EmployExpenses
-            .map(
-              (e) => {
-                const displayName = e.role || e.name;
-                return `👤 ${capitalize(displayName)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`;
-              }
-            )
-            .join("\n")
-        : "";
+    // Format employee expenses list - separate dailySalary and trip types
+    let dailySalaryList = "";
+    let tripList = "";
+    
+    if (userData.EmployExpenses && userData.EmployExpenses.length > 0) {
+      const dailySalaryExpenses = userData.EmployExpenses.filter(e => !e.type || e.type === "dailySalary");
+      const tripExpenses = userData.EmployExpenses.filter(e => e.type === "trip");
+      
+      if (dailySalaryExpenses.length > 0) {
+        dailySalaryList = dailySalaryExpenses
+          .map(e => {
+            const displayName = e.role || e.name;
+            return `👤 ${capitalize(displayName)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`;
+          })
+          .join("\n");
+      }
+      
+      if (tripExpenses.length > 0) {
+        tripList = tripExpenses
+          .map(e => {
+            const displayName = e.role || e.name;
+            return `👤 ${capitalize(displayName)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`;
+          })
+          .join("\n");
+      }
+    }
 
     // Helper to format field with amount, mode and remarks
     const formatField = (field, defaultVal = "0") => {
@@ -202,7 +234,8 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
       `🤝 Union: ₹${union.amt}${union.mode}${union.remarks}`,
       extraList ? `${extraList}` : "",
       ``,
-      ...(employList ? [`👥 *Employ (Outflow):*`, employList, ``] : []),
+      ...(dailySalaryList ? [`👥 *Employee (Daily Salary):*`, dailySalaryList, ``] : []),
+      ...(tripList ? [`🚌 *Employee (Trip):*`, tripList, ``] : []),
       `💵 *Total Collection (Inflow):*`,
       `💸 Total Cash Collection: ₹${totalCash.amt}${totalCash.remarks}`,
       `💳 Online Collection: ₹${online.amt}${online.remarks}`,
