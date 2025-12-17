@@ -99,40 +99,115 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
     };
     const normalizedStartDate = normalizeDateStr(startDate);
+    const normalizedEndDate = normalizeDateStr(endDate);
+    
+    // Helper to parse DD/MM/YYYY to Date object
+    const parseDate = (dateStr) => {
+      const [d, m, y] = dateStr.split('/').map(Number);
+      return new Date(y, m - 1, d);
+    };
+    
+    // Helper to check if a date falls within a range
+    const isDateInRange = (checkDate, rangeStart, rangeEnd) => {
+      const check = parseDate(checkDate);
+      const start = parseDate(rangeStart);
+      const end = parseDate(rangeEnd);
+      return check >= start && check <= end;
+    };
+    
+    // Helper to check if two date ranges overlap
+    const doRangesOverlap = (start1, end1, start2, end2) => {
+      const s1 = parseDate(start1), e1 = parseDate(end1);
+      const s2 = parseDate(start2), e2 = parseDate(end2);
+      return s1 <= e2 && e1 >= s2;
+    };
     
     // Generate booking ID to check if booking exists
     const busCode = user.BusCode;
     if (!busCode) {
       // No bus selected yet, just save date for now
       user.TravelDateFrom = normalizedStartDate;
-      user.TravelDateTo = normalizeDateStr(endDate);
+      user.TravelDateTo = normalizedEndDate;
       anyFieldFound = true;
     } else {
-      // Check if booking exists for this bus and date
-      const bookingId = `${busCode}_${normalizedStartDate}`;
-      
       await safeDbRead(bookingsDb);
       
-      if (bookingsDb.data[bookingId]) {
+      // Search all bookings for this bus to find date overlap
+      let foundBooking = null;
+      let foundBookingId = null;
+      
+      for (const [bookingId, booking] of Object.entries(bookingsDb.data || {})) {
+        // Check if booking is for this bus
+        if (booking.BusCode !== busCode) continue;
+        
+        // Parse booking dates (handle both old DD/MM/YYYY and new "Day, DD Month YYYY" formats)
+        let bookingStart, bookingEnd;
+        
+        // Try to extract dates from booking
+        if (booking.Date?.Start) {
+          // Check if it's in new format "Sunday, 15 March 2026"
+          const newFormatMatch = booking.Date.Start.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+          if (newFormatMatch) {
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            const day = newFormatMatch[1].padStart(2, '0');
+            const month = String(monthNames.indexOf(newFormatMatch[2]) + 1).padStart(2, '0');
+            const year = newFormatMatch[3];
+            bookingStart = `${day}/${month}/${year}`;
+          } else {
+            // Old format DD/MM/YYYY
+            bookingStart = booking.Date.Start;
+          }
+        }
+        
+        if (booking.Date?.End) {
+          const newFormatMatch = booking.Date.End.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+          if (newFormatMatch) {
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            const day = newFormatMatch[1].padStart(2, '0');
+            const month = String(monthNames.indexOf(newFormatMatch[2]) + 1).padStart(2, '0');
+            const year = newFormatMatch[3];
+            bookingEnd = `${day}/${month}/${year}`;
+          } else {
+            bookingEnd = booking.Date.End;
+          }
+        }
+        
+        if (!bookingStart) continue;
+        bookingEnd = bookingEnd || bookingStart;
+        
+        // Check if entered date(s) overlap with this booking's range
+        if (doRangesOverlap(normalizedStartDate, normalizedEndDate, bookingStart, bookingEnd)) {
+          foundBooking = booking;
+          foundBookingId = bookingId;
+          break;
+        }
+      }
+      
+      if (foundBooking) {
         // Booking exists - ask for confirmation to fetch
         user.confirmingFetch = true;
-        user.pendingBookingId = bookingId;
+        user.pendingBookingId = foundBookingId;
         user.pendingStartDate = normalizedStartDate;
-        user.pendingEndDate = normalizeDateStr(endDate);
+        user.pendingEndDate = normalizedEndDate;
         
-        const existingBooking = bookingsDb.data[bookingId];
+        // Format date display
+        const formatDisplay = foundBooking.Date?.Start === foundBooking.Date?.End 
+          ? foundBooking.Date?.Start 
+          : `${foundBooking.Date?.Start} to ${foundBooking.Date?.End}`;
+        
         await safeSendMessage(sock, sender, {
-          text: `⚠️ Booking for *${busCode}* on *${normalizedStartDate}* already exists.\n\n` +
-                `👤 Customer: ${existingBooking.CustomerName}\n` +
-                `📱 Phone: ${existingBooking.CustomerPhone}\n` +
-                `📊 Status: ${existingBooking.Status}\n\n` +
+          text: `⚠️ Booking for *${busCode}* found!\n\n` +
+                `📅 Date: ${formatDisplay}\n` +
+                `👤 Customer: ${foundBooking.CustomerName}\n` +
+                `📱 Phone: ${foundBooking.CustomerPhone}\n` +
+                `📊 Status: ${foundBooking.Status}\n\n` +
                 `Do you want to open this booking for updates? (*Yes* or *No*)`
         });
         return { handled: true, anyFieldFound: true };
       } else {
         // No existing booking - proceed with new entry
         user.TravelDateFrom = normalizedStartDate;
-        user.TravelDateTo = normalizeDateStr(endDate);
+        user.TravelDateTo = normalizedEndDate;
         anyFieldFound = true;
       }
     }

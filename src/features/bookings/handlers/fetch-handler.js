@@ -41,13 +41,30 @@ export async function handleFetchConfirmation(sock, sender, text, user) {
       
       const existingBooking = bookingsDb.data[bookingId];
       if (existingBooking) {
+        // Helper to parse date from "Sunday, 15 March 2026" to DD/MM/YYYY
+        const parseDateToNormalized = (dateStr) => {
+          if (!dateStr) return null;
+          // Check if already in DD/MM/YYYY format
+          if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return dateStr;
+          // Parse new format "Sunday, 15 March 2026"
+          const match = dateStr.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+          if (match) {
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            const day = match[1].padStart(2, '0');
+            const month = String(monthNames.indexOf(match[2]) + 1).padStart(2, '0');
+            const year = match[3];
+            return `${day}/${month}/${year}`;
+          }
+          return dateStr;
+        };
+        
         // Load existing booking into user session
         user.CustomerName = existingBooking.CustomerName;
         user.CustomerPhone = existingBooking.CustomerPhone;
         user.PickupLocation = existingBooking.Location?.Pickup;
         user.DropLocation = existingBooking.Location?.Drop;
-        user.TravelDateFrom = existingBooking.Date?.Start;
-        user.TravelDateTo = existingBooking.Date?.End;
+        user.TravelDateFrom = parseDateToNormalized(existingBooking.Date?.Start);
+        user.TravelDateTo = parseDateToNormalized(existingBooking.Date?.End);
         user.BusCode = existingBooking.BusCode;
         user.Capacity = existingBooking.Capacity;
         user.TotalFare = existingBooking.TotalFare?.Amount;

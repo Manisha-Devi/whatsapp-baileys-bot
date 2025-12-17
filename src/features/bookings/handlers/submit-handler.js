@@ -102,12 +102,16 @@ export async function handleSubmit(sock, sender, text, user) {
     return true;
   }
 
-  // BookingId format: BusCode_TravelDateFrom (e.g., BUS101_17/12/2025)
-  const bookingId = `${user.BusCode}_${user.TravelDateFrom}`;
-  
   // Calculate number of days between start and end dates
   const startDate = user.TravelDateFrom;
   const endDate = user.TravelDateTo || user.TravelDateFrom;
+  
+  // BookingId format: 
+  // Single day: BUS102_14/11/2025
+  // Multi-day: BUS102_15/11/2025_TO_17/11/2025
+  const bookingId = (startDate === endDate) 
+    ? `${user.BusCode}_${startDate}`
+    : `${user.BusCode}_${startDate}_TO_${endDate}`;
   
   let numberOfDays = 1;
   try {
