@@ -102,6 +102,15 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
     msgParts.push(`💰 *Expenses (Post-Trip):*`);
     msgParts.push(`⛽ Diesel: ₹${formatExpenseField(user.Diesel)}`);
     msgParts.push(`🚌 Adda: ₹${formatExpenseField(user.Adda)}`);
+    msgParts.push(`🤝 Union: ₹${formatExpenseField(user.Union)}`);
+    
+    // Format extra expenses
+    if (user.ExtraExpenses && user.ExtraExpenses.length > 0) {
+      user.ExtraExpenses.forEach(e => {
+        const mode = e.mode === "online" ? " 💳" : "";
+        msgParts.push(`🧾 ${capitalize(e.name)}: ₹${e.amount.toLocaleString('en-IN')}${mode}`);
+      });
+    }
     
     // Format employee expenses
     if (user.EmployExpenses && user.EmployExpenses.length > 0) {

@@ -171,7 +171,9 @@ export async function handleSubmit(sock, sender, text, user) {
     // Post-Booking expense fields (always included, empty by default)
     Diesel: user.Diesel || null,
     Adda: user.Adda || null,
+    Union: user.Union || null,
     EmployExpenses: user.EmployExpenses || [],
+    ExtraExpenses: user.ExtraExpenses || [],
   };
 
   const isUpdate = user.editingExisting;

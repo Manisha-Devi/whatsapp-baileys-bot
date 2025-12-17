@@ -59,6 +59,8 @@ export async function handleFetchConfirmation(sock, sender, text, user) {
         // Load expense fields if they exist
         user.Diesel = existingBooking.Diesel || null;
         user.Adda = existingBooking.Adda || null;
+        user.Union = existingBooking.Union || null;
+        user.ExtraExpenses = existingBooking.ExtraExpenses || [];
         
         // Auto-fetch employee expenses for this bus if not already saved
         if (existingBooking.EmployExpenses && existingBooking.EmployExpenses.length > 0) {

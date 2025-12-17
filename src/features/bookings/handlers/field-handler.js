@@ -216,6 +216,32 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       anyFieldFound = true;
     }
 
+    // Extract Union: "union [amount] [optional: online]"
+    const unionMatch = normalizedText.match(/^union\s+(\d+)(?:\s+(online))?$/i);
+    if (unionMatch) {
+      const amount = parseInt(unionMatch[1]);
+      const mode = unionMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
+      user.Union = { amount, mode };
+      anyFieldFound = true;
+    }
+
+    // Extract Extra Expense: "expense [name] [amount] [optional: online]"
+    const expenseMatch = normalizedText.match(/^expense\s+(\w+)\s+(\d+)(?:\s+(online))?$/i);
+    if (expenseMatch) {
+      const name = expenseMatch[1].trim();
+      const amount = parseInt(expenseMatch[2]);
+      const mode = expenseMatch[3]?.toLowerCase() === "online" ? "online" : "cash";
+      if (!user.ExtraExpenses) user.ExtraExpenses = [];
+      const existingIndex = user.ExtraExpenses.findIndex(e => e.name.toLowerCase() === name.toLowerCase());
+      if (existingIndex !== -1) {
+        user.ExtraExpenses[existingIndex].amount = amount;
+        user.ExtraExpenses[existingIndex].mode = mode;
+      } else {
+        user.ExtraExpenses.push({ name, amount, mode });
+      }
+      anyFieldFound = true;
+    }
+
     // Extract Driver expense: "driver [amount] [optional: online]"
     const driverMatch = normalizedText.match(/^driver\s+(\d+)(?:\s+(online))?$/i);
     if (driverMatch) {
