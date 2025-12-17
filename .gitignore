@@ -10,9 +10,8 @@ attached_assets/
 
 # Storage folder (runtime data)
 storage/daily_data.json
-storage/daily_status.json
 storage/bookings_data.json
-storage/bookings_status.json
+storage/cash_data.json
 
 # Environment variables
 .env
