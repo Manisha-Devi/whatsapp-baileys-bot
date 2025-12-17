@@ -112,16 +112,32 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
       });
     }
     
-    // Format employee expenses
+    // Format employee expenses - separate dailySalary and trip
     if (user.EmployExpenses && user.EmployExpenses.length > 0) {
-      msgParts.push(``);
-      msgParts.push(`👥 *Employee Expenses:*`);
-      user.EmployExpenses.forEach(e => {
-        const displayName = e.role || e.name;
-        const mode = e.mode === "online" ? " 💳" : "";
-        const amount = e.amount !== undefined && e.amount !== null ? e.amount.toLocaleString('en-IN') : "___";
-        msgParts.push(`👤 ${capitalize(displayName)}: ₹${amount}${mode}`);
-      });
+      const dailySalaryExpenses = user.EmployExpenses.filter(e => !e.type || e.type === "dailySalary");
+      const tripExpenses = user.EmployExpenses.filter(e => e.type === "trip");
+      
+      if (dailySalaryExpenses.length > 0) {
+        msgParts.push(``);
+        msgParts.push(`👥 *Employee (Daily Salary):*`);
+        dailySalaryExpenses.forEach(e => {
+          const displayName = e.role || e.name;
+          const mode = e.mode === "online" ? " 💳" : "";
+          const amount = e.amount !== undefined && e.amount !== null ? e.amount.toLocaleString('en-IN') : "___";
+          msgParts.push(`👤 ${capitalize(displayName)}: ₹${amount}${mode}`);
+        });
+      }
+      
+      if (tripExpenses.length > 0) {
+        msgParts.push(``);
+        msgParts.push(`🚌 *Employee (Trip):*`);
+        tripExpenses.forEach(e => {
+          const displayName = e.role || e.name;
+          const mode = e.mode === "online" ? " 💳" : "";
+          const amount = e.amount !== undefined && e.amount !== null ? e.amount.toLocaleString('en-IN') : "___";
+          msgParts.push(`👤 ${capitalize(displayName)}: ₹${amount}${mode}`);
+        });
+      }
     }
   }
   

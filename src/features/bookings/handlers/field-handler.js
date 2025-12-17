@@ -242,32 +242,71 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       anyFieldFound = true;
     }
 
-    // Extract Driver expense: "driver [amount] [optional: online]"
+    // Extract Driver expense (dailySalary): "driver [amount] [optional: online]"
     const driverMatch = normalizedText.match(/^driver\s+(\d+)(?:\s+(online))?$/i);
     if (driverMatch) {
       const amount = parseInt(driverMatch[1]);
       const mode = driverMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
       if (!user.EmployExpenses) user.EmployExpenses = [];
-      const existingIndex = user.EmployExpenses.findIndex(e => (e.role || e.name)?.toLowerCase() === "driver" && e.mode === mode);
+      const existingIndex = user.EmployExpenses.findIndex(e => (e.role || e.name)?.toLowerCase() === "driver" && e.type === "dailySalary" && e.mode === mode);
       if (existingIndex !== -1) {
         user.EmployExpenses[existingIndex].amount = amount;
       } else {
-        user.EmployExpenses.push({ name: "Driver", role: "Driver", amount, mode });
+        // Find existing driver entry to get name, or use default
+        const existingDriver = user.EmployExpenses.find(e => (e.role || e.name)?.toLowerCase() === "driver");
+        const driverName = existingDriver?.name || "Driver";
+        user.EmployExpenses.push({ name: driverName, role: "Driver", type: "dailySalary", amount, mode });
       }
       anyFieldFound = true;
     }
 
-    // Extract Conductor expense: "conductor [amount] [optional: online]"
+    // Extract Conductor expense (dailySalary): "conductor [amount] [optional: online]"
     const conductorMatch = normalizedText.match(/^conductor\s+(\d+)(?:\s+(online))?$/i);
     if (conductorMatch) {
       const amount = parseInt(conductorMatch[1]);
       const mode = conductorMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
       if (!user.EmployExpenses) user.EmployExpenses = [];
-      const existingIndex = user.EmployExpenses.findIndex(e => (e.role || e.name)?.toLowerCase() === "conductor" && e.mode === mode);
+      const existingIndex = user.EmployExpenses.findIndex(e => (e.role || e.name)?.toLowerCase() === "conductor" && e.type === "dailySalary" && e.mode === mode);
       if (existingIndex !== -1) {
         user.EmployExpenses[existingIndex].amount = amount;
       } else {
-        user.EmployExpenses.push({ name: "Conductor", role: "Conductor", amount, mode });
+        const existingConductor = user.EmployExpenses.find(e => (e.role || e.name)?.toLowerCase() === "conductor");
+        const conductorName = existingConductor?.name || "Conductor";
+        user.EmployExpenses.push({ name: conductorName, role: "Conductor", type: "dailySalary", amount, mode });
+      }
+      anyFieldFound = true;
+    }
+
+    // Extract Trip Driver expense: "trip driver [amount] [optional: online]"
+    const tripDriverMatch = normalizedText.match(/^trip\s+driver\s+(\d+)(?:\s+(online))?$/i);
+    if (tripDriverMatch) {
+      const amount = parseInt(tripDriverMatch[1]);
+      const mode = tripDriverMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
+      if (!user.EmployExpenses) user.EmployExpenses = [];
+      const existingIndex = user.EmployExpenses.findIndex(e => (e.role || e.name)?.toLowerCase() === "driver" && e.type === "trip" && e.mode === mode);
+      if (existingIndex !== -1) {
+        user.EmployExpenses[existingIndex].amount = amount;
+      } else {
+        const existingDriver = user.EmployExpenses.find(e => (e.role || e.name)?.toLowerCase() === "driver");
+        const driverName = existingDriver?.name || "Driver";
+        user.EmployExpenses.push({ name: driverName, role: "Driver", type: "trip", amount, mode });
+      }
+      anyFieldFound = true;
+    }
+
+    // Extract Trip Conductor expense: "trip conductor [amount] [optional: online]"
+    const tripConductorMatch = normalizedText.match(/^trip\s+conductor\s+(\d+)(?:\s+(online))?$/i);
+    if (tripConductorMatch) {
+      const amount = parseInt(tripConductorMatch[1]);
+      const mode = tripConductorMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
+      if (!user.EmployExpenses) user.EmployExpenses = [];
+      const existingIndex = user.EmployExpenses.findIndex(e => (e.role || e.name)?.toLowerCase() === "conductor" && e.type === "trip" && e.mode === mode);
+      if (existingIndex !== -1) {
+        user.EmployExpenses[existingIndex].amount = amount;
+      } else {
+        const existingConductor = user.EmployExpenses.find(e => (e.role || e.name)?.toLowerCase() === "conductor");
+        const conductorName = existingConductor?.name || "Conductor";
+        user.EmployExpenses.push({ name: conductorName, role: "Conductor", type: "trip", amount, mode });
       }
       anyFieldFound = true;
     }

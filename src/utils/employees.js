@@ -207,6 +207,7 @@ export function getEmployExpensesForBus(busCode) {
     return {
       name: fullName,      // Full name (e.g., "Sanjay Kumar")
       role: emp.role,      // Role (e.g., "Driver", "Conductor")
+      type: "dailySalary", // Type of expense (dailySalary or trip)
       amount: emp.daily,   // Daily wage amount
       mode: "cash",        // All employee payments are in cash
     };
