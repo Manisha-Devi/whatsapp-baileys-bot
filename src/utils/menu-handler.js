@@ -224,28 +224,47 @@ Enter your command now!`;
  * @param {string} sender - The WhatsApp sender ID
  */
 export function showBookingDataHelp(sock, sender) {
-  const helpText = `🚌 *Booking Data Entry*
+  const state = getMenuState(sender);
+  const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
+  
+  const helpText = `🚌 *Booking Help* (*${regNumber}*)
 
-You can now enter fields directly without typing "booking":
+*Commands For Data Entry:*
+• Name [Customer Name]
+• Mobile [10-digit Phone]
+• Pickup [Location]
+• Drop [Location]
+• Date [DD/MM/YYYY]
+• Date [DD/MM/YYYY] to [DD/MM/YYYY]
+  For multi-day bookings
+• Bus [BusCode]
+  Auto-fills bus details
+• Fare [Amount]
+  Total Fare amount
+• Advance [Amount]
+  Advance payment (0 allowed)
+• Remarks [Text]
+• Yes/Y or No/N to Submit
 
-*Example:*
-Customer Name Rahul Sharma
-Customer Phone 9876543210
-Pickup Location Delhi
-Drop Location Agra
-Travel Date 20/11/2025
-Vehicle Type Tempo Traveller
-Number of Passengers 12
-Total Fare 8000
-Advance Paid 3000
-Submit
+*Commands for Status Management:*
 
-*Commands:*
-• *Help* - Show this help
-• *Exit* - Back to Booking Menu
-• *Clear* - Clear current session
+View Status:
+• Status Pending
+• Status Confirmed
+• Status Completed
 
-Start entering your data now!`;
+Update:
+• Update Status [BookingID] [Type]
+  Type: Pending / Confirmed / Completed
+
+*Commands for Reports:*
+• Today
+• Yesterday
+• [Date]
+
+*Other:*
+• Clear - Clear session
+• Exit - Back to Main Menu`;
 
   return sock.sendMessage(sender, { text: helpText });
 }
