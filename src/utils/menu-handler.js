@@ -48,6 +48,7 @@ Please select an option:
 
 📊 Reply *Daily* or *D* - for Daily Reports
 🚌 Reply *Booking* or *B* - for Booking Management
+💵 Reply *Cash* or *C* - for Cash Management
 🔄 Reply *Switch* or *S* - to change bus
 🚪 Reply *Exit* or *E* - to close menu
 
@@ -408,6 +409,7 @@ const commandAliases = {
   'menu': ['menu'],
   'daily': ['daily'],
   'booking': ['booking'],
+  'cash': ['cash'],
   'data': ['data', 'd'],
   'status': ['status', 's'],
   'reports': ['reports', 'r'],
@@ -437,6 +439,7 @@ export function resolveCommand(input, menuState = null) {
     const mainMenuAliases = {
       'd': 'daily',
       'b': 'booking',
+      'c': 'cash',
       's': 'switch'
     };
     if (mainMenuAliases[lower]) {
@@ -655,6 +658,10 @@ export async function handleMenuNavigation(sock, sender, text) {
       setMenuMode(sender, 'booking');
       await showBookingSubmenu(sock, sender);
       return true;
+    }
+    if (resolvedCommand === 'cash') {
+      setMenuMode(sender, 'cash');
+      return false;
     }
   } else if (state.mode && !state.submode) {
     // Handle navigation within mode menus (submenu selection)

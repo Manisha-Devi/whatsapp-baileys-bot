@@ -45,6 +45,7 @@ import makeWASocket, {
 // Our custom features
 import { handleIncomingMessageFromDaily } from "../features/daily/daily.js";      // Daily report handling
 import { handleIncomingMessageFromBooking } from "../features/bookings/booking.js"; // Booking handling
+import { handleIncomingMessageFromCash } from "../features/cash/cash.js";          // Cash management handling
 import { handleMenuNavigation } from "../utils/menu-handler.js";                    // Menu navigation
 import { getMenuState } from "../utils/menu-state.js";                              // User's current menu state
 
@@ -447,7 +448,17 @@ async function connectToWhatsApp() {
         // Booking mode - Send to booking handler
         else if (menuState.mode === 'booking') {
           await handleIncomingMessageFromBooking(sock, msg, true);
-        } 
+        }
+        // Cash mode - Send to cash management handler
+        else if (menuState.mode === 'cash') {
+          const handled = await handleIncomingMessageFromCash(sock, msg);
+          if (handled === false) {
+            const { exitToHome } = await import("../utils/menu-state.js");
+            const { showMainMenu } = await import("../utils/menu-handler.js");
+            exitToHome(sender);
+            await showMainMenu(sock, sender);
+          }
+        }
         // No mode selected - Error message
         else {
           if (sender && !sender.endsWith("@g.us")) {
