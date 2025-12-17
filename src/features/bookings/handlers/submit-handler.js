@@ -181,16 +181,32 @@ export async function handleSubmit(sock, sender, text, user) {
     return true;
   }
   
-  let summary = `✅ *Booking Confirmed!*\n`;
-  summary += `🎫 *${bookingId}*\n\n`;
+  // Format date as "Friday, 12 December 2025"
+  const formatDateDisplay = (dateStr) => {
+    try {
+      const [dd, mm, yyyy] = dateStr.split('/').map(Number);
+      const dateObj = new Date(yyyy, mm - 1, dd);
+      return dateObj.toLocaleDateString('en-GB', {
+        weekday: 'long',
+        day: 'numeric', 
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+  
+  const regNumber = user.RegistrationNumber || bookingRecord.BusCode;
+  let summary = `✅ *Booking Confirmed!* (${regNumber})\n\n`;
   summary += `👤 Customer: ${bookingRecord.CustomerName}\n`;
   summary += `📱 Phone: ${bookingRecord.CustomerPhone}\n`;
   summary += `📍 Pickup: ${bookingRecord.Location.Pickup} → Drop: ${bookingRecord.Location.Drop}\n`;
   
   if (bookingRecord.Date.Start === bookingRecord.Date.End) {
-    summary += `📅 Date: ${bookingRecord.Date.Start}\n`;
+    summary += `📅 Date: ${formatDateDisplay(bookingRecord.Date.Start)}\n`;
   } else {
-    summary += `📅 Date: ${bookingRecord.Date.Start} to ${bookingRecord.Date.End} (${bookingRecord.Date.NoOfDays} days)\n`;
+    summary += `📅 Date: ${formatDateDisplay(bookingRecord.Date.Start)} to ${formatDateDisplay(bookingRecord.Date.End)} (${bookingRecord.Date.NoOfDays} days)\n`;
   }
   
   summary += `🚌 Bus: ${bookingRecord.BusCode} | Capacity: ${bookingRecord.Capacity}\n`;
