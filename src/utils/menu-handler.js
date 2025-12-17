@@ -662,7 +662,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       if (state.mode === 'daily') {
         await showDailyDataHelp(sock, sender);
       } else if (state.mode === 'booking') {
-        await showBookingSubmenu(sock, sender);
+        await showBookingDataHelp(sock, sender);
       }
       return true;
     }
