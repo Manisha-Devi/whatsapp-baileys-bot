@@ -76,6 +76,17 @@ export async function handleDeposit(sock, sender, text, cashState) {
       remainingToDeposit = 0;
     }
     
+    if (remainingToDeposit > 0) {
+      const actuallyConsumed = fromDaily + fromBookings + fromBalance;
+      await safeSendMessage(sock, sender, {
+        text: `❌ Cannot deposit ₹${formatCurrency(depositAmount)}.\n\n` +
+              `Only ₹${formatCurrency(actuallyConsumed)} can be consumed from complete entries.\n\n` +
+              `💡 *Tip:* Deposit amounts must match the sum of complete entries.\n` +
+              `Available entries (FIFO order) shown in summary above.`
+      });
+      return false;
+    }
+    
     const newBalance = totalAvailable - depositAmount;
     
     const depositData = {

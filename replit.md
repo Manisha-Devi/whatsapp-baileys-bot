@@ -51,7 +51,36 @@ Incoming WhatsApp messages are routed by orchestrators to specific handlers. Han
 - **Advanced Reports**: Comprehensive reporting options for daily data including specific dates, ranges, and periods (Today, Last N Days, N Days Ago, Specific Date, Date Range, This Month, This Week).
 - **Menu Breadcrumb**: "Menu" command displays current navigation path and quick actions.
 
-## Bus Selection Feature (NEW)
+## Cash Management Feature (NEW - Dec 2025)
+- **Purpose**: Consolidate and track cash deposits from Daily entries and Bookings
+- **Menu Access**: Main Menu → Cash or C
+- **Cash Summary**: Shows all cash available from:
+  - Daily entries with Status: Initiated (CashHandover amounts)
+  - Booking entries with Status: Initiated (CashHandOver amounts)
+  - Previous balance from last deposit
+- **Deposit Command**: `Deposit <amount>` or `Deposit <amount> <remarks>`
+- **Deposit ID Format**: `DEP_<busCode>_<date>_<sequence>` (e.g., DEP_BUS102_17/12/2025_001)
+- **FIFO Processing**: Older entries get deposited first
+- **Status Update**: When deposit includes an entry, its status changes to "Deposited" with submittedAt timestamp
+- **Balance Tracking**: Remaining balance after deposit is saved for next session
+- **Data Structure** (cash_data.json):
+  ```json
+  {
+    "DEP_BUS102_17/12/2025_001": {
+      "sender": "919876543210@s.whatsapp.net",
+      "busCode": "BUS102",
+      "amount": 15000,
+      "dailyEntries": ["BUS102_15/12/2025"],
+      "bookingEntries": ["BUS102_14/12/2025"],
+      "breakdown": {"fromDaily": 8500, "fromBookings": 6500, "fromBalance": 0},
+      "balance": {"Amount": 1200},
+      "remarks": "SBI Bank",
+      "depositedAt": "2025-12-17T10:30:00.000Z"
+    }
+  }
+  ```
+
+## Bus Selection Feature
 - **User Authentication**: Users are identified by phone number against `src/data/users.json`.
 - **Role-Based Access**: 
   - **Admin**: Access to all active buses, must select one before proceeding.
@@ -102,6 +131,7 @@ Incoming WhatsApp messages are routed by orchestrators to specific handlers. Han
   - `statusDb`: `daily_status.json`
   - `bookingsDb`: `bookings_data.json`
   - `bookingsStatusDb`: `bookings_status.json`
+  - `cashDb`: `cash_data.json`
 - **Backup/Sync**: Google Sheets serves as a secondary data store and reporting interface, with server endpoints for data consumption and updates.
 
 ## Authentication
