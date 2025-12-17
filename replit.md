@@ -33,7 +33,14 @@ The application follows a modular `src`-based architecture:
 
 ## Business Logic
 - **Daily Feature**: Auto-calculation of cash handover, dual-mode expense tracking (cash/online), multi-stage validation, and conflict resolution for existing records.
-- **Booking Feature**: Auto-calculation of balance amount, robust numeric validation, auto-generated booking IDs, and lifecycle status tracking.
+- **Booking Feature (Updated Dec 2025)**: 
+  - **Type 2 Booking**: Full bus booking for private/marriage events
+  - **Simple Commands**: Name, Mobile, Pickup, Drop, Date, Bus, Total Fare, Advance, Remarks
+  - **Date Range Support**: Single day (`Date 20/12/2025`) or multi-day (`Date 20/12/2025 to 22/12/2025`)
+  - **Bus Integration**: Auto-fills bus details from `buses.json` (registration, type, capacity)
+  - **Zero Advance Support**: Allows `Advance 0` for bookings without upfront payment
+  - **Yes/No Confirmation**: Submit with Yes/Y or No/N instead of "submit" command
+  - **Auto-calculations**: Balance = Total Fare - Advance
 
 ## Message Flow Architecture
 Incoming WhatsApp messages are routed by orchestrators to specific handlers. Handlers process messages, extract fields, perform calculations (e.g., `recalculateCashHandover`), and send summary messages. State is persisted to LowDB via safe wrappers.
