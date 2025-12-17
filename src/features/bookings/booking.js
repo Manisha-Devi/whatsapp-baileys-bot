@@ -18,7 +18,6 @@
  * @module features/bookings/booking
  */
 
-import { handleBookingStatus, handleBookingStatusUpdate } from "./booking_status.js";
 import { safeSendMessage } from "./utils/helpers.js";
 import { handleClearCommand, handleBookingCommand } from "./handlers/command-handler.js";
 import { handleFieldExtraction } from "./handlers/field-handler.js";
@@ -160,14 +159,6 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
       }
       return;
     }
-
-    // Try to handle booking status query (e.g., "status pending")
-    const handledBookingStatus = await handleBookingStatus(sock, sender, normalizedText);
-    if (handledBookingStatus) return;
-
-    // Try to handle booking status update (e.g., "update status BK001 confirmed")
-    const handledStatusUpdate = await handleBookingStatusUpdate(sock, sender, normalizedText);
-    if (handledStatusUpdate) return;
 
     // Try to handle clear command to reset booking session
     const handledClear = await handleClearCommand(sock, sender, text);

@@ -82,12 +82,8 @@ try {
   await cashDb.write();
 }
 
-// Dummy exports for backward compatibility (status files removed)
-const statusDb = { data: [], read: async () => {}, write: async () => {} };
-const bookingsStatusDb = { data: [], read: async () => {}, write: async () => {} };
-
 // Export daily data database as default (main database)
 export default db;
 
 // Export additional databases for use in other modules
-export { bookingsDb, cashDb, statusDb, bookingsStatusDb };
+export { bookingsDb, cashDb };
