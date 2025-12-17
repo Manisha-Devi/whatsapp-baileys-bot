@@ -22,6 +22,7 @@ import { handleBookingStatus, handleBookingStatusUpdate } from "./booking_status
 import { safeSendMessage } from "./utils/helpers.js";
 import { handleClearCommand, handleBookingCommand } from "./handlers/command-handler.js";
 import { handleFieldExtraction } from "./handlers/field-handler.js";
+import { handleFetchConfirmation } from "./handlers/fetch-handler.js";
 import { handleSubmit } from "./handlers/submit-handler.js";
 import { sendSummary, getCompletionMessage } from "./utils/messages.js";
 import { getMenuState } from "../../utils/menu-state.js";
@@ -217,6 +218,12 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
     }
 
     const user = global.bookingData[sender];
+
+    // Handle fetch confirmation if user is in confirmingFetch state
+    if (user.confirmingFetch) {
+      const handledFetch = await handleFetchConfirmation(sock, sender, text, user);
+      if (handledFetch) return;
+    }
 
     // Try to handle booking lookup commands (by ID or date)
     const handledBookingCmd = await handleBookingCommand(sock, sender, normalizedText, user);

@@ -165,11 +165,13 @@ export async function handleSubmit(sock, sender, text, user) {
     BalanceAmount: {
       Amount: balanceAmount
     },
-    Status: "Pending",
+    Status: user.editingExisting ? (user.Status || "Pending") : "Pending",
     Remarks: user.Remarks || "",
     submittedAt: new Date().toISOString(),
   };
 
+  const isUpdate = user.editingExisting;
+  
   await safeDbRead(bookingsDb);
   bookingsDb.data[bookingId] = bookingRecord;
   const saved = await safeDbWrite(bookingsDb);
@@ -198,7 +200,8 @@ export async function handleSubmit(sock, sender, text, user) {
   };
   
   const regNumber = user.RegistrationNumber || bookingRecord.BusCode;
-  let summary = `✅ *Booking Confirmed!* (${regNumber})\n\n`;
+  const actionText = isUpdate ? "Updated" : "Confirmed";
+  let summary = `✅ *Booking ${actionText}!* (${regNumber})\n\n`;
   summary += `👤 Customer: ${bookingRecord.CustomerName}\n`;
   summary += `📱 Phone: ${bookingRecord.CustomerPhone}\n`;
   summary += `📍 Pickup: ${bookingRecord.Location.Pickup} → Drop: ${bookingRecord.Location.Drop}\n`;

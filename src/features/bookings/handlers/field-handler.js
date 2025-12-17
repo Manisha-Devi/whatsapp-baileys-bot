@@ -18,7 +18,8 @@
  * @module features/bookings/handlers/field-handler
  */
 
-import { safeSendMessage } from "../utils/helpers.js";
+import { safeSendMessage, safeDbRead } from "../utils/helpers.js";
+import { bookingsDb } from "../../../utils/db.js";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -88,14 +89,53 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
   const dateRangeMatch = normalizedText.match(/^date\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+to\s+(\d{1,2}\/\d{1,2}\/\d{4})$/i);
   const singleDateMatch = normalizedText.match(/^date\s+(\d{1,2}\/\d{1,2}\/\d{4})$/i);
   
-  if (dateRangeMatch) {
-    user.TravelDateFrom = dateRangeMatch[1];
-    user.TravelDateTo = dateRangeMatch[2];
-    anyFieldFound = true;
-  } else if (singleDateMatch) {
-    user.TravelDateFrom = singleDateMatch[1];
-    user.TravelDateTo = singleDateMatch[1];
-    anyFieldFound = true;
+  if (dateRangeMatch || singleDateMatch) {
+    const startDate = dateRangeMatch ? dateRangeMatch[1] : singleDateMatch[1];
+    const endDate = dateRangeMatch ? dateRangeMatch[2] : singleDateMatch[1];
+    
+    // Normalize date to DD/MM/YYYY format
+    const normalizeDateStr = (dateStr) => {
+      const [d, m, y] = dateStr.split('/');
+      return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+    };
+    const normalizedStartDate = normalizeDateStr(startDate);
+    
+    // Generate booking ID to check if booking exists
+    const busCode = user.BusCode;
+    if (!busCode) {
+      // No bus selected yet, just save date for now
+      user.TravelDateFrom = normalizedStartDate;
+      user.TravelDateTo = normalizeDateStr(endDate);
+      anyFieldFound = true;
+    } else {
+      // Check if booking exists for this bus and date
+      const bookingId = `${busCode}_${normalizedStartDate}`;
+      
+      await safeDbRead(bookingsDb);
+      
+      if (bookingsDb.data[bookingId]) {
+        // Booking exists - ask for confirmation to fetch
+        user.confirmingFetch = true;
+        user.pendingBookingId = bookingId;
+        user.pendingStartDate = normalizedStartDate;
+        user.pendingEndDate = normalizeDateStr(endDate);
+        
+        const existingBooking = bookingsDb.data[bookingId];
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ Booking for *${busCode}* on *${normalizedStartDate}* already exists.\n\n` +
+                `👤 Customer: ${existingBooking.CustomerName}\n` +
+                `📱 Phone: ${existingBooking.CustomerPhone}\n` +
+                `📊 Status: ${existingBooking.Status}\n\n` +
+                `Do you want to open this booking for updates? (*Yes* or *No*)`
+        });
+        return { handled: true, anyFieldFound: true };
+      } else {
+        // No existing booking - proceed with new entry
+        user.TravelDateFrom = normalizedStartDate;
+        user.TravelDateTo = normalizeDateStr(endDate);
+        anyFieldFound = true;
+      }
+    }
   }
 
   // Extract Bus: "bus [busCode]"
