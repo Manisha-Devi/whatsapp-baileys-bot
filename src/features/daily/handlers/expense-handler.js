@@ -243,3 +243,81 @@ export async function handleExpenseDelete(sock, sender, normalizedText, user) {
     return true;
   }
 }
+
+/**
+ * Handles employee expense deletion commands.
+ * Format: "delete driver", "delete trip driver", "delete conductor", "delete trip conductor"
+ * Also supports: "driver delete", "trip driver delete", etc.
+ * 
+ * @param {Object} sock - WhatsApp socket connection instance
+ * @param {string} sender - Sender's phone number/ID
+ * @param {string} normalizedText - Normalized user input text
+ * @param {Object} user - User's session data object
+ * @returns {Promise<boolean>} True if command was handled, false otherwise
+ */
+export async function handleEmployeeExpenseDelete(sock, sender, normalizedText, user) {
+  // Patterns for delete commands
+  // "delete driver", "driver delete", "delete trip driver", "trip driver delete"
+  const deleteDriverPattern = /^(?:delete\s+driver|driver\s+delete)$/i;
+  const deleteTripDriverPattern = /^(?:delete\s+trip\s+driver|trip\s+driver\s+delete)$/i;
+  const deleteConductorPattern = /^(?:delete\s+conductor|conductor\s+delete)$/i;
+  const deleteTripConductorPattern = /^(?:delete\s+trip\s+conductor|trip\s+conductor\s+delete)$/i;
+
+  let role = null;
+  let type = null;
+
+  if (deleteTripDriverPattern.test(normalizedText)) {
+    role = "Driver";
+    type = "trip";
+  } else if (deleteDriverPattern.test(normalizedText)) {
+    role = "Driver";
+    type = "dailySalary";
+  } else if (deleteTripConductorPattern.test(normalizedText)) {
+    role = "Conductor";
+    type = "trip";
+  } else if (deleteConductorPattern.test(normalizedText)) {
+    role = "Conductor";
+    type = "dailySalary";
+  }
+
+  if (!role) return false;
+
+  try {
+    if (!user.EmployExpenses || user.EmployExpenses.length === 0) {
+      await safeSendMessage(sock, sender, {
+        text: `⚠️ No ${type === "trip" ? "Trip " : ""}${role} expense found to delete.`,
+      });
+      return true;
+    }
+
+    // Find the expense to delete (match role and type)
+    const index = user.EmployExpenses.findIndex(
+      (e) => e.role.toLowerCase() === role.toLowerCase() && 
+             (e.type || "dailySalary") === type
+    );
+
+    if (index !== -1) {
+      const deletedExpense = user.EmployExpenses[index];
+      user.EmployExpenses.splice(index, 1);
+      recalculateCashHandover(user);
+      const completenessMsg = getCompletionMessage(user);
+      const typeLabel = type === "trip" ? "Trip " : "";
+      await sendSummary(
+        sock,
+        sender,
+        `🗑️ ${typeLabel}${role} (₹${deletedExpense.amount}) deleted successfully!\n${completenessMsg}`,
+        user
+      );
+    } else {
+      const typeLabel = type === "trip" ? "Trip " : "";
+      await safeSendMessage(sock, sender, {
+        text: `⚠️ ${typeLabel}${role} expense not found in your list.`,
+      });
+    }
+    return true;
+  } catch (err) {
+    console.error("❌ Error handling employee expense delete:", err);
+    return true;
+  }
+}
+

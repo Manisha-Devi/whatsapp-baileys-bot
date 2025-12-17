@@ -16,7 +16,7 @@
 import { handleDailyStatus, handleStatusUpdate } from "./daily_status.js";
 import { safeSendMessage } from "./utils/helpers.js";
 import { handleClearCommand, handleDailyCommand, handleReportsCommand } from "./handlers/command-handler.js";
-import { handleExpenseCommand, handleExpenseDelete, handleEmployeeExpenseCommand } from "./handlers/expense-handler.js";
+import { handleExpenseCommand, handleExpenseDelete, handleEmployeeExpenseCommand, handleEmployeeExpenseDelete } from "./handlers/expense-handler.js";
 import { handleFetchConfirmation, handleCancelChoice } from "./handlers/fetch-handler.js";
 import { handleSubmit, handleUpdateConfirmation } from "./handlers/submit-handler.js";
 import { handleFieldExtraction, handleFieldUpdateConfirmation, handleRemarksCommand } from "./handlers/field-handler.js";
@@ -246,6 +246,10 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     // Handle expense deletion (expense delete [name])
     const handledExpenseDelete = await handleExpenseDelete(sock, sender, normalizedText, user);
     if (handledExpenseDelete) return;
+
+    // Handle employee expense deletion (delete driver, delete trip driver, etc.)
+    const handledEmployeeDelete = await handleEmployeeExpenseDelete(sock, sender, normalizedText, user);
+    if (handledEmployeeDelete) return;
 
     // Handle remarks entry (remarks [text])
     const handledRemarks = await handleRemarksCommand(sock, sender, normalizedText, user);
