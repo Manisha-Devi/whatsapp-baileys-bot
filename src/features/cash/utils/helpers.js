@@ -1,3 +1,4 @@
+import { parse, isValid, isBefore, isEqual, startOfDay } from "date-fns";
 import db, { bookingsDb, cashDb } from "../../../utils/db.js";
 import { getMenuState } from "../../../utils/menu-state.js";
 
@@ -28,17 +29,14 @@ export async function getInitiatedDailyEntries(busCode) {
         entries.push({
           id: key,
           amount: Number(cashHandover),
-          date: data.Dated
+          date: data.Dated,
+          parsedDate: parseEntryDate(data.Dated)
         });
       }
     }
   }
   
-  entries.sort((a, b) => {
-    const dateA = parseDate(a.date);
-    const dateB = parseDate(b.date);
-    return dateA - dateB;
-  });
+  entries.sort((a, b) => a.parsedDate - b.parsedDate);
   
   return entries;
 }
@@ -51,20 +49,18 @@ export async function getInitiatedBookingEntries(busCode) {
     if (key.startsWith(`${busCode}_`) && data.Status === "Initiated") {
       const cashHandOver = data.CashHandOver?.Amount || 0;
       if (Number(cashHandOver) > 0) {
+        const entryDate = data.TripDate || data.EndDate || data.StartDate;
         entries.push({
           id: key,
           amount: Number(cashHandOver),
-          date: data.TripDate || data.StartDate
+          date: entryDate,
+          parsedDate: parseEntryDate(entryDate)
         });
       }
     }
   }
   
-  entries.sort((a, b) => {
-    const dateA = parseDate(a.date);
-    const dateB = parseDate(b.date);
-    return dateA - dateB;
-  });
+  entries.sort((a, b) => a.parsedDate - b.parsedDate);
   
   return entries;
 }
@@ -88,31 +84,41 @@ export async function getPreviousBalance(busCode) {
   return latestDeposit?.balance?.Amount || 0;
 }
 
-function parseDate(dateStr) {
+export function filterEntriesByDate(entries, targetDate) {
+  const target = startOfDay(targetDate);
+  
+  return entries.filter(entry => {
+    if (!entry.parsedDate || !isValid(entry.parsedDate)) return false;
+    const entryDay = startOfDay(entry.parsedDate);
+    return isBefore(entryDay, target) || isEqual(entryDay, target);
+  });
+}
+
+function parseEntryDate(dateStr) {
   if (!dateStr) return new Date(0);
   
-  const formats = [
-    /(\d{1,2})\/(\d{1,2})\/(\d{4})/,
-    /\w+,\s*(\d{1,2})\s+(\w+)\s+(\d{4})/
-  ];
+  const ddmmyyyy = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (ddmmyyyy) {
+    return new Date(ddmmyyyy[3], ddmmyyyy[2] - 1, ddmmyyyy[1]);
+  }
   
-  for (const format of formats) {
-    const match = dateStr.match(format);
-    if (match) {
-      if (format === formats[0]) {
-        return new Date(match[3], match[2] - 1, match[1]);
-      } else {
-        const months = {
-          january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
-          july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
-        };
-        const month = months[match[2].toLowerCase()];
-        return new Date(match[3], month, match[1]);
-      }
+  const longFormat = dateStr.match(/\w+,\s*(\d{1,2})\s+(\w+)\s+(\d{4})/);
+  if (longFormat) {
+    const months = {
+      january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+      july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
+    };
+    const month = months[longFormat[2].toLowerCase()];
+    if (month !== undefined) {
+      return new Date(longFormat[3], month, longFormat[1]);
     }
   }
   
   return new Date(0);
+}
+
+export function parseEntryDateExport(dateStr) {
+  return parseEntryDate(dateStr);
 }
 
 export async function updateEntryStatus(entryId, isBooking = false) {

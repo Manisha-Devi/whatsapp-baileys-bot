@@ -1,11 +1,13 @@
+import { format, parse, isValid } from "date-fns";
 import { getMenuState, getSelectedBus } from "../../utils/menu-state.js";
 import { 
   safeSendMessage, 
   getInitiatedDailyEntries, 
   getInitiatedBookingEntries, 
-  getPreviousBalance 
+  getPreviousBalance,
+  filterEntriesByDate
 } from "./utils/helpers.js";
-import { sendCashSummary, sendNoCashAvailable } from "./utils/messages.js";
+import { sendCashSummary, sendNoCashAvailable, showCashHelp } from "./utils/messages.js";
 import { handleDeposit } from "./handlers/deposit-handler.js";
 
 const cashUserData = {};
@@ -49,25 +51,52 @@ export async function handleIncomingMessageFromCash(sock, msg) {
       return false;
     }
     
-    if (!cashUserData[sender]) {
+    if (text === "help" || text === "h") {
+      await showCashHelp(sock, sender);
+      return true;
+    }
+    
+    const dateMatch = normalizedText.match(/^date\s+(.+)$/i);
+    if (dateMatch) {
+      const dateInput = dateMatch[1].trim().toLowerCase();
+      let targetDate;
+      
+      if (dateInput === "today") {
+        targetDate = new Date();
+      } else {
+        const parsed = parse(dateInput, "dd/MM/yyyy", new Date());
+        if (isValid(parsed)) {
+          targetDate = parsed;
+        } else {
+          await safeSendMessage(sock, sender, {
+            text: "❌ Invalid date format. Use: Date today or Date DD/MM/YYYY"
+          });
+          return true;
+        }
+      }
+      
       const dailyEntries = await getInitiatedDailyEntries(busCode);
       const bookingEntries = await getInitiatedBookingEntries(busCode);
       const previousBalance = await getPreviousBalance(busCode);
       
-      const dailyTotal = dailyEntries.reduce((sum, e) => sum + e.amount, 0);
-      const bookingTotal = bookingEntries.reduce((sum, e) => sum + e.amount, 0);
+      const filteredDaily = filterEntriesByDate(dailyEntries, targetDate);
+      const filteredBookings = filterEntriesByDate(bookingEntries, targetDate);
+      
+      const dailyTotal = filteredDaily.reduce((sum, e) => sum + e.amount, 0);
+      const bookingTotal = filteredBookings.reduce((sum, e) => sum + e.amount, 0);
       const totalAvailable = dailyTotal + bookingTotal + previousBalance;
       
       cashUserData[sender] = {
         busCode,
-        dailyEntries,
-        bookingEntries,
+        dailyEntries: filteredDaily,
+        bookingEntries: filteredBookings,
         previousBalance,
-        totalAvailable
+        totalAvailable,
+        filterDate: format(targetDate, "dd/MM/yyyy")
       };
       
       if (totalAvailable === 0) {
-        await sendNoCashAvailable(sock, sender);
+        await sendNoCashAvailable(sock, sender, format(targetDate, "dd/MM/yyyy"));
         delete cashUserData[sender];
         return true;
       }
@@ -77,6 +106,13 @@ export async function handleIncomingMessageFromCash(sock, msg) {
     }
     
     if (text.startsWith("deposit")) {
+      if (!cashUserData[sender]) {
+        await safeSendMessage(sock, sender, {
+          text: "⚠️ Please first select a date.\n\nExample: *Date today* or *Date 15/12/2025*"
+        });
+        return true;
+      }
+      
       const success = await handleDeposit(sock, sender, normalizedText, cashUserData[sender]);
       if (success) {
         delete cashUserData[sender];
@@ -84,9 +120,7 @@ export async function handleIncomingMessageFromCash(sock, msg) {
       return true;
     }
     
-    await safeSendMessage(sock, sender, {
-      text: `❌ Invalid command.\n\nReply *"Deposit <amount>"* to deposit cash\nReply *"Back"* to return to menu`
-    });
+    await showCashHelp(sock, sender);
     return true;
     
   } catch (err) {

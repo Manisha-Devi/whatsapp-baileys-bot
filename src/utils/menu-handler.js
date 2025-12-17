@@ -128,6 +128,31 @@ Type your choice:`;
 }
 
 /**
+ * Display the Cash submenu
+ * Shows options within the Cash section
+ * 
+ * @param {Object} sock - The WhatsApp socket connection
+ * @param {string} sender - The WhatsApp sender ID
+ */
+export function showCashSubmenu(sock, sender) {
+  const state = getMenuState(sender);
+  const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
+  
+  const menuText = `💵 *Cash Menu* (*${regNumber}*)
+
+Enter Command or Select Option:
+
+📅 *Date today* - Cash available till today
+📅 *Date DD/MM/YYYY* - Cash available till specific date
+❓ Reply *Help* or *H* - for Help with Commands
+🔙 Reply *Exit* or *E* - to go back to Main Menu
+
+Type your choice:`;
+
+  return sock.sendMessage(sender, { text: menuText });
+}
+
+/**
  * Display comprehensive help for Daily data entry
  * Shows all available commands for entering daily report data
  * 
@@ -661,7 +686,8 @@ export async function handleMenuNavigation(sock, sender, text) {
     }
     if (resolvedCommand === 'cash') {
       setMenuMode(sender, 'cash');
-      return false;
+      await showCashSubmenu(sock, sender);
+      return true;
     }
   } else if (state.mode && !state.submode) {
     // Handle navigation within mode menus (submenu selection)

@@ -1,14 +1,47 @@
 import { safeSendMessage, formatCurrency } from "./helpers.js";
 import { getMenuState } from "../../../utils/menu-state.js";
 
+export async function showCashHelp(sock, jid) {
+  const menuState = getMenuState(jid);
+  const regNumber = menuState?.selectedBusInfo?.registrationNumber || menuState?.selectedBus || 'N/A';
+  
+  const helpText = `💵 *Cash Help* (*${regNumber}*)
+
+*Commands For Cash Management:*
+
+📅 *Select Date (Required first):*
+• Date today
+• Date 15/12/2025
+
+💰 *Deposit (After selecting date):*
+• Deposit <amount>
+  Example: Deposit 15000
+• Deposit <amount> <remarks>
+  Example: Deposit 15000 SBI Bank
+
+🔙 *Navigation:*
+• Exit or E - Back to Main Menu
+• Help or H - Show this help
+
+*Flow:*
+1. First enter date to see available cash
+2. Then deposit the amount`;
+
+  await safeSendMessage(sock, jid, { text: helpText });
+}
+
 export async function sendCashSummary(sock, jid, summaryData) {
   try {
-    const { dailyEntries, bookingEntries, previousBalance, totalAvailable, busCode } = summaryData;
+    const { dailyEntries, bookingEntries, previousBalance, totalAvailable, busCode, filterDate } = summaryData;
     
     const menuState = getMenuState(jid);
     const regNumber = menuState?.selectedBusInfo?.registrationNumber || busCode;
     
-    let msg = `💰 *Cash Available Summary* (*${regNumber}*)\n\n`;
+    let msg = `💰 *Cash Available Summary* (*${regNumber}*)\n`;
+    if (filterDate) {
+      msg += `📅 *Up to:* ${filterDate}\n`;
+    }
+    msg += `\n`;
     
     if (dailyEntries.length > 0) {
       msg += `📊 *From Daily Entries (Status: Initiated):*\n`;
@@ -38,7 +71,7 @@ export async function sendCashSummary(sock, jid, summaryData) {
     msg += `✨ *Total Cash Available: ₹${formatCurrency(totalAvailable)}*\n\n`;
     msg += `Reply *"Deposit <amount>"* (e.g., Deposit 15000)\n`;
     msg += `Optional: *"Deposit 15000 SBI Bank"* (with remarks)\n`;
-    msg += `Reply *"Back"* to return to menu`;
+    msg += `Reply *"Exit"* to return to menu`;
     
     await safeSendMessage(sock, jid, { text: msg });
   } catch (err) {
@@ -91,8 +124,14 @@ export async function sendDepositConfirmation(sock, jid, depositData) {
   }
 }
 
-export async function sendNoCashAvailable(sock, jid) {
-  const msg = `💰 *Cash Management*\n\n⚠️ No cash available for deposit.\n\nAll entries are either already deposited or have no cash handover.\n\nReply *"Back"* to return to menu`;
+export async function sendNoCashAvailable(sock, jid, filterDate = null) {
+  let msg = `💰 *Cash Management*\n\n`;
+  msg += `⚠️ No cash available for deposit`;
+  if (filterDate) {
+    msg += ` up to ${filterDate}`;
+  }
+  msg += `.\n\nAll entries are either already deposited or have no cash handover.\n\n`;
+  msg += `Reply *"Exit"* to return to menu`;
   await safeSendMessage(sock, jid, { text: msg });
 }
 
