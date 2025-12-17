@@ -5,21 +5,40 @@
  * It parses various field patterns and populates the user's booking session data.
  * 
  * Supported fields:
- * - Customer Name: Full name of the customer
- * - Customer Phone: 10-digit phone number
- * - Pickup Location: Starting point of the journey
- * - Drop Location: Destination of the journey
- * - Travel Date: Date of travel in DD/MM/YYYY format
- * - Vehicle Type: Type of vehicle required (e.g., Tempo Traveller, Bus)
- * - Number of Passengers: Total passengers traveling
+ * - Name: Customer name
+ * - Mobile: 10-digit phone number
+ * - Pickup: Starting point of the journey
+ * - Drop: Destination of the journey
+ * - Date: Single date or date range (DD/MM/YYYY or DD/MM/YYYY to DD/MM/YYYY)
+ * - Bus: Bus code from buses.json (auto-fills bus details)
  * - Total Fare: Total booking amount
- * - Advance Paid: Advance payment received
+ * - Advance: Advance payment received
  * - Remarks: Additional notes or requirements
  * 
  * @module features/bookings/handlers/field-handler
  */
 
 import { safeSendMessage } from "../utils/helpers.js";
+import { readFileSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+/**
+ * Load buses data from buses.json
+ */
+function loadBusesData() {
+  try {
+    const busesPath = join(__dirname, "../../..", "data", "buses.json");
+    const data = JSON.parse(readFileSync(busesPath, "utf-8"));
+    return data.buses || [];
+  } catch (err) {
+    console.error("❌ Error loading buses.json:", err);
+    return [];
+  }
+}
 
 /**
  * Extracts booking field values from user's message text.
@@ -33,79 +52,97 @@ import { safeSendMessage } from "../utils/helpers.js";
  * @returns {Promise<{handled: boolean, anyFieldFound: boolean}>} 
  *          - handled: True if message was fully handled (shouldn't continue)
  *          - anyFieldFound: True if any booking field was found in the message
- * 
- * @example
- * // Input: "Customer Name Rahul Sharma"
- * // Sets user.CustomerName = "Rahul Sharma"
- * 
- * // Input: "Total Fare 8000"
- * // Sets user.TotalFare = 8000
  */
 export async function handleFieldExtraction(sock, sender, normalizedText, user) {
   let anyFieldFound = false;
 
-  // Extract Customer Name: "customer name [name]"
-  const customerNameMatch = normalizedText.match(/^customer\s+name\s+(.+)$/i);
-  if (customerNameMatch) {
-    user.CustomerName = customerNameMatch[1].trim();
+  // Extract Name: "name [name]"
+  const nameMatch = normalizedText.match(/^name\s+(.+)$/i);
+  if (nameMatch) {
+    user.CustomerName = nameMatch[1].trim();
     anyFieldFound = true;
   }
 
-  // Extract Customer Phone: "customer phone [10-digit number]"
-  const phoneMatch = normalizedText.match(/^customer\s+phone\s+(\d{10})$/i);
-  if (phoneMatch) {
-    user.CustomerPhone = phoneMatch[1];
+  // Extract Mobile: "mobile [10-digit number]"
+  const mobileMatch = normalizedText.match(/^mobile\s+(\d{10})$/i);
+  if (mobileMatch) {
+    user.CustomerPhone = mobileMatch[1];
     anyFieldFound = true;
   }
 
-  // Extract Pickup Location: "pickup location [location]"
-  const pickupMatch = normalizedText.match(/^pickup\s+location\s+(.+)$/i);
+  // Extract Pickup: "pickup [location]"
+  const pickupMatch = normalizedText.match(/^pickup\s+(.+)$/i);
   if (pickupMatch) {
     user.PickupLocation = pickupMatch[1].trim();
     anyFieldFound = true;
   }
 
-  // Extract Drop Location: "drop location [location]"
-  const dropMatch = normalizedText.match(/^drop\s+location\s+(.+)$/i);
+  // Extract Drop: "drop [location]"
+  const dropMatch = normalizedText.match(/^drop\s+(.+)$/i);
   if (dropMatch) {
     user.DropLocation = dropMatch[1].trim();
     anyFieldFound = true;
   }
 
-  // Extract Travel Date: "travel date DD/MM/YYYY"
-  const travelDateMatch = normalizedText.match(/^travel\s+date\s+(\d{2}\/\d{2}\/\d{4})$/i);
-  if (travelDateMatch) {
-    user.TravelDate = travelDateMatch[1];
+  // Extract Date: "date DD/MM/YYYY" or "date DD/MM/YYYY to DD/MM/YYYY"
+  const dateRangeMatch = normalizedText.match(/^date\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+to\s+(\d{1,2}\/\d{1,2}\/\d{4})$/i);
+  const singleDateMatch = normalizedText.match(/^date\s+(\d{1,2}\/\d{1,2}\/\d{4})$/i);
+  
+  if (dateRangeMatch) {
+    user.TravelDateFrom = dateRangeMatch[1];
+    user.TravelDateTo = dateRangeMatch[2];
+    anyFieldFound = true;
+  } else if (singleDateMatch) {
+    user.TravelDateFrom = singleDateMatch[1];
+    user.TravelDateTo = singleDateMatch[1];
     anyFieldFound = true;
   }
 
-  // Extract Vehicle Type: "vehicle type [type]"
-  const vehicleMatch = normalizedText.match(/^vehicle\s+type\s+(.+)$/i);
-  if (vehicleMatch) {
-    user.VehicleType = vehicleMatch[1].trim();
-    anyFieldFound = true;
-  }
-
-  // Extract Number of Passengers: "number of passengers [count]"
-  const passengersMatch = normalizedText.match(/^number\s+of\s+passengers\s+(\d+)$/i);
-  if (passengersMatch) {
-    user.NumberOfPassengers = parseInt(passengersMatch[1]);
-    anyFieldFound = true;
+  // Extract Bus: "bus [busCode]"
+  const busMatch = normalizedText.match(/^bus\s+(.+)$/i);
+  if (busMatch) {
+    const busCode = busMatch[1].trim().toUpperCase();
+    const buses = loadBusesData();
+    const bus = buses.find(b => b.busCode.toUpperCase() === busCode);
+    
+    if (bus) {
+      if (bus.status !== "Active") {
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ Bus ${busCode} is not active. Please select an active bus.`
+        });
+        return { handled: true, anyFieldFound: false };
+      }
+      
+      user.BusCode = bus.busCode;
+      user.RegistrationNumber = bus.registrationNumber;
+      user.BusType = bus.type;
+      user.Capacity = bus.capacity;
+      anyFieldFound = true;
+    } else {
+      const activeBuses = buses.filter(b => b.status === "Active");
+      let busListMsg = `❌ Bus "${busCode}" not found.\n\n📋 *Available Buses:*\n`;
+      activeBuses.forEach(b => {
+        busListMsg += `• *${b.busCode}* - ${b.registrationNumber} (${b.type})\n`;
+      });
+      await safeSendMessage(sock, sender, { text: busListMsg });
+      return { handled: true, anyFieldFound: false };
+    }
   }
 
   // Extract Total Fare: "total fare [amount]"
   const fareMatch = normalizedText.match(/^total\s+fare\s+(\d+)$/i);
   if (fareMatch) {
     user.TotalFare = parseInt(fareMatch[1]);
+    if (user.AdvancePaid) {
+      user.BalanceAmount = user.TotalFare - user.AdvancePaid;
+    }
     anyFieldFound = true;
   }
 
-  // Extract Advance Paid: "advance paid [amount]"
-  // Also calculates balance amount if total fare is available
-  const advanceMatch = normalizedText.match(/^advance\s+paid\s+(\d+)$/i);
+  // Extract Advance: "advance [amount]"
+  const advanceMatch = normalizedText.match(/^advance\s+(\d+)$/i);
   if (advanceMatch) {
     user.AdvancePaid = parseInt(advanceMatch[1]);
-    // Auto-calculate balance if total fare is set
     if (user.TotalFare) {
       user.BalanceAmount = user.TotalFare - user.AdvancePaid;
     }
@@ -119,7 +156,5 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     anyFieldFound = true;
   }
 
-  // Return false for handled since we want processing to continue
-  // (to show summary after field extraction)
   return { handled: false, anyFieldFound };
 }

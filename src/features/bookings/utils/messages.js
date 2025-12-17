@@ -18,46 +18,46 @@ import { safeSendMessage } from "./helpers.js";
  * @param {string} sender - Sender's phone number/ID
  * @param {string} completenessMsg - Status message about missing/complete fields
  * @param {Object} user - User's booking session data
- * @param {string} user.CustomerName - Customer's full name
- * @param {string} user.CustomerPhone - Customer's phone number
- * @param {string} user.PickupLocation - Journey starting point
- * @param {string} user.DropLocation - Journey destination
- * @param {string} user.TravelDate - Date of travel
- * @param {string} user.VehicleType - Type of vehicle booked
- * @param {number} user.NumberOfPassengers - Passenger count
- * @param {number} user.TotalFare - Total booking amount
- * @param {number} user.AdvancePaid - Advance payment received
- * @param {number} user.BalanceAmount - Remaining balance
- * @param {string} user.Status - Booking status
- * @param {string} user.Remarks - Additional notes
  * @returns {Promise<void>}
- * 
- * @example
- * await sendSummary(sock, sender, "Missing: Travel Date", user);
  */
 export async function sendSummary(sock, sender, completenessMsg, user) {
-  let msg = "📋 *Current Booking Details*\n\n";
+  let msg = "📋 *Booking Details*\n\n";
 
-  // Add each field if it has a value
-  if (user.CustomerName) msg += `👤 Customer Name: ${user.CustomerName}\n`;
+  if (user.CustomerName) msg += `👤 Customer: ${user.CustomerName}\n`;
   if (user.CustomerPhone) msg += `📱 Phone: ${user.CustomerPhone}\n`;
-  if (user.PickupLocation) msg += `📍 Pickup: ${user.PickupLocation}\n`;
-  if (user.DropLocation) msg += `📍 Drop: ${user.DropLocation}\n`;
-  if (user.TravelDate) msg += `📅 Travel Date: ${user.TravelDate}\n`;
-  if (user.VehicleType) msg += `🚐 Vehicle: ${user.VehicleType}\n`;
-  if (user.NumberOfPassengers) msg += `👥 Passengers: ${user.NumberOfPassengers}\n`;
-  if (user.TotalFare) msg += `💰 Total Fare: ₹${user.TotalFare}\n`;
-  if (user.AdvancePaid) msg += `💵 Advance Paid: ₹${user.AdvancePaid}\n`;
   
-  // Show balance if calculated
-  if (user.BalanceAmount !== null && user.BalanceAmount !== undefined) {
-    msg += `💸 Balance: ₹${user.BalanceAmount}\n`;
+  if (user.PickupLocation && user.DropLocation) {
+    msg += `📍 Pickup: ${user.PickupLocation} → Drop: ${user.DropLocation}\n`;
+  } else {
+    if (user.PickupLocation) msg += `📍 Pickup: ${user.PickupLocation}\n`;
+    if (user.DropLocation) msg += `📍 Drop: ${user.DropLocation}\n`;
   }
   
-  if (user.Status) msg += `📊 Status: ${user.Status}\n`;
+  if (user.TravelDateFrom) {
+    if (user.TravelDateFrom === user.TravelDateTo) {
+      msg += `📅 Date: ${user.TravelDateFrom}\n`;
+    } else {
+      msg += `📅 Date: ${user.TravelDateFrom} to ${user.TravelDateTo}\n`;
+    }
+  }
+  
+  if (user.BusCode) {
+    msg += `🚌 Bus: ${user.BusCode} (${user.RegistrationNumber})\n`;
+    msg += `🚐 Type: ${user.BusType} | Capacity: ${user.Capacity}\n`;
+  }
+  
+  if (user.TotalFare !== undefined && user.TotalFare !== null) {
+    msg += `💰 Total Fare: ₹${user.TotalFare.toLocaleString('en-IN')}\n`;
+  }
+  if (user.AdvancePaid !== undefined && user.AdvancePaid !== null) {
+    msg += `💵 Advance: ₹${user.AdvancePaid.toLocaleString('en-IN')}\n`;
+  }
+  if (user.BalanceAmount !== undefined && user.BalanceAmount !== null) {
+    msg += `💸 Balance: ₹${user.BalanceAmount.toLocaleString('en-IN')}\n`;
+  }
+  
   if (user.Remarks) msg += `📝 Remarks: ${user.Remarks}\n`;
 
-  // Add completion status message
   msg += `\n${completenessMsg}`;
 
   await safeSendMessage(sock, sender, { text: msg });
@@ -69,51 +69,38 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
  * an appropriate status message.
  * 
  * Required fields:
- * - CustomerName
- * - CustomerPhone
- * - PickupLocation
- * - DropLocation
- * - TravelDate
- * - VehicleType
- * - NumberOfPassengers
+ * - CustomerName (Name)
+ * - CustomerPhone (Mobile)
+ * - PickupLocation (Pickup)
+ * - DropLocation (Drop)
+ * - TravelDateFrom (Date)
+ * - BusCode (Bus)
  * - TotalFare
- * - AdvancePaid
+ * - AdvancePaid (Advance)
  * 
  * @param {Object} user - User's booking session data object
  * @returns {string} Status message indicating completion state or missing fields
- * 
- * @example
- * // All fields complete
- * getCompletionMessage(completeUser);
- * // Returns: "✅ All required fields complete! Type *submit* to confirm."
- * 
- * // Missing fields
- * getCompletionMessage(incompleteUser);
- * // Returns: "⚠️ Missing: CustomerPhone, TravelDate"
  */
 export function getCompletionMessage(user) {
-  // Define the list of required fields for a complete booking
-  const requiredFields = [
-    "CustomerName",
-    "CustomerPhone",
-    "PickupLocation",
-    "DropLocation",
-    "TravelDate",
-    "VehicleType",
-    "NumberOfPassengers",
-    "TotalFare",
-    "AdvancePaid",
-  ];
+  const requiredFieldsMap = {
+    "CustomerName": "Name",
+    "CustomerPhone": "Mobile",
+    "PickupLocation": "Pickup",
+    "DropLocation": "Drop",
+    "TravelDateFrom": "Date",
+    "BusCode": "Bus",
+    "TotalFare": "Total Fare",
+    "AdvancePaid": "Advance",
+  };
 
-  // Find fields that are missing
-  const missingFields = requiredFields.filter((field) => !user[field]);
+  const missingFields = Object.entries(requiredFieldsMap)
+    .filter(([key]) => user[key] === undefined || user[key] === null || user[key] === "")
+    .map(([, label]) => label);
 
-  // All fields are complete - enable submission
   if (missingFields.length === 0) {
     user.waitingForSubmit = true;
-    return "✅ All required fields complete! Type *submit* to confirm.";
+    return "✅ All fields complete!\nDo you want to Submit? (Yes/Y or No/N)";
   } else {
-    // Some fields are missing - show which ones
     user.waitingForSubmit = false;
     return `⚠️ Missing: ${missingFields.join(", ")}`;
   }
