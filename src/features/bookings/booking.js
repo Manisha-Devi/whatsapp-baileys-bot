@@ -90,31 +90,37 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
       }
     }
     
+    // Get the currently selected bus from menu state
+    const menuState = getMenuState(sender);
+    const selectedBus = menuState.selectedBus;
+
     // Handle help command - show available booking commands
     if (text === 'help' || text === '') {
       if (skipPrefixStripping) {
-        // Menu mode help - shorter format, no prefix needed
+        // Menu mode help - shorter format, no prefix needed (similar to Daily)
+        const busInfo = selectedBus ? `🚌 Bus: *${selectedBus}*\n\n` : '';
         await safeSendMessage(sock, sender, {
-          text: `🚌 *BOOKING COMMANDS (Menu Mode)*\n\n` +
+          text: `🚌 *BOOKING COMMANDS (Menu Mode)*\n${busInfo}` +
                 `📝 *Booking Entry:*\n` +
-                `Customer Name Rahul Sharma\n` +
-                `Customer Phone 9876543210\n` +
-                `Pickup Location Delhi\n` +
-                `Drop Location Agra\n` +
-                `Travel Date 20/11/2025\n` +
-                `Vehicle Type Tempo Traveller\n` +
-                `Number of Passengers 12\n` +
-                `Total Fare 8000\n` +
-                `Advance Paid 3000\n` +
-                `Submit\n\n` +
+                `Name Rajesh Kumar\n` +
+                `Mobile 9876543210\n` +
+                `Pickup Doda\n` +
+                `Drop Jammu\n` +
+                `Date 20/12/2025\n` +
+                `Date 20/12/2025 to 22/12/2025\n` +
+                `Bus BUS101\n` +
+                `Fare 25000\n` +
+                `Advance 10000\n` +
+                `Remarks Marriage booking\n` +
+                `Yes/Y or No/N\n\n` +
                 `📋 *Status Commands:*\n` +
                 `• status pending\n` +
                 `• status confirmed\n` +
-                `• update status BK001 confirmed\n\n` +
+                `• update status BUS101_20/12/2025 confirmed\n\n` +
                 `🔍 *Fetch Bookings:*\n` +
-                `• BK001\n` +
-                `• 20/11/2025\n` +
-                `• 9876543210\n\n` +
+                `• today\n` +
+                `• yesterday\n` +
+                `• [DD/MM/YYYY]\n\n` +
                 `⚙️ *Other:*\n` +
                 `• clear - clear session\n` +
                 `• exit - back to menu\n\n` +
@@ -125,29 +131,27 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
         await safeSendMessage(sock, sender, {
           text: `🚌 *BOOKING FEATURE COMMANDS*\n\n` +
                 `1️⃣ *Create New Booking*\n` +
-                `booking\n` +
-                `Customer Name Rahul Sharma\n` +
-                `Customer Phone 9876543210\n` +
-                `Pickup Location Delhi\n` +
-                `Drop Location Agra\n` +
-                `Travel Date 20/11/2025\n` +
-                `Vehicle Type Tempo Traveller\n` +
-                `Number of Passengers 12\n` +
-                `Total Fare 8000\n` +
-                `Advance Paid 3000\n` +
-                `Remarks AC required\n` +
-                `Submit\n\n` +
+                `booking Name Rajesh Kumar\n` +
+                `booking Mobile 9876543210\n` +
+                `booking Pickup Doda\n` +
+                `booking Drop Jammu\n` +
+                `booking Date 20/12/2025\n` +
+                `booking Date 20/12/2025 to 22/12/2025\n` +
+                `booking Bus BUS101\n` +
+                `booking Fare 25000\n` +
+                `booking Advance 10000\n` +
+                `booking Remarks Marriage booking\n` +
+                `booking Yes/Y or No/N\n\n` +
                 `2️⃣ *Fetch Bookings*\n` +
-                `• booking BK001 - by booking ID\n` +
-                `• booking 20/11/2025 - by date\n` +
-                `• booking 9876543210 - by phone\n\n` +
+                `• booking today\n` +
+                `• booking yesterday\n` +
+                `• booking [DD/MM/YYYY]\n\n` +
                 `3️⃣ *Check Status*\n` +
                 `• booking status pending\n` +
                 `• booking status confirmed\n` +
                 `• booking status completed\n\n` +
                 `4️⃣ *Update Status*\n` +
-                `• booking update status BK001 confirmed\n` +
-                `• booking update status BK002 completed\n\n` +
+                `• booking update status BUS101_20/12/2025 confirmed\n\n` +
                 `5️⃣ *Other Commands*\n` +
                 `• booking clear - clear session\n\n` +
                 `For detailed guide, see documentation.`
@@ -169,7 +173,6 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
     if (handledClear) return;
 
     // Check if user is in booking reports mode (feature under development)
-    const menuState = getMenuState(sender);
     if (menuState.mode === 'booking' && menuState.submode === 'reports') {
       await safeSendMessage(sock, sender, {
         text: "📊 *Booking Reports*\n\n⚠️ This feature is currently under development.\n\nPlease use the following options for now:\n• Reply *Exit* to go back to Booking Menu\n• Reply *Entry* to go to Main Menu"
@@ -202,7 +205,7 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
       // Show welcome message only in normal mode (not menu mode)
       if (!skipPrefixStripping) {
         await safeSendMessage(sock, sender, {
-          text: "👋 Welcome to Booking System!\n\n📝 Start your message with *booking*\n\nExample:\nbooking\nCustomer Name Rahul\nCustomer Phone 9876543210\nPickup Location Delhi\n...\n\nType *booking help* for all commands.",
+          text: "👋 Welcome to Booking System!\n\n📝 Start your message with *booking*\n\nExample:\nbooking Name Rajesh Kumar\nbooking Mobile 9876543210\nbooking Pickup Doda\nbooking Drop Jammu\nbooking Date 20/12/2025\nbooking Bus BUS101\nbooking Fare 25000\nbooking Advance 10000\n\nType *booking help* for all commands.",
         });
       }
     }
