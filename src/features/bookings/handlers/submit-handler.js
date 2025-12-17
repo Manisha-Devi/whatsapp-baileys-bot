@@ -165,7 +165,7 @@ export async function handleSubmit(sock, sender, text, user) {
     BalanceAmount: {
       Amount: balanceAmount
     },
-    Status: user.editingExisting ? (user.Status || "Pending") : "Pending",
+    Status: user.editingExisting ? "Initiated" : "Pending",
     Remarks: user.Remarks || "",
     submittedAt: new Date().toISOString(),
     // Post-Booking expense fields (always included, empty by default)
@@ -222,6 +222,98 @@ export async function handleSubmit(sock, sender, text, user) {
   summary += `💰 Total Fare: ₹${bookingRecord.TotalFare.Amount.toLocaleString('en-IN')}\n`;
   summary += `💵 Advance: ₹${bookingRecord.AdvancePaid.Amount.toLocaleString('en-IN')}\n`;
   summary += `💸 Balance: ₹${bookingRecord.BalanceAmount.Amount.toLocaleString('en-IN')}\n`;
+  
+  // For Post-Booking updates, show full expense details
+  if (isUpdate) {
+    // Helper to get expense amount
+    const getExpenseAmount = (field) => {
+      if (!field || field.amount === undefined || field.amount === null) return 0;
+      return Number(field.amount) || 0;
+    };
+    
+    // Calculate total expenses (cash and online separately)
+    let totalCashExpense = 0;
+    let totalOnlineExpense = 0;
+    
+    // Diesel, Adda, Union expenses
+    const dieselAmt = getExpenseAmount(bookingRecord.Diesel);
+    const addaAmt = getExpenseAmount(bookingRecord.Adda);
+    const unionAmt = getExpenseAmount(bookingRecord.Union);
+    
+    if (bookingRecord.Diesel?.mode === "online") totalOnlineExpense += dieselAmt;
+    else totalCashExpense += dieselAmt;
+    
+    if (bookingRecord.Adda?.mode === "online") totalOnlineExpense += addaAmt;
+    else totalCashExpense += addaAmt;
+    
+    if (bookingRecord.Union?.mode === "online") totalOnlineExpense += unionAmt;
+    else totalCashExpense += unionAmt;
+    
+    // Extra expenses
+    let extraExpensesText = "";
+    if (bookingRecord.ExtraExpenses && bookingRecord.ExtraExpenses.length > 0) {
+      bookingRecord.ExtraExpenses.forEach(e => {
+        const amt = Number(e.amount) || 0;
+        if (e.mode === "online") totalOnlineExpense += amt;
+        else totalCashExpense += amt;
+        const mode = e.mode === "online" ? " 💳" : "";
+        extraExpensesText += `🧾 ${e.name.charAt(0).toUpperCase() + e.name.slice(1)}: ₹${amt.toLocaleString('en-IN')}${mode}\n`;
+      });
+    }
+    
+    // Employee expenses
+    let dailySalaryText = "";
+    let tripText = "";
+    if (bookingRecord.EmployExpenses && bookingRecord.EmployExpenses.length > 0) {
+      const dailySalaryExpenses = bookingRecord.EmployExpenses.filter(e => !e.type || e.type === "dailySalary");
+      const tripExpenses = bookingRecord.EmployExpenses.filter(e => e.type === "trip");
+      
+      dailySalaryExpenses.forEach(e => {
+        const amt = Number(e.amount) || 0;
+        if (e.mode === "online") totalOnlineExpense += amt;
+        else totalCashExpense += amt;
+        const displayName = e.role || e.name;
+        const mode = e.mode === "online" ? " 💳" : "";
+        dailySalaryText += `👤 ${displayName}: ₹${amt.toLocaleString('en-IN')}${mode}\n`;
+      });
+      
+      tripExpenses.forEach(e => {
+        const amt = Number(e.amount) || 0;
+        if (e.mode === "online") totalOnlineExpense += amt;
+        else totalCashExpense += amt;
+        const displayName = e.role || e.name;
+        const mode = e.mode === "online" ? " 💳" : "";
+        tripText += `👤 ${displayName}: ₹${amt.toLocaleString('en-IN')}${mode}\n`;
+      });
+    }
+    
+    const totalExpense = totalCashExpense + totalOnlineExpense;
+    const cashHandover = advancePaid - totalCashExpense;
+    const bachat = totalFare - totalExpense;
+    
+    summary += `\n💰 *Expenses (Post-Trip):*\n`;
+    summary += `⛽ Diesel: ₹${dieselAmt.toLocaleString('en-IN')}${bookingRecord.Diesel?.mode === "online" ? " 💳" : ""}\n`;
+    summary += `🚌 Adda: ₹${addaAmt.toLocaleString('en-IN')}${bookingRecord.Adda?.mode === "online" ? " 💳" : ""}\n`;
+    summary += `🤝 Union: ₹${unionAmt.toLocaleString('en-IN')}${bookingRecord.Union?.mode === "online" ? " 💳" : ""}\n`;
+    if (extraExpensesText) summary += extraExpensesText;
+    
+    if (dailySalaryText) {
+      summary += `\n👥 *Employee (Daily Salary):*\n`;
+      summary += dailySalaryText;
+    }
+    
+    if (tripText) {
+      summary += `\n🚌 *Employee (Trip):*\n`;
+      summary += tripText;
+    }
+    
+    summary += `\n✨ *Summary:*\n`;
+    summary += `💵 Total Cash Expense: ₹${totalCashExpense.toLocaleString('en-IN')}\n`;
+    summary += `💳 Total Online Expense: ₹${totalOnlineExpense.toLocaleString('en-IN')}\n`;
+    summary += `💰 Cash HandOver: ₹${cashHandover.toLocaleString('en-IN')}\n`;
+    summary += `📈 Bachat (Profit): ₹${bachat.toLocaleString('en-IN')}\n`;
+  }
+  
   summary += `📊 Status: ${bookingRecord.Status}\n`;
   if (bookingRecord.Remarks) summary += `📝 Remarks: ${bookingRecord.Remarks}\n`;
 
