@@ -3,7 +3,7 @@
  * ------------------------------------------------------------
  * Features:
  *  ✅ Supports nested objects (Location, Date, TotalFare, etc.)
- *  ✅ PrimaryKey normalization
+ *  ✅ PrimaryKey normalization (7→8 digit fix)
  *  ✅ Auto-parses JSON-like strings before sending
  *  ✅ Keeps consistent column order in sheet
  *  ✅ Uses Bearer Token authentication
@@ -31,10 +31,19 @@ function syncBookingData() {
     return value;
   }
 
-  // --- Helper: Normalize booking ID ---
+  /**
+   * Converts 7-digit PrimaryKey to 8-digit format
+   * Example: "1112025" becomes "01112025"
+   * 
+   * Why needed: Dates sometimes come as 1122025 instead of 01122025
+   * This fixes them to keep everything consistent
+   * 
+   * @param {string} key - PrimaryKey (date format: DDMMYYYY)
+   * @returns {string} - Fixed 8-digit key
+   */
   function normalizeKey(key) {
-    if (typeof key === "string") {
-      return key.trim();
+    if (/^\d{7}$/.test(key)) {
+      return key.padStart(8, "0");
     }
     return key;
   }
@@ -51,7 +60,9 @@ function syncBookingData() {
   for (const row of values) {
     const record = {};
     headers.forEach((h, i) => {
-      record[h] = tryParseJSON(row[i]);
+      if (h && h.toString().trim() !== '') {
+        record[h] = tryParseJSON(row[i]);
+      }
     });
     if (record.PrimaryKey) {
       const fixedKey = normalizeKey(record.PrimaryKey);
@@ -82,28 +93,47 @@ function syncBookingData() {
   let newToServer = 0;
   let newToSheet = 0;
 
-  // → Push newer sheet data to server
+  // Check Sheet records - Need to send to Server?
   for (const [key, sheetRec] of Object.entries(sheetData)) {
     const serverRec = serverData[key];
+    
     if (!serverRec) {
       merged[key] = sheetRec;
       newToServer++;
-    } else if (
-      sheetRec.submittedAt &&
-      serverRec.submittedAt &&
-      new Date(sheetRec.submittedAt) > new Date(serverRec.submittedAt)
-    ) {
-      merged[key] = sheetRec;
-      newToServer++;
+    } else {
+      const sheetTime = sheetRec.submittedAt 
+        ? new Date(sheetRec.submittedAt) 
+        : new Date(0);
+      
+      const serverTime = serverRec.submittedAt 
+        ? new Date(serverRec.submittedAt) 
+        : new Date(0);
+      
+      if (sheetTime > serverTime) {
+        merged[key] = sheetRec;
+        newToServer++;
+      }
     }
   }
 
-  // ← Pull missing server data into sheet
+  // Check Server records - Need to bring to Sheet?
   for (const [key, serverRec] of Object.entries(serverData)) {
     const sheetRec = sheetData[key];
+    
     if (!sheetRec) {
       merged[key] = serverRec;
       newToSheet++;
+    } else {
+      const sheetTime = sheetRec.submittedAt 
+        ? new Date(sheetRec.submittedAt) 
+        : new Date(0);
+      const serverTime = serverRec.submittedAt 
+        ? new Date(serverRec.submittedAt) 
+        : new Date(0);
+      
+      if (serverTime > sheetTime) {
+        newToSheet++;
+      }
     }
   }
 
@@ -125,16 +155,11 @@ function syncBookingData() {
   }
 
   // --- STEP 6: Update Sheet if new data found from server ---
-  if (newToSheet > 0 || Object.keys(merged).length > 0) {
+  if (newToSheet > 0) {
     const allRecords = Object.entries(merged).map(([key, rec]) => ({
       PrimaryKey: key,
       ...rec,
     }));
-
-    if (allRecords.length === 0) {
-      Logger.log("⚠️ No records to write to sheet");
-      return;
-    }
 
     const expectedHeaders = [
       "PrimaryKey",
@@ -159,9 +184,7 @@ function syncBookingData() {
       "submittedAt",
     ];
 
-    const headersList = expectedHeaders.filter(
-      (h) => allRecords.some((rec) => rec[h] !== undefined && rec[h] !== null)
-    );
+    const headersList = expectedHeaders.filter((h) => h in allRecords[0]);
 
     const rows = allRecords.map((rec) =>
       headersList.map((h) => {
@@ -174,9 +197,7 @@ function syncBookingData() {
 
     sheet.clearContents();
     sheet.getRange(1, 1, 1, headersList.length).setValues([headersList]);
-    if (rows.length > 0) {
-      sheet.getRange(2, 1, rows.length, headersList.length).setValues(rows);
-    }
+    sheet.getRange(2, 1, rows.length, headersList.length).setValues(rows);
   }
 
   // --- STEP 7: Completion message ---
@@ -186,92 +207,4 @@ function syncBookingData() {
   );
 
   Logger.log(`🔁 Sync Done. Sent: ${newToServer}, Received: ${newToSheet}`);
-}
-
-/**
- * Helper function to flatten nested booking data for reporting
- * Use this in custom formulas or reports
- */
-function flattenBookingRecord(record) {
-  return {
-    Sender: record.Sender || "",
-    BookingDate: record.BookingDate || "",
-    BusCode: record.BusCode || "",
-    CustomerName: record.CustomerName || "",
-    CustomerPhone: record.CustomerPhone || "",
-    PickupLocation: record.Location?.Pickup || "",
-    DropLocation: record.Location?.Drop || "",
-    NoOfDays: record.Date?.NoOfDays || 1,
-    StartDate: record.Date?.Start || "",
-    EndDate: record.Date?.End || "",
-    Capacity: record.Capacity || "",
-    TotalFare: record.TotalFare?.Amount || 0,
-    AdvancePaid: record.AdvancePaid?.Amount || 0,
-    BalanceAmount: record.BalanceAmount?.Amount || 0,
-    DieselAmount: record.Diesel?.amount || 0,
-    DieselMode: record.Diesel?.mode || "",
-    AddaAmount: record.Adda?.amount || 0,
-    AddaMode: record.Adda?.mode || "",
-    UnionAmount: record.Union?.amount || 0,
-    UnionMode: record.Union?.mode || "",
-    Status: record.Status || "",
-    Remarks: record.Remarks || "",
-    submittedAt: record.submittedAt || "",
-  };
-}
-
-/**
- * Generate a flat report sheet from booking data
- * Creates a new sheet "BookingReport" with flattened columns
- */
-function generateFlatBookingReport() {
-  const SHEET_NAME = "BookingData";
-  const REPORT_SHEET_NAME = "BookingReport";
-
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const dataSheet = ss.getSheetByName(SHEET_NAME);
-  if (!dataSheet) return Logger.log("❌ Sheet not found: " + SHEET_NAME);
-
-  let reportSheet = ss.getSheetByName(REPORT_SHEET_NAME);
-  if (!reportSheet) {
-    reportSheet = ss.insertSheet(REPORT_SHEET_NAME);
-  }
-
-  const values = dataSheet.getDataRange().getValues();
-  const headers = values.shift();
-
-  const records = [];
-  for (const row of values) {
-    const record = {};
-    headers.forEach((h, i) => {
-      try {
-        const val = row[i];
-        if (typeof val === "string" && (val.startsWith("{") || val.startsWith("["))) {
-          record[h] = JSON.parse(val);
-        } else {
-          record[h] = val;
-        }
-      } catch (err) {
-        record[h] = row[i];
-      }
-    });
-    records.push(flattenBookingRecord(record));
-  }
-
-  if (records.length === 0) {
-    Logger.log("⚠️ No records to report");
-    return;
-  }
-
-  const flatHeaders = Object.keys(records[0]);
-  const flatRows = records.map((rec) => flatHeaders.map((h) => rec[h] || ""));
-
-  reportSheet.clearContents();
-  reportSheet.getRange(1, 1, 1, flatHeaders.length).setValues([flatHeaders]);
-  reportSheet.getRange(2, 1, flatRows.length, flatHeaders.length).setValues(flatRows);
-
-  SpreadsheetApp.getActiveSpreadsheet().toast(
-    `✅ Report generated with ${records.length} records`,
-    "Booking Report"
-  );
 }
