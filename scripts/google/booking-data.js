@@ -2,11 +2,14 @@
  * 🔁 Smart Two-Way Sync between Google Sheet ↔ Node.js Server (Bookings)
  * ------------------------------------------------------------
  * Features:
- *  ✅ Removes PrimaryKey from object before upload
+ *  ✅ Supports nested objects (Location, Date, TotalFare, etc.)
  *  ✅ PrimaryKey normalization
  *  ✅ Auto-parses JSON-like strings before sending
  *  ✅ Keeps consistent column order in sheet
  *  ✅ Uses Bearer Token authentication
+ *  ✅ Handles Post-Booking expense fields
+ * 
+ * Updated: December 2025
  */
 
 function syncBookingData() {
@@ -48,11 +51,11 @@ function syncBookingData() {
   for (const row of values) {
     const record = {};
     headers.forEach((h, i) => {
-      record[h] = tryParseJSON(row[i]); // 🧠 convert back objects
+      record[h] = tryParseJSON(row[i]);
     });
     if (record.PrimaryKey) {
       const fixedKey = normalizeKey(record.PrimaryKey);
-      delete record.PrimaryKey; // 🩹 remove before sending
+      delete record.PrimaryKey;
       sheetData[fixedKey] = record;
     }
   }
@@ -122,42 +125,58 @@ function syncBookingData() {
   }
 
   // --- STEP 6: Update Sheet if new data found from server ---
-  if (newToSheet > 0) {
-    // Convert JSON object → array with PrimaryKey included for Sheet
+  if (newToSheet > 0 || Object.keys(merged).length > 0) {
     const allRecords = Object.entries(merged).map(([key, rec]) => ({
       PrimaryKey: key,
       ...rec,
     }));
 
+    if (allRecords.length === 0) {
+      Logger.log("⚠️ No records to write to sheet");
+      return;
+    }
+
     const expectedHeaders = [
       "PrimaryKey",
+      "Sender",
       "BookingDate",
+      "BusCode",
       "CustomerName",
       "CustomerPhone",
-      "PickupLocation",
-      "DropLocation",
-      "TravelDate",
-      "VehicleType",
-      "NumberOfPassengers",
+      "Location",
+      "Date",
+      "Capacity",
       "TotalFare",
       "AdvancePaid",
       "BalanceAmount",
+      "Diesel",
+      "Adda",
+      "Union",
+      "EmployExpenses",
+      "ExtraExpenses",
       "Status",
       "Remarks",
       "submittedAt",
     ];
 
-    const headersList = expectedHeaders.filter((h) => h in allRecords[0]);
+    const headersList = expectedHeaders.filter(
+      (h) => allRecords.some((rec) => rec[h] !== undefined && rec[h] !== null)
+    );
 
     const rows = allRecords.map((rec) =>
-      headersList.map((h) =>
-        typeof rec[h] === "object" ? JSON.stringify(rec[h]) : rec[h] || ""
-      )
+      headersList.map((h) => {
+        const val = rec[h];
+        if (val === undefined || val === null) return "";
+        if (typeof val === "object") return JSON.stringify(val);
+        return val;
+      })
     );
 
     sheet.clearContents();
     sheet.getRange(1, 1, 1, headersList.length).setValues([headersList]);
-    sheet.getRange(2, 1, rows.length, headersList.length).setValues(rows);
+    if (rows.length > 0) {
+      sheet.getRange(2, 1, rows.length, headersList.length).setValues(rows);
+    }
   }
 
   // --- STEP 7: Completion message ---
@@ -167,4 +186,92 @@ function syncBookingData() {
   );
 
   Logger.log(`🔁 Sync Done. Sent: ${newToServer}, Received: ${newToSheet}`);
+}
+
+/**
+ * Helper function to flatten nested booking data for reporting
+ * Use this in custom formulas or reports
+ */
+function flattenBookingRecord(record) {
+  return {
+    Sender: record.Sender || "",
+    BookingDate: record.BookingDate || "",
+    BusCode: record.BusCode || "",
+    CustomerName: record.CustomerName || "",
+    CustomerPhone: record.CustomerPhone || "",
+    PickupLocation: record.Location?.Pickup || "",
+    DropLocation: record.Location?.Drop || "",
+    NoOfDays: record.Date?.NoOfDays || 1,
+    StartDate: record.Date?.Start || "",
+    EndDate: record.Date?.End || "",
+    Capacity: record.Capacity || "",
+    TotalFare: record.TotalFare?.Amount || 0,
+    AdvancePaid: record.AdvancePaid?.Amount || 0,
+    BalanceAmount: record.BalanceAmount?.Amount || 0,
+    DieselAmount: record.Diesel?.amount || 0,
+    DieselMode: record.Diesel?.mode || "",
+    AddaAmount: record.Adda?.amount || 0,
+    AddaMode: record.Adda?.mode || "",
+    UnionAmount: record.Union?.amount || 0,
+    UnionMode: record.Union?.mode || "",
+    Status: record.Status || "",
+    Remarks: record.Remarks || "",
+    submittedAt: record.submittedAt || "",
+  };
+}
+
+/**
+ * Generate a flat report sheet from booking data
+ * Creates a new sheet "BookingReport" with flattened columns
+ */
+function generateFlatBookingReport() {
+  const SHEET_NAME = "BookingData";
+  const REPORT_SHEET_NAME = "BookingReport";
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const dataSheet = ss.getSheetByName(SHEET_NAME);
+  if (!dataSheet) return Logger.log("❌ Sheet not found: " + SHEET_NAME);
+
+  let reportSheet = ss.getSheetByName(REPORT_SHEET_NAME);
+  if (!reportSheet) {
+    reportSheet = ss.insertSheet(REPORT_SHEET_NAME);
+  }
+
+  const values = dataSheet.getDataRange().getValues();
+  const headers = values.shift();
+
+  const records = [];
+  for (const row of values) {
+    const record = {};
+    headers.forEach((h, i) => {
+      try {
+        const val = row[i];
+        if (typeof val === "string" && (val.startsWith("{") || val.startsWith("["))) {
+          record[h] = JSON.parse(val);
+        } else {
+          record[h] = val;
+        }
+      } catch (err) {
+        record[h] = row[i];
+      }
+    });
+    records.push(flattenBookingRecord(record));
+  }
+
+  if (records.length === 0) {
+    Logger.log("⚠️ No records to report");
+    return;
+  }
+
+  const flatHeaders = Object.keys(records[0]);
+  const flatRows = records.map((rec) => flatHeaders.map((h) => rec[h] || ""));
+
+  reportSheet.clearContents();
+  reportSheet.getRange(1, 1, 1, flatHeaders.length).setValues([flatHeaders]);
+  reportSheet.getRange(2, 1, flatRows.length, flatHeaders.length).setValues(flatRows);
+
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    `✅ Report generated with ${records.length} records`,
+    "Booking Report"
+  );
 }
