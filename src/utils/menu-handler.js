@@ -1,3 +1,5 @@
+import { handleCombinedReport } from './report-handler.js';
+
 /**
  * menu-handler.js - Menu Navigation and Display Handler
  * 
@@ -49,6 +51,7 @@ Please select an option:
 📊 Reply *Daily* or *D* - for Daily Reports
 🚌 Reply *Booking* or *B* - for Booking Management
 💵 Reply *Cash* or *C* - for Cash Management
+📈 Reply *Report* or *R* - for Combined Reports
 🔄 Reply *Switch* or *S* - to change bus
 🚪 Reply *Exit* or *E* - to close menu
 
@@ -689,6 +692,11 @@ export async function handleMenuNavigation(sock, sender, text) {
       await showCashSubmenu(sock, sender);
       return true;
     }
+    if (resolvedCommand === 'reports') {
+      setMenuMode(sender, 'combined_report');
+      await handleCombinedReport(sock, sender, text, state);
+      return true;
+    }
   } else if (state.mode && !state.submode) {
     // Handle navigation within mode menus (submenu selection)
     if (resolvedCommand === 'help') {
@@ -720,6 +728,9 @@ export async function handleMenuNavigation(sock, sender, text) {
       }
       return true;
     }
+  } else if (state.mode === 'combined_report') {
+    await handleCombinedReport(sock, sender, text, state);
+    return true;
   } else if (state.submode) {
     // Handle help command within submodes
     if (resolvedCommand === 'help') {
