@@ -394,84 +394,57 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
       return true;
     }
 
-    // Handle Average Command (Refined Version)
-    if (lowerText.startsWith("average") || lowerText.startsWith("a ")) {
-        const query = lowerText.replace(/^average\s*/, '').replace(/^a\s+/, '').trim();
-        const ranges = [];
-        const now = new Date();
+    // Month name to index mapping for average calculations
+    const monthNames = {
+      'january': 0, 'jan': 0, 'february': 1, 'feb': 1, 'march': 2, 'mar': 2,
+      'april': 3, 'apr': 3, 'may': 4, 'june': 5, 'jun': 5, 'july': 6, 'jul': 6,
+      'august': 7, 'aug': 7, 'september': 8, 'sep': 8, 'sept': 8, 'october': 9, 'oct': 9,
+      'november': 10, 'nov': 10, 'december': 11, 'dec': 11
+    };
 
-        if (query === 'today' || query === '') {
-            const start = new Date();
-            start.setHours(0, 0, 0, 0);
-            ranges.push({ start, end: new Date(), name: "Today" });
-        } else if (query === 'this week') {
-            ranges.push({ start: startOfWeek(now, { weekStartsOn: 1 }), end: now, name: "This Week" });
-        } else if (query === 'this month') {
-            ranges.push({ start: startOfMonth(now), end: now, name: "This Month" });
-        } else if (query === 'this year') {
-            ranges.push({ start: startOfYear(now), end: now, name: "This Year" });
-        } else {
-            const parts = query.split(',').map(p => p.trim());
-            for (const part of parts) {
-                const match = part.match(/^(\w+)(?:\s+(\d{4}))?$/);
-                if (match) {
-                    const monthStr = match[1];
-                    const yearStr = match[2] || now.getFullYear().toString();
-                    try {
-                        const start = parse(`${monthStr} ${yearStr}`, 'MMM yyyy', new Date());
-                        if (!isNaN(start.getTime())) {
-                            ranges.push({ start, end: endOfMonth(start), name: format(start, 'MMM yyyy') });
-                        } else {
-                            const startFull = parse(`${monthStr} ${yearStr}`, 'MMMM yyyy', new Date());
-                            if (!isNaN(startFull.getTime())) {
-                                ranges.push({ start: startFull, end: endOfMonth(startFull), name: format(startFull, 'MMM yyyy') });
-                            }
-                        }
-                    } catch (e) {}
-                }
-            }
-        }
-
-        if (ranges.length === 0) return false;
-
-        const checkInterval = (date) => ranges.some(r => isWithinInterval(date, { start: r.start, end: r.end }));
-
+    // Handle "average [month] [year]" command
+    const monthYearMatch = lowerText.match(/^average\s+(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|sept|october|oct|november|nov|december|dec)(?:\s+(\d{4}))?$/i);
+    if (monthYearMatch) {
+        const monthName = monthYearMatch[1].toLowerCase();
+        const monthIndex = monthNames[monthName];
+        const year = monthYearMatch[2] ? parseInt(monthYearMatch[2]) : new Date().getFullYear();
+        
+        const startDate = new Date(year, monthIndex, 1);
+        const endDate = new Date(year, monthIndex + 1, 0);
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+        
         let totalProfit = 0, totalCollection = 0, totalExpenses = 0, recordCount = 0;
+        const iterDate = new Date(startDate);
+        while (iterDate <= endDate) {
+            const record = getRecordForBusAndDate(selectedBus, iterDate);
+            if (record) {
+                recordCount++;
+                const cash = parseFloat(record.TotalCashCollection?.amount || record.TotalCashCollection || 0);
+                const online = parseFloat(record.Online?.amount || record.Online || 0);
+                const diesel = parseFloat(record.Diesel?.amount || record.Diesel || 0);
+                const adda = parseFloat(record.Adda?.amount || record.Adda || 0);
+                const union = parseFloat(record.Union?.amount || record.Union || 0);
+                const extra = (record.ExtraExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+                const employ = (record.EmployExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
-        for (const [key, record] of Object.entries(db.data || {})) {
-            if (key.startsWith(selectedBus + "_")) {
-                const dateStr = key.split('_')[1];
-                try {
-                    const recordDate = parse(dateStr, 'dd/MM/yyyy', new Date());
-                    if (checkInterval(recordDate)) {
-                        recordCount++;
-                        const cash = parseFloat(record.TotalCashCollection?.amount || record.TotalCashCollection || 0);
-                        const online = parseFloat(record.Online?.amount || record.Online || 0);
-                        const diesel = parseFloat(record.Diesel?.amount || record.Diesel || 0);
-                        const adda = parseFloat(record.Adda?.amount || record.Adda || 0);
-                        const union = parseFloat(record.Union?.amount || record.Union || 0);
-                        const extra = (record.ExtraExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-                        const employ = (record.EmployExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-
-                        const dayInflow = cash + online;
-                        const dayOutflow = diesel + adda + union + extra + employ;
-                        totalCollection += dayInflow;
-                        totalExpenses += dayOutflow;
-                        totalProfit += (dayInflow - dayOutflow);
-                    }
-                } catch(e) {}
+                const dayInflow = cash + online;
+                const dayOutflow = diesel + adda + union + extra + employ;
+                totalCollection += dayInflow;
+                totalExpenses += dayOutflow;
+                totalProfit += (dayInflow - dayOutflow);
             }
+            iterDate.setDate(iterDate.getDate() + 1);
         }
-
+        
         if (recordCount === 0) {
-            await safeSendMessage(sock, sender, { text: `⚠️ No records found for *${selectedBus}* in specified periods.` });
+            await safeSendMessage(sock, sender, { text: `⚠️ No records found for *${selectedBus}* in ${monthName} ${year}.` });
             return true;
         }
 
         const avgProfit = (totalProfit / recordCount).toFixed(0);
-        const periodName = ranges.map(r => r.name).join(", ");
         const msg = [
-            `📊 *Average Profit Report - ${periodName}*`,
+            `📊 *Average Profit Report - ${capitalize(monthName)} ${year}*`,
             `🚌 Bus: *${selectedBus}*`,
             ``,
             `📈 Total Days with Data: ${recordCount}`,
@@ -486,6 +459,72 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
 
         await safeSendMessage(sock, sender, { text: msg });
         return true;
+    }
+
+    // Handle "average today/week/month/year"
+    const averageMatch = lowerText.match(/^average\s+(today|this\s+week|this\s+month|this\s+year)$/i);
+    if (averageMatch) {
+      const period = averageMatch[1].toLowerCase();
+      let startDate, endDate;
+      const now = new Date();
+      if (period === "today") { startDate = new Date(now); endDate = new Date(now); }
+      else if (period === "this week") {
+        const dayOfWeek = now.getDay();
+        const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        startDate = new Date(now); startDate.setDate(now.getDate() - diff);
+        endDate = new Date(now);
+      }
+      else if (period === "this month") { startDate = new Date(now.getFullYear(), now.getMonth(), 1); endDate = new Date(now); }
+      else if (period === "this year") { startDate = new Date(now.getFullYear(), 0, 1); endDate = new Date(now); }
+      
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      
+      let totalProfit = 0, totalCollection = 0, totalExpenses = 0, recordCount = 0;
+      const iterDate = new Date(startDate);
+      while (iterDate <= endDate) {
+        const record = getRecordForBusAndDate(selectedBus, iterDate);
+        if (record) {
+          recordCount++;
+          const cash = parseFloat(record.TotalCashCollection?.amount || record.TotalCashCollection || 0);
+          const online = parseFloat(record.Online?.amount || record.Online || 0);
+          const diesel = parseFloat(record.Diesel?.amount || record.Diesel || 0);
+          const adda = parseFloat(record.Adda?.amount || record.Adda || 0);
+          const union = parseFloat(record.Union?.amount || record.Union || 0);
+          const extra = (record.ExtraExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+          const employ = (record.EmployExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+
+          const dayInflow = cash + online;
+          const dayOutflow = diesel + adda + union + extra + employ;
+          totalCollection += dayInflow;
+          totalExpenses += dayOutflow;
+          totalProfit += (dayInflow - dayOutflow);
+        }
+        iterDate.setDate(iterDate.getDate() + 1);
+      }
+      
+      if (recordCount === 0) {
+        await safeSendMessage(sock, sender, { text: `⚠️ No records found for *${selectedBus}* ${period}.` });
+        return true;
+      }
+      
+      const avgProfit = (totalProfit / recordCount).toFixed(0);
+      const msg = [
+        `📊 *Average Profit Report - ${capitalize(period)}*`,
+        `🚌 Bus: *${selectedBus}*`,
+        ``,
+        `📈 Total Days with Data: ${recordCount}`,
+        ``,
+        `💰 *Breakdown:*`,
+        `📥 Total Collection: ₹${totalCollection.toLocaleString('en-IN')}`,
+        `📤 Total Expenses: ₹${totalExpenses.toLocaleString('en-IN')}`,
+        `💵 Net Profit: ₹${totalProfit.toLocaleString('en-IN')}`,
+        ``,
+        `✨ *Average Profit/Day: ₹${parseInt(avgProfit).toLocaleString('en-IN')}*`,
+      ].join("\n");
+      
+      await safeSendMessage(sock, sender, { text: msg });
+      return true;
     }
 
     return false;
