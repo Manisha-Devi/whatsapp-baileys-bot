@@ -1,9 +1,9 @@
 /**
- * 🔁 Smart Two-Way Sync between Google Sheet ↔ Node.js Server (Cash)
+ * 🔁 Smart Two-Way Sync between Google Sheet ↔ Node.js Server (Cash Deposits)
  * ------------------------------------------------------------
  * Features:
- *  ✅ PrimaryKey normalization (7→8 digit fix)
- *  ✅ Auto-parses JSON-like strings before sending
+ *  ✅ Handles Deposit ID based JSON structure
+ *  ✅ Auto-parses JSON-like strings (dailyEntries, bookingEntries, breakdown, balance)
  *  ✅ Keeps consistent column order in sheet
  *  ✅ Uses Bearer Token authentication
  * 
@@ -29,16 +29,6 @@ function syncCashData() {
     return value;
   }
 
-  /**
-   * Converts 7-digit PrimaryKey to 8-digit format
-   */
-  function normalizeKey(key) {
-    if (/^\d{7}$/.test(key)) {
-      return key.padStart(8, "0");
-    }
-    return key;
-  }
-
   // --- STEP 1: Get sheet reference ---
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
   if (!sheet) return Logger.log("❌ Sheet not found: " + SHEET_NAME);
@@ -56,9 +46,9 @@ function syncCashData() {
       }
     });
     if (record.PrimaryKey) {
-      const fixedKey = normalizeKey(record.PrimaryKey);
+      const key = record.PrimaryKey;
       delete record.PrimaryKey;
-      sheetData[fixedKey] = record;
+      sheetData[key] = record;
     }
   }
 
@@ -92,12 +82,12 @@ function syncCashData() {
       merged[key] = sheetRec;
       newToServer++;
     } else {
-      const sheetTime = sheetRec.submittedAt 
-        ? new Date(sheetRec.submittedAt) 
+      const sheetTime = sheetRec.depositedAt 
+        ? new Date(sheetRec.depositedAt) 
         : new Date(0);
       
-      const serverTime = serverRec.submittedAt 
-        ? new Date(serverRec.submittedAt) 
+      const serverTime = serverRec.depositedAt 
+        ? new Date(serverRec.depositedAt) 
         : new Date(0);
       
       if (sheetTime > serverTime) {
@@ -115,11 +105,11 @@ function syncCashData() {
       merged[key] = serverRec;
       newToSheet++;
     } else {
-      const sheetTime = sheetRec.submittedAt 
-        ? new Date(sheetRec.submittedAt) 
+      const sheetTime = sheetRec.depositedAt 
+        ? new Date(sheetRec.depositedAt) 
         : new Date(0);
-      const serverTime = serverRec.submittedAt 
-        ? new Date(serverRec.submittedAt) 
+      const serverTime = serverRec.depositedAt 
+        ? new Date(serverRec.depositedAt) 
         : new Date(0);
       
       if (serverTime > sheetTime) {
@@ -154,17 +144,15 @@ function syncCashData() {
 
     const expectedHeaders = [
       "PrimaryKey",
-      "Sender",
-      "Dated",
-      "BusCode",
-      "Type",
-      "Amount",
-      "Mode",
-      "Category",
-      "Employee",
-      "Remarks",
-      "submittedAt",
-      "Status"
+      "sender",
+      "busCode",
+      "amount",
+      "dailyEntries",
+      "bookingEntries",
+      "breakdown",
+      "balance",
+      "remarks",
+      "depositedAt"
     ];
 
     const headersList = expectedHeaders.filter((h) => h in allRecords[0]);
@@ -186,7 +174,7 @@ function syncCashData() {
   // --- STEP 7: Completion message ---
   SpreadsheetApp.getActiveSpreadsheet().toast(
     `✅ Sync Complete → Sent: ${newToServer}, ← Received: ${newToSheet}`,
-    "Cash Data Sync"
+    "Cash Deposit Sync"
   );
 
   Logger.log(`🔁 Sync Done. Sent: ${newToServer}, Received: ${newToSheet}`);
