@@ -6,7 +6,7 @@
  *  ✅ Auto-parses JSON-like strings (dailyEntries, bookingEntries, breakdown, balance)
  *  ✅ Keeps consistent column order in sheet
  *  ✅ Uses Bearer Token authentication
- *  ✅ Added "Dated" column in "Day, DD Month YYYY" format
+ *  ✅ Added "Dated" field in "Day, DD Month YYYY" format in JSON
  *  ✅ Keeps "depositedAt" as raw timestamp
  * 
  * Updated: December 2025
@@ -96,6 +96,10 @@ function syncCashData() {
     const serverRec = serverData[key];
     
     if (!serverRec) {
+      // Ensure "Dated" is added to the record before sending to server
+      if (sheetRec.depositedAt) {
+        sheetRec.Dated = formatDate(sheetRec.depositedAt);
+      }
       merged[key] = sheetRec;
       newToServer++;
     } else {
@@ -108,6 +112,9 @@ function syncCashData() {
         : new Date(0);
       
       if (sheetTime > serverTime) {
+        if (sheetRec.depositedAt) {
+          sheetRec.Dated = formatDate(sheetRec.depositedAt);
+        }
         merged[key] = sheetRec;
         newToServer++;
       }
@@ -116,6 +123,11 @@ function syncCashData() {
 
   // Check Server records - Need to bring to Sheet?
   for (const [key, serverRec] of Object.entries(serverData)) {
+    // Ensure Dated field exists in server record for the merge
+    if (serverRec.depositedAt && !serverRec.Dated) {
+      serverRec.Dated = formatDate(serverRec.depositedAt);
+    }
+    
     const sheetRec = sheetData[key];
     
     if (!sheetRec) {
@@ -156,8 +168,7 @@ function syncCashData() {
   if (newToSheet > 0) {
     const allRecords = Object.entries(merged).map(([key, rec]) => ({
       PrimaryKey: key,
-      ...rec,
-      Dated: formatDate(rec.depositedAt)
+      ...rec
     }));
 
     const expectedHeaders = [
