@@ -23,7 +23,14 @@ async function showReportSubmenu(sock, sender, state) {
     const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
     const menuText = `📈 *Reports* (*${regNumber}*)
 
-📊 Reply *Average* or *A* - for Average Reports
+*Average Report Commands:*
+
+📊 Reply *Average Today* - Aaj ka average
+📊 Reply *Average This Week* - Is hafte ka average
+📊 Reply *Average This Month* - Is mahine ka average
+📊 Reply *Average This Year* - Is saal ka average
+📊 Reply *Average Nov 2025* - Specific month ka average
+
 🔙 Reply *Exit* or *E* - to go back to Main Menu
 
 Type your choice:`;
