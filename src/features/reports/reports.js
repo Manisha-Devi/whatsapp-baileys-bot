@@ -104,14 +104,21 @@ async function handleAverageReport(sock, sender, text, state) {
     if (record.BusCode === busCode && record.Date?.Start) {
       try {
         let recordDate = null;
-        if (/^\d{2}\/\d{2}\/\d{4}$/.test(record.Date.Start)) {
-          recordDate = parse(record.Date.Start, 'dd/MM/yyyy', new Date());
-        } else {
-          const match = record.Date.Start.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
-          if (match) {
-            recordDate = parse(`${match[1]} ${match[2]} ${match[3]}`, 'd MMMM yyyy', new Date());
-          }
+        // Check if Date.Start is a standard dd/mm/yyyy format
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(record.Date.Start)) {
+          recordDate = parse(record.Date.Start, 'd/M/yyyy', new Date());
+        } 
+        // Also check for d/M/yyyy if leading zeros are missing
+        else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(record.Date.Start)) {
+          recordDate = parse(record.Date.Start, 'd/M/yyyy', new Date());
         }
+        else {
+          // Try to handle long format like "Tuesday, 30 December 2025"
+          const parts = record.Date.Start.split(', ');
+          const datePart = parts.length > 1 ? parts[1] : parts[0];
+          recordDate = parse(datePart, 'd MMMM yyyy', new Date());
+        }
+
         if (recordDate && isWithinInterval(recordDate, { start: startDate, end: endDate })) {
           bookingCollection += parseFloat(record.TotalFare?.Amount || record.TotalFare) || 0;
           
