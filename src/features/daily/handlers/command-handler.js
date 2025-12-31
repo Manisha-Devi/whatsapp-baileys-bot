@@ -17,7 +17,6 @@ import { capitalize } from "../utils/formatters.js";
 import { recalculateCashHandover, getCompletionMessage } from "../utils/calculations.js";
 import { sendSummary } from "../utils/messages.js";
 import { getMenuState } from "../../../utils/menu-state.js";
-import { format, startOfWeek, startOfMonth, startOfYear, endOfMonth, isWithinInterval, parse } from "date-fns";
 
 /**
  * Handles the 'clear' command to reset user's local session data.
@@ -396,123 +395,93 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
 
     // Month name to index mapping for average calculations
     const monthNames = {
-      'january': 0, 'jan': 0, 'february': 1, 'feb': 1, 'march': 2, 'mar': 2,
-      'april': 3, 'apr': 3, 'may': 4, 'june': 5, 'jun': 5, 'july': 6, 'jul': 6,
-      'august': 7, 'aug': 7, 'september': 8, 'sep': 8, 'sept': 8, 'october': 9, 'oct': 9,
-      'november': 10, 'nov': 10, 'december': 11, 'dec': 11
+      'january': 0, 'jan': 0,
+      'february': 1, 'feb': 1,
+      'march': 2, 'mar': 2,
+      'april': 3, 'apr': 3,
+      'may': 4,
+      'june': 5, 'jun': 5,
+      'july': 6, 'jul': 6,
+      'august': 7, 'aug': 7,
+      'september': 8, 'sep': 8, 'sept': 8,
+      'october': 9, 'oct': 9,
+      'november': 10, 'nov': 10,
+      'december': 11, 'dec': 11
     };
 
-    // Handle "average [month] [year]" command
+    // Handle "average [month] [year]" command - calculate average profit for specific month
     const monthYearMatch = lowerText.match(/^average\s+(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|sept|october|oct|november|nov|december|dec)(?:\s+(\d{4}))?$/i);
     if (monthYearMatch) {
-        const monthName = monthYearMatch[1].toLowerCase();
-        const monthIndex = monthNames[monthName];
-        const year = monthYearMatch[2] ? parseInt(monthYearMatch[2]) : new Date().getFullYear();
-        
-        const startDate = new Date(year, monthIndex, 1);
-        const endDate = new Date(year, monthIndex + 1, 0);
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
-        
-        let totalProfit = 0, totalCollection = 0, totalExpenses = 0, recordCount = 0;
-        const iterDate = new Date(startDate);
-        while (iterDate <= endDate) {
-            const record = getRecordForBusAndDate(selectedBus, iterDate);
-            if (record) {
-                recordCount++;
-                const cash = parseFloat(record.TotalCashCollection?.amount || record.TotalCashCollection || 0);
-                const online = parseFloat(record.Online?.amount || record.Online || 0);
-                const diesel = parseFloat(record.Diesel?.amount || record.Diesel || 0);
-                const adda = parseFloat(record.Adda?.amount || record.Adda || 0);
-                const union = parseFloat(record.Union?.amount || record.Union || 0);
-                const extra = (record.ExtraExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-                const employ = (record.EmployExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-
-                const dayInflow = cash + online;
-                const dayOutflow = diesel + adda + union + extra + employ;
-                totalCollection += dayInflow;
-                totalExpenses += dayOutflow;
-                totalProfit += (dayInflow - dayOutflow);
-            }
-            iterDate.setDate(iterDate.getDate() + 1);
-        }
-        
-        if (recordCount === 0) {
-            await safeSendMessage(sock, sender, { text: `⚠️ No records found for *${selectedBus}* in ${monthName} ${year}.` });
-            return true;
-        }
-
-        const avgProfit = (totalProfit / recordCount).toFixed(0);
-        const msg = [
-            `📊 *Average Profit Report - ${capitalize(monthName)} ${year}*`,
-            `🚌 Bus: *${selectedBus}*`,
-            ``,
-            `📈 Total Days with Data: ${recordCount}`,
-            ``,
-            `💰 *Breakdown:*`,
-            `📥 Total Collection: ₹${totalCollection.toLocaleString('en-IN')}`,
-            `📤 Total Expenses: ₹${totalExpenses.toLocaleString('en-IN')}`,
-            `💵 Net Profit: ₹${totalProfit.toLocaleString('en-IN')}`,
-            ``,
-            `✨ *Average Profit/Day: ₹${parseInt(avgProfit).toLocaleString('en-IN')}*`,
-        ].join("\n");
-
-        await safeSendMessage(sock, sender, { text: msg });
-        return true;
-    }
-
-    // Handle "average today/week/month/year"
-    const averageMatch = lowerText.match(/^average\s+(today|this\s+week|this\s+month|this\s+year)$/i);
-    if (averageMatch) {
-      const period = averageMatch[1].toLowerCase();
-      let startDate, endDate;
-      const now = new Date();
-      if (period === "today") { startDate = new Date(now); endDate = new Date(now); }
-      else if (period === "this week") {
-        const dayOfWeek = now.getDay();
-        const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        startDate = new Date(now); startDate.setDate(now.getDate() - diff);
-        endDate = new Date(now);
-      }
-      else if (period === "this month") { startDate = new Date(now.getFullYear(), now.getMonth(), 1); endDate = new Date(now); }
-      else if (period === "this year") { startDate = new Date(now.getFullYear(), 0, 1); endDate = new Date(now); }
+      const monthName = monthYearMatch[1].toLowerCase();
+      const monthIndex = monthNames[monthName];
+      const year = monthYearMatch[2] ? parseInt(monthYearMatch[2]) : new Date().getFullYear();
       
+      const startDate = new Date(year, monthIndex, 1);
+      const endDate = new Date(year, monthIndex + 1, 0);
       startDate.setHours(0, 0, 0, 0);
       endDate.setHours(23, 59, 59, 999);
       
-      let totalProfit = 0, totalCollection = 0, totalExpenses = 0, recordCount = 0;
+      // Initialize totals for profit calculation
+      let totalProfit = 0;
+      let totalCollection = 0;
+      let totalExpenses = 0;
+      let recordCount = 0;
+      
+      // Iterate through the month and calculate totals
       const iterDate = new Date(startDate);
       while (iterDate <= endDate) {
         const record = getRecordForBusAndDate(selectedBus, iterDate);
         if (record) {
           recordCount++;
-          const cash = parseFloat(record.TotalCashCollection?.amount || record.TotalCashCollection || 0);
-          const online = parseFloat(record.Online?.amount || record.Online || 0);
+          
+          // Extract collection amounts
+          const cashCollection = parseFloat(record.TotalCashCollection?.amount || record.TotalCashCollection || 0);
+          const onlineCollection = parseFloat(record.Online?.amount || record.Online || 0);
+          
+          // Extract expense amounts
           const diesel = parseFloat(record.Diesel?.amount || record.Diesel || 0);
           const adda = parseFloat(record.Adda?.amount || record.Adda || 0);
           const union = parseFloat(record.Union?.amount || record.Union || 0);
-          const extra = (record.ExtraExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-          const employ = (record.EmployExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-
-          const dayInflow = cash + online;
-          const dayOutflow = diesel + adda + union + extra + employ;
-          totalCollection += dayInflow;
-          totalExpenses += dayOutflow;
-          totalProfit += (dayInflow - dayOutflow);
+          
+          // Calculate extra and employee expense totals
+          const extraExpTotal = (record.ExtraExpenses || []).reduce(
+            (sum, e) => sum + (parseFloat(e.amount) || 0), 0
+          );
+          const employExpTotal = (record.EmployExpenses || []).reduce(
+            (sum, e) => sum + (parseFloat(e.amount) || 0), 0
+          );
+          
+          // Calculate daily profit
+          const dayCollection = cashCollection + onlineCollection;
+          const dayExpenses = diesel + adda + union + extraExpTotal + employExpTotal;
+          const dayProfit = dayCollection - dayExpenses;
+          
+          totalCollection += dayCollection;
+          totalExpenses += dayExpenses;
+          totalProfit += dayProfit;
         }
         iterDate.setDate(iterDate.getDate() + 1);
       }
       
       if (recordCount === 0) {
-        await safeSendMessage(sock, sender, { text: `⚠️ No records found for *${selectedBus}* ${period}.` });
+        const monthFullName = startDate.toLocaleDateString('en-US', { month: 'long' });
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ No records found for *${selectedBus}* in ${monthFullName} ${year}.`,
+        });
         return true;
       }
       
+      // Calculate and format average profit report
       const avgProfit = (totalProfit / recordCount).toFixed(0);
+      const monthFullName = startDate.toLocaleDateString('en-US', { month: 'long' });
+      const startStr = `01/${String(monthIndex + 1).padStart(2, '0')}/${year}`;
+      const endStr = `${endDate.getDate().toString().padStart(2, '0')}/${String(monthIndex + 1).padStart(2, '0')}/${year}`;
+      
       const msg = [
-        `📊 *Average Profit Report - ${capitalize(period)}*`,
+        `📊 *Average Profit Report - ${monthFullName} ${year}*`,
         `🚌 Bus: *${selectedBus}*`,
         ``,
+        `📅 Period: ${startStr} to ${endStr}`,
         `📈 Total Days with Data: ${recordCount}`,
         ``,
         `💰 *Breakdown:*`,
@@ -527,9 +496,275 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
       return true;
     }
 
+    // Handle "average [period]" command for today/this week/month/year
+    const averageMatch = lowerText.match(/^average\s+(today|this\s+week|this\s+month|this\s+year)$/i);
+    if (averageMatch) {
+      const period = averageMatch[1].toLowerCase();
+      let startDate, endDate;
+      const now = new Date();
+      
+      // Determine date range based on period
+      if (period === "today") {
+        startDate = new Date(now);
+        endDate = new Date(now);
+      } else if (period === "this week") {
+        const dayOfWeek = now.getDay();
+        const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - diff);
+        endDate = new Date(now);
+      } else if (period === "this month") {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now);
+      } else if (period === "this year") {
+        startDate = new Date(now.getFullYear(), 0, 1);
+        endDate = new Date(now);
+      }
+      
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      
+      const originalStartDate = new Date(startDate);
+      const originalEndDate = new Date(endDate);
+      
+      // Initialize totals for calculation
+      let totalProfit = 0;
+      let totalCollection = 0;
+      let totalExpenses = 0;
+      let recordCount = 0;
+      
+      // Iterate through period and calculate totals
+      const iterDate = new Date(startDate);
+      while (iterDate <= endDate) {
+        const record = getRecordForBusAndDate(selectedBus, iterDate);
+        if (record) {
+          recordCount++;
+          
+          const cashCollection = parseFloat(record.TotalCashCollection?.amount || record.TotalCashCollection || 0);
+          const onlineCollection = parseFloat(record.Online?.amount || record.Online || 0);
+          const diesel = parseFloat(record.Diesel?.amount || record.Diesel || 0);
+          const adda = parseFloat(record.Adda?.amount || record.Adda || 0);
+          const union = parseFloat(record.Union?.amount || record.Union || 0);
+          
+          const extraExpTotal = (record.ExtraExpenses || []).reduce(
+            (sum, e) => sum + (parseFloat(e.amount) || 0), 0
+          );
+          const employExpTotal = (record.EmployExpenses || []).reduce(
+            (sum, e) => sum + (parseFloat(e.amount) || 0), 0
+          );
+          
+          const dayCollection = cashCollection + onlineCollection;
+          const dayExpenses = diesel + adda + union + extraExpTotal + employExpTotal;
+          const dayProfit = dayCollection - dayExpenses;
+          
+          totalCollection += dayCollection;
+          totalExpenses += dayExpenses;
+          totalProfit += dayProfit;
+        }
+        iterDate.setDate(iterDate.getDate() + 1);
+      }
+      
+      if (recordCount === 0) {
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ No records found for *${selectedBus}* ${period}.`,
+        });
+        return true;
+      }
+      
+      // Format and send average profit report
+      const avgProfit = (totalProfit / recordCount).toFixed(0);
+      const periodFormatted = period.charAt(0).toUpperCase() + period.slice(1);
+      const startStr = `${originalStartDate.getDate().toString().padStart(2, '0')}/${(originalStartDate.getMonth()+1).toString().padStart(2, '0')}/${originalStartDate.getFullYear()}`;
+      const endStr = `${originalEndDate.getDate().toString().padStart(2, '0')}/${(originalEndDate.getMonth()+1).toString().padStart(2, '0')}/${originalEndDate.getFullYear()}`;
+      
+      const msg = [
+        `📊 *Average Profit Report - ${periodFormatted}*`,
+        `🚌 Bus: *${selectedBus}*`,
+        ``,
+        `📅 Period: ${startStr} to ${endStr}`,
+        `📈 Total Days with Data: ${recordCount}`,
+        ``,
+        `💰 *Breakdown:*`,
+        `📥 Total Collection: ₹${totalCollection.toLocaleString('en-IN')}`,
+        `📤 Total Expenses: ₹${totalExpenses.toLocaleString('en-IN')}`,
+        `💵 Net Profit: ₹${totalProfit.toLocaleString('en-IN')}`,
+        ``,
+        `✨ *Average Profit/Day: ₹${parseInt(avgProfit).toLocaleString('en-IN')}*`,
+      ].join("\n");
+      
+      await safeSendMessage(sock, sender, { text: msg });
+      return true;
+    }
+
+    // Handle "this week" command - fetch all records for current week (Monday-Sunday)
+    if (lowerText === "this week") {
+      const now = new Date();
+      const firstDayOfWeek = new Date(now);
+      const dayOfWeek = now.getDay();
+      const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      firstDayOfWeek.setDate(now.getDate() - diff);
+      firstDayOfWeek.setHours(0, 0, 0, 0);
+
+      const lastDayOfWeek = new Date(firstDayOfWeek);
+      lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
+      lastDayOfWeek.setHours(23, 59, 59, 999);
+
+      let foundCount = 0;
+
+      for (let d = new Date(firstDayOfWeek); d <= lastDayOfWeek; d.setDate(d.getDate() + 1)) {
+        const record = getRecordForBusAndDate(selectedBus, d);
+
+        if (record) {
+          foundCount++;
+          await sendFetchedRecord(sock, sender, record);
+          
+          if (sock.presenceSubscribe) await sock.presenceSubscribe(sender);
+          if (sock.sendPresenceUpdate) {
+            await sock.sendPresenceUpdate("composing", sender);
+            await new Promise((r) => setTimeout(r, 1200));
+            await sock.sendPresenceUpdate("paused", sender);
+          }
+        }
+      }
+
+      if (foundCount === 0) {
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ No records found for *${selectedBus}* this week.`,
+        });
+      }
+
+      return true;
+    }
+
+    // Handle "this year" command - fetch all records for current year
+    if (lowerText === "this year") {
+      const now = new Date();
+      const year = now.getFullYear();
+      const firstDay = new Date(year, 0, 1);
+      const lastDay = new Date(year, 11, 31);
+
+      let foundCount = 0;
+
+      for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+        const record = getRecordForBusAndDate(selectedBus, d);
+
+        if (record) {
+          foundCount++;
+          await sendFetchedRecord(sock, sender, record);
+          
+          if (sock.presenceSubscribe) await sock.presenceSubscribe(sender);
+          if (sock.sendPresenceUpdate) {
+            await sock.sendPresenceUpdate("composing", sender);
+            await new Promise((r) => setTimeout(r, 1200));
+            await sock.sendPresenceUpdate("paused", sender);
+          }
+        }
+      }
+
+      if (foundCount === 0) {
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ No records found for *${selectedBus}* this year.`,
+        });
+      }
+
+      return true;
+    }
+
     return false;
   } catch (err) {
-    console.error("❌ Error in handleReportsCommand:", err);
-    return true;
+    console.error("❌ Error handling reports command for", sender, ":", err);
+    return false;
+  }
+}
+
+/**
+ * Handles the 'daily' command variations for quick record access.
+ * Supports: "daily today", "daily last N days"
+ * 
+ * @param {Object} sock - WhatsApp socket connection instance
+ * @param {string} sender - Sender's phone number/ID
+ * @param {string} normalizedText - Normalized user input text
+ * @param {Object} user - User's session data object
+ * @returns {Promise<boolean>} True if command was handled, false otherwise
+ */
+export async function handleDailyCommand(sock, sender, normalizedText, user) {
+  const dailyPattern = /^daily(?:\s+([\w\/\-]+)(?:\s+(\d+)\s+days)?)?$/i;
+  const dailyMatch = normalizedText.match(dailyPattern);
+
+  if (!dailyMatch) return false;
+
+  try {
+    await safeDbRead();
+    const param1 = dailyMatch[1]?.toLowerCase() || "";
+    const daysCount = parseInt(dailyMatch[2]) || null;
+
+    const menuState = getMenuState(sender);
+    const selectedBus = menuState.selectedBus;
+
+    if (!selectedBus) {
+      await safeSendMessage(sock, sender, {
+        text: "⚠️ No bus selected. Please type *Entry* to select a bus first.",
+      });
+      return true;
+    }
+
+    // Handle "daily today" - fetch today's record
+    if (param1 === "today") {
+      const now = new Date();
+      const record = getRecordForBusAndDate(selectedBus, now);
+
+      if (!record) {
+        await safeSendMessage(sock, sender, { text: `⚠️ No record found for *${selectedBus}* today.` });
+        return true;
+      }
+
+      await sendFetchedRecord(sock, sender, record, "✅ Today's Data");
+      return true;
+    }
+
+    // Handle "daily last N days" - fetch records for past N days
+    if (param1 === "last" && daysCount) {
+      const now = new Date();
+      let foundCount = 0;
+
+      for (let i = 0; i < daysCount; i++) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        const record = getRecordForBusAndDate(selectedBus, d);
+        if (!record) continue;
+
+        foundCount++;
+        await sendFetchedRecord(
+          sock,
+          sender,
+          record,
+          i === 0 ? "✅ Today's Data" : i === 1 ? "✅ Yesterday's Data" : `✅ ${i} Days Ago`
+        );
+
+        if (i < daysCount - 1) {
+          try {
+            if (sock.presenceSubscribe) await sock.presenceSubscribe(sender);
+            if (sock.sendPresenceUpdate) {
+              await sock.sendPresenceUpdate("composing", sender);
+              await new Promise((r) => setTimeout(r, 1200));
+              await sock.sendPresenceUpdate("paused", sender);
+            }
+          } catch (err) {}
+        }
+      }
+
+      if (foundCount === 0) {
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ No records found for *${selectedBus}* in the last ${daysCount} days.`,
+        });
+      }
+
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.error("❌ Error handling daily command for", sender, ":", err);
+    return false;
   }
 }

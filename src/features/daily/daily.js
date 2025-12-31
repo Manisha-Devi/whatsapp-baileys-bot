@@ -15,7 +15,7 @@
 
 // Status commands removed - keeping simple data entry with Status: Initiated
 import { safeSendMessage } from "./utils/helpers.js";
-import { handleClearCommand, handleReportsCommand } from "./handlers/command-handler.js";
+import { handleClearCommand, handleDailyCommand, handleReportsCommand } from "./handlers/command-handler.js";
 import { handleExpenseCommand, handleExpenseDelete, handleEmployeeExpenseCommand, handleEmployeeExpenseDelete } from "./handlers/expense-handler.js";
 import { handleFetchConfirmation, handleCancelChoice } from "./handlers/fetch-handler.js";
 import { handleSubmit, handleUpdateConfirmation } from "./handlers/submit-handler.js";
@@ -225,8 +225,8 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     if (handledUpdateConfirmation) return;
 
     // Handle special daily commands (fetch by date, etc.)
-    // const handledDailyCmd = await handleDailyCommand(sock, sender, normalizedText, user);
-    // if (handledDailyCmd) return;
+    const handledDailyCmd = await handleDailyCommand(sock, sender, normalizedText, user);
+    if (handledDailyCmd) return;
 
     // Handle expense deletion (expense delete [name])
     const handledExpenseDelete = await handleExpenseDelete(sock, sender, normalizedText, user);

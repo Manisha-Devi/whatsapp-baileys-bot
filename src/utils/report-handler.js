@@ -3,7 +3,7 @@
  */
 
 import dailyDb, { bookingsDb } from "../utils/db.js";
-import { format, subDays, startOfWeek, startOfMonth, startOfYear, isWithinInterval, parse, endOfMonth } from "date-fns";
+import { format, subDays, startOfWeek, startOfMonth, startOfYear, isWithinInterval, parse } from "date-fns";
 
 export async function handleCombinedReport(sock, sender, text, state) {
     const lowerText = text.toLowerCase().trim();
@@ -12,7 +12,7 @@ export async function handleCombinedReport(sock, sender, text, state) {
         return showReportSubmenu(sock, sender, state);
     }
     
-    if (lowerText.startsWith('average') || lowerText.startsWith('a ')) {
+    if (lowerText.startsWith('average')) {
         return handleAverageReport(sock, sender, text, state);
     }
     
@@ -32,12 +32,15 @@ Type your choice:`;
 
 function parseCustomDate(dateStr) {
     try {
+        // DD/MM/YYYY
         if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
             return parse(dateStr, 'dd/MM/yyyy', new Date());
         }
+        // Sunday, 15 March 2026
         const match = dateStr.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
         if (match) {
-            return parse(`${match[1]} ${match[2]} ${match[3]}`, 'd MMMM yyyy', new Date());
+            const date = parse(`${match[1]} ${match[2]} ${match[3]}`, 'd MMMM yyyy', new Date());
+            return date;
         }
     } catch (e) {}
     return null;
@@ -46,84 +49,59 @@ function parseCustomDate(dateStr) {
 async function handleAverageReport(sock, sender, text, state) {
     const busCode = state.selectedBus;
     const lowerText = text.toLowerCase().trim();
-    const query = lowerText.replace(/^average\s*/, '').replace(/^a\s+/, '').trim();
     
-    const ranges = [];
-    const now = new Date();
+    let startDate = new Date(0);
+    let endDate = new Date();
+    let periodName = "All Time";
 
-    if (query === 'today' || query === '') {
-        const start = new Date();
-        start.setHours(0, 0, 0, 0);
-        ranges.push({ start, end: new Date(), name: "Today" });
-    } else if (query === 'this week') {
-        ranges.push({ start: startOfWeek(now, { weekStartsOn: 1 }), end: now, name: "This Week" });
-    } else if (query === 'this month') {
-        ranges.push({ start: startOfMonth(now), end: now, name: "This Month" });
-    } else if (query === 'this year') {
-        ranges.push({ start: startOfYear(now), end: now, name: "This Year" });
+    if (lowerText === 'average today' || lowerText === 'a today') {
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        periodName = "Today";
+    } else if (lowerText === 'average this week') {
+        startDate = startOfWeek(new Date(), { weekStartsOn: 1 });
+        periodName = "This Week";
+    } else if (lowerText === 'average this month') {
+        startDate = startOfMonth(new Date());
+        periodName = "This Month";
+    } else if (lowerText === 'average this year') {
+        startDate = startOfYear(new Date());
+        periodName = "This Year";
     } else {
-        // Handle comma separated months like "Nov, Dec 2024, Jan"
-        const parts = query.split(',').map(p => p.trim());
-        for (const part of parts) {
-            // Match "Nov 2024" or just "Nov"
-            const match = part.match(/^(\w+)(?:\s+(\d{4}))?$/);
-            if (match) {
-                const monthStr = match[1];
-                const yearStr = match[2] || now.getFullYear().toString();
-                try {
-                    const start = parse(`${monthStr} ${yearStr}`, 'MMM yyyy', new Date());
-                    if (!isNaN(start.getTime())) {
-                        ranges.push({ 
-                            start, 
-                            end: endOfMonth(start), 
-                            name: format(start, 'MMM yyyy') 
-                        });
-                    } else {
-                        // Try full month name
-                        const startFull = parse(`${monthStr} ${yearStr}`, 'MMMM yyyy', new Date());
-                        if (!isNaN(startFull.getTime())) {
-                            ranges.push({ 
-                                start: startFull, 
-                                end: endOfMonth(startFull), 
-                                name: format(startFull, 'MMM yyyy') 
-                            });
-                        }
-                    }
-                } catch (e) {}
+        // Handle "Average Nov 2025" or similar
+        const monthMatch = lowerText.match(/average\s+(\w+)\s+(\d{4})/);
+        if (monthMatch) {
+            const monthStr = monthMatch[1];
+            const yearStr = monthMatch[2];
+            try {
+                startDate = parse(`${monthStr} ${yearStr}`, 'MMMM yyyy', new Date());
+                endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0, 23, 59, 59);
+                periodName = `${monthStr} ${yearStr}`;
+            } catch (e) {}
+        }
+    }
+
+    // Daily Data
+    let dailyTotal = 0;
+    let dailyCount = 0;
+    for (const [key, record] of Object.entries(dailyDb.data || {})) {
+        if (key.startsWith(busCode + "_")) {
+            const dateStr = key.split('_')[1];
+            const recordDate = parse(dateStr, 'dd/MM/yyyy', new Date());
+            if (isWithinInterval(recordDate, { start: startDate, end: endDate })) {
+                dailyTotal += (record.TotalCashCollection || 0) + (record.Online || 0);
+                dailyCount++;
             }
         }
     }
 
-    if (ranges.length === 0) {
-        return sock.sendMessage(sender, { text: "⚠️ Invalid average command. Example: *Average Nov, Dec 2024*" });
-    }
-
-    let dailyTotal = 0, dailyCount = 0;
-    let bookingTotal = 0, bookingCount = 0;
-
-    const checkInterval = (date) => {
-        return ranges.some(range => isWithinInterval(date, { start: range.start, end: range.end }));
-    };
-
-    // Daily Data
-    for (const [key, record] of Object.entries(dailyDb.data || {})) {
-        if (key.startsWith(busCode + "_")) {
-            const dateStr = key.split('_')[1];
-            try {
-                const recordDate = parse(dateStr, 'dd/MM/yyyy', new Date());
-                if (checkInterval(recordDate)) {
-                    dailyTotal += (record.TotalCashCollection || 0) + (record.Online || 0);
-                    dailyCount++;
-                }
-            } catch(e) {}
-        }
-    }
-
     // Booking Data
+    let bookingTotal = 0;
+    let bookingCount = 0;
     for (const record of Object.values(bookingsDb.data || {})) {
         if (record.BusCode === busCode) {
             const recordDate = parseCustomDate(record.Date?.Start);
-            if (recordDate && checkInterval(recordDate)) {
+            if (recordDate && isWithinInterval(recordDate, { start: startDate, end: endDate })) {
                 bookingTotal += record.TotalFare?.Amount || 0;
                 bookingCount++;
             }
@@ -132,21 +110,24 @@ async function handleAverageReport(sock, sender, text, state) {
 
     const totalCollection = dailyTotal + bookingTotal;
     const totalCount = dailyCount + bookingCount;
-    const combinedAvg = totalCount > 0 ? (totalCollection / totalCount).toFixed(0) : 0;
-    
-    const periodName = ranges.map(r => r.name).join(", ");
+    const combinedAvg = totalCount > 0 ? (totalCollection / totalCount).toFixed(2) : 0;
+    const dailyAvg = dailyCount > 0 ? (dailyTotal / dailyCount).toFixed(2) : 0;
+    const bookingAvg = bookingCount > 0 ? (bookingTotal / bookingCount).toFixed(2) : 0;
+
     const reportText = `📈 *Average Report: ${periodName}*
 🚌 Bus: *${state.selectedBusInfo?.registrationNumber || busCode}*
 
 📊 *Daily Operations:*
-• Total: ₹${dailyTotal.toLocaleString('en-IN')} (${dailyCount} entries)
+• Total: ₹${dailyTotal} (${dailyCount} entries)
+• Avg: ₹${dailyAvg}
 
 🚌 *Bookings:*
-• Total: ₹${bookingTotal.toLocaleString('en-IN')} (${bookingCount} entries)
+• Total: ₹${bookingTotal} (${bookingCount} entries)
+• Avg: ₹${bookingAvg}
 
 ⭐ *Combined Average:*
-• Total: ₹${totalCollection.toLocaleString('en-IN')} (${totalCount} entries)
-• *Overall Avg: ₹${parseInt(combinedAvg).toLocaleString('en-IN')}*`;
+• Total: ₹${totalCollection} (${totalCount} entries)
+• *Overall Avg: ₹${combinedAvg}*`;
 
     return sock.sendMessage(sender, { text: reportText });
 }
