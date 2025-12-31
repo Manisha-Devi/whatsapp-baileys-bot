@@ -143,29 +143,38 @@ async function handleAverageReport(sock, sender, text, state) {
   const startFmt = format(startDate, 'dd/MM/yyyy');
   const endFmt = format(endDate, 'dd/MM/yyyy');
 
-  const reportText = `📊 *Average Profit Report - ${periodName}*
-🚌 Bus: *${state.selectedBusInfo?.registrationNumber || busCode}*
+  const reportHeader = `📊 *Average Profit Report - ${periodName}*\n🚌 Bus: *${state.selectedBusInfo?.registrationNumber || busCode}*\n\n`;
 
-📊 *Daily:* ₹${dailyCollection.toLocaleString()} (${dailyCount} entries)
-💰 *Breakdown:*
+  let dailySection = `📊 *Daily:* ₹${dailyCollection.toLocaleString()} (${dailyCount} entries)\n`;
+  if (dailyCount > 0) {
+    dailySection += `💰 *Breakdown:*
 📅 Period: ${startFmt} to ${endFmt}
 📥 Total Collection: ₹${dailyCollection.toLocaleString()}
 📤 Total Expenses: ₹${dailyExpenses.toLocaleString()}
-💵 Net Profit: ₹${dailyNet.toLocaleString()}
+💵 Net Profit: ₹${dailyNet.toLocaleString()}\n\n`;
+  } else {
+    dailySection += `\n`;
+  }
 
-🚌 *Bookings:* ₹${bookingCollection.toLocaleString()} (${bookingCount} entries)
-💰 *Breakdown:*
+  let bookingSection = `🚌 *Bookings:* ₹${bookingCollection.toLocaleString()} (${bookingCount} entries)\n`;
+  if (bookingCount > 0) {
+    bookingSection += `💰 *Breakdown:*
 📅 Period: ${startFmt} to ${endFmt}
 📥 Total Collection: ₹${bookingCollection.toLocaleString()}
 📤 Total Expenses: ₹${bookingExpenses.toLocaleString()}
-💵 Net Profit: ₹${bookingNet.toLocaleString()}
+💵 Net Profit: ₹${bookingNet.toLocaleString()}\n\n`;
+  } else {
+    bookingSection += `\n`;
+  }
 
-✨ *Overall:*
+  const overallSection = `✨ *Overall:*
 📥 Total Collection: ₹${totalCollection.toLocaleString()}
 📤 Total Expenses: ₹${totalExpenses.toLocaleString()}
 💵 Net Profit: ₹${totalNet.toLocaleString()}
 
 ✨ *Average Profit/Day:* ₹${avgProfitPerDay.toLocaleString()}`;
+
+  const reportText = reportHeader + dailySection + bookingSection + overallSection;
 
   await sock.sendMessage(sender, { text: reportText });
 }
