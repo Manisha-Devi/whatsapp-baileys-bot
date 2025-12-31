@@ -1,3 +1,4 @@
+import { handleCombinedReport } from './report-handler.js';
 import { 
   getMenuState, 
   setMenuMode, 
@@ -37,6 +38,7 @@ Please select an option:
 📊 Reply *Daily* or *D* - for Daily Reports
 🚌 Reply *Booking* or *B* - for Booking Management
 💵 Reply *Cash* or *C* - for Cash Management
+📈 Reply *Report* or *R* - for Reports
 🔄 Reply *Switch* or *S* - to change bus
 🚪 Reply *Exit* or *E* - to close menu
 
@@ -400,6 +402,16 @@ function getCurrentMenuPath(state) {
     } else if (state.submode === 'reports') {
       path += " -> 📊 Reports";
     }
+  } else if (state.mode === 'report') {
+    const handled = await handleCombinedReport(sock, sender, text, state);
+    if (handled) return true;
+    
+    if (resolvedCommand === 'exit' || resolvedCommand === 'home') {
+      exitToHome(sender);
+      await showMainMenu(sock, sender);
+      return true;
+    }
+    return false;
   }
   
   return path;
@@ -419,6 +431,7 @@ const commandAliases = {
   'cash': ['cash'],
   'data': ['data', 'd'],
   'status': ['status', 's'],
+  'reports': ['reports', 'r'],
   'help': ['help', 'h'],
   'yes': ['yes', 'y'],
   'no': ['no', 'n'],
@@ -668,6 +681,11 @@ export async function handleMenuNavigation(sock, sender, text) {
     if (resolvedCommand === 'cash') {
       setMenuMode(sender, 'cash');
       await showCashSubmenu(sock, sender);
+      return true;
+    }
+    if (resolvedCommand === 'reports') {
+      setMenuMode(sender, 'report');
+      await handleCombinedReport(sock, sender, text, state);
       return true;
     }
   } else if (state.mode && !state.submode) {
