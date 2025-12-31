@@ -12,11 +12,31 @@ export async function handleCombinedReport(sock, sender, text, state) {
         return showReportSubmenu(sock, sender, state);
     }
     
+    if (lowerText === 'help' || lowerText === 'h') {
+        return showReportHelp(sock, sender, state);
+    }
+    
     if (lowerText.startsWith('average')) {
         return handleAverageReport(sock, sender, text, state);
     }
     
     return false;
+}
+
+async function showReportHelp(sock, sender, state) {
+    const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
+    const helpText = `📈 *Reports Help* (*${regNumber}*)
+
+*Average Report Commands:*
+
+• *Average Today* - Aaj ka average
+• *Average This Week* - Is hafte ka average
+• *Average This Month* - Is mahine ka average
+• *Average This Year* - Is saal ka average
+• *Average Nov 2025* - Specific month ka average
+
+Type your command now!`;
+    return sock.sendMessage(sender, { text: helpText });
 }
 
 async function showReportSubmenu(sock, sender, state) {
