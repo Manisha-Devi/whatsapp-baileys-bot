@@ -100,6 +100,7 @@ async function handleAverageReport(sock, sender, text, state) {
   let bookingCollection = 0;
   let bookingExpenses = 0;
   let bookingCount = 0;
+  let bookingWorkingDays = 0;
   for (const [key, record] of Object.entries(bookingsDb.data || {})) {
     if (key.startsWith(busCode + "_")) {
       const dateStr = key.split('_')[1];
@@ -116,6 +117,8 @@ async function handleAverageReport(sock, sender, text, state) {
           
           bookingExpenses += bDiesel + bAdda + bUnion + bExtraTotal + bEmployTotal;
           bookingCount++;
+          // Add actual number of days from booking record
+          bookingWorkingDays += parseInt(record.Date?.NoOfDays || 1);
         }
       } catch (e) {
         console.error("Error processing booking record:", e);
@@ -123,15 +126,16 @@ async function handleAverageReport(sock, sender, text, state) {
     }
   }
   const bookingNet = bookingCollection - bookingExpenses;
+  const bookingAvg = bookingWorkingDays > 0 ? Math.round(bookingNet / bookingWorkingDays) : 0;
 
   // Overall
   const totalCollection = dailyCollection + bookingCollection;
   const totalExpenses = dailyExpenses + bookingExpenses;
   const totalNet = totalCollection - totalExpenses;
   
-  // Calculate days in period for average
-  const daysInPeriod = Math.max(1, differenceInDays(endDate, startDate) + 1);
-  const avgProfitPerDay = Math.round(totalNet / daysInPeriod);
+  // Calculate actual working days for overall average
+  const totalWorkingDays = dailyCount + bookingWorkingDays;
+  const avgProfitPerDay = totalWorkingDays > 0 ? Math.round(totalNet / totalWorkingDays) : 0;
 
   const startFmt = format(startDate, 'dd/MM/yyyy');
   const endFmt = format(endDate, 'dd/MM/yyyy');
@@ -140,11 +144,13 @@ async function handleAverageReport(sock, sender, text, state) {
 
   let dailySection = `📊 *Daily:* ₹${dailyCollection.toLocaleString()} (${dailyCount} entries)\n`;
   if (dailyCount > 0) {
+    const dailyAvg = Math.round(dailyNet / dailyCount);
     dailySection += `💰 *Breakdown:*
 📅 Period: ${startFmt} to ${endFmt}
 📥 Total Collection: ₹${dailyCollection.toLocaleString()}
 📤 Total Expenses: ₹${dailyExpenses.toLocaleString()}
-💵 Net Profit: ₹${dailyNet.toLocaleString()}\n\n`;
+💵 Net Profit: ₹${dailyNet.toLocaleString()}
+📈 Avg/Day (Daily): ₹${dailyAvg.toLocaleString()}\n\n`;
   } else {
     dailySection += `\n`;
   }
@@ -155,7 +161,8 @@ async function handleAverageReport(sock, sender, text, state) {
 📅 Period: ${startFmt} to ${endFmt}
 📥 Total Collection: ₹${bookingCollection.toLocaleString()}
 📤 Total Expenses: ₹${bookingExpenses.toLocaleString()}
-💵 Net Profit: ₹${bookingNet.toLocaleString()}\n\n`;
+💵 Net Profit: ₹${bookingNet.toLocaleString()}
+📈 Avg/Day (Booking): ₹${bookingAvg.toLocaleString()}\n\n`;
   } else {
     bookingSection += `\n`;
   }
@@ -164,8 +171,9 @@ async function handleAverageReport(sock, sender, text, state) {
 📥 Total Collection: ₹${totalCollection.toLocaleString()}
 📤 Total Expenses: ₹${totalExpenses.toLocaleString()}
 💵 Net Profit: ₹${totalNet.toLocaleString()}
+📅 Total Working Days: ${totalWorkingDays}
 
-✨ *Average Profit/Day:* ₹${avgProfitPerDay.toLocaleString()}`;
+✨ *Overall Average Profit/Day:* ₹${avgProfitPerDay.toLocaleString()}`;
 
   const reportText = reportHeader + dailySection + bookingSection + overallSection;
 
