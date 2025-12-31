@@ -100,26 +100,12 @@ async function handleAverageReport(sock, sender, text, state) {
   let bookingCollection = 0;
   let bookingExpenses = 0;
   let bookingCount = 0;
-  for (const record of Object.values(bookingsDb.data || {})) {
-    if (record.BusCode === busCode && record.Date?.Start) {
+  for (const [key, record] of Object.entries(bookingsDb.data || {})) {
+    if (key.startsWith(busCode + "_")) {
+      const dateStr = key.split('_')[1];
       try {
-        let recordDate = null;
-        // Check if Date.Start is a standard dd/mm/yyyy format
-        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(record.Date.Start)) {
-          recordDate = parse(record.Date.Start, 'd/M/yyyy', new Date());
-        } 
-        // Also check for d/M/yyyy if leading zeros are missing
-        else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(record.Date.Start)) {
-          recordDate = parse(record.Date.Start, 'd/M/yyyy', new Date());
-        }
-        else {
-          // Try to handle long format like "Tuesday, 30 December 2025"
-          const parts = record.Date.Start.split(', ');
-          const datePart = parts.length > 1 ? parts[1] : parts[0];
-          recordDate = parse(datePart, 'd MMMM yyyy', new Date());
-        }
-
-        if (recordDate && isWithinInterval(recordDate, { start: startDate, end: endDate })) {
+        const recordDate = parse(dateStr, 'dd/MM/yyyy', new Date());
+        if (isWithinInterval(recordDate, { start: startDate, end: endDate })) {
           bookingCollection += parseFloat(record.TotalFare?.Amount || record.TotalFare) || 0;
           
           const bDiesel = parseFloat(record.Diesel?.amount || record.Diesel) || 0;
