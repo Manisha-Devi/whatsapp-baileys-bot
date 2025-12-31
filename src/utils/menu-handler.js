@@ -51,7 +51,7 @@ Please select an option:
 📊 Reply *Daily* or *D* - for Daily Reports
 🚌 Reply *Booking* or *B* - for Booking Management
 💵 Reply *Cash* or *C* - for Cash Management
-📈 Reply *Report* or *R* - for Combined Reports
+📈 Reply *Report* or *R* - for Reports
 🔄 Reply *Switch* or *S* - to change bus
 🚪 Reply *Exit* or *E* - to close menu
 
@@ -693,7 +693,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
     if (resolvedCommand === 'reports') {
-      setMenuMode(sender, 'combined_report');
+      setMenuMode(sender, 'report');
       await handleCombinedReport(sock, sender, text, state);
       return true;
     }
@@ -728,7 +728,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       }
       return true;
     }
-  } else if (state.mode === 'combined_report') {
+  } else if (state.mode === 'report') {
     await handleCombinedReport(sock, sender, text, state);
     return true;
   } else if (state.submode) {

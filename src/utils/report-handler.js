@@ -2,20 +2,18 @@
  * report-handler.js - Combined Reports Handler
  */
 
-import { safeDbRead as safeDailyRead } from "../features/daily/utils/helpers.js";
-import { safeDbRead as safeBookingRead } from "../features/bookings/utils/helpers.js";
-import bookingsDb from "../utils/db.js"; // This might need verification
-import dailyDb from "../utils/db.js"; // They use the same db util but different data structures
+import dailyDb, { bookingsDb } from "../utils/db.js";
+import { format, subDays, startOfWeek, startOfMonth, startOfYear, isWithinInterval, parse } from "date-fns";
 
 export async function handleCombinedReport(sock, sender, text, state) {
     const lowerText = text.toLowerCase().trim();
     
-    if (lowerText === 'average' || lowerText === 'r' || lowerText === 'report') {
+    if (lowerText === 'report' || lowerText === 'r') {
         return showReportSubmenu(sock, sender, state);
     }
     
-    if (lowerText === 'average' || lowerText.startsWith('average')) {
-        return handleAverageReport(sock, sender, state);
+    if (lowerText.startsWith('average')) {
+        return handleAverageReport(sock, sender, text, state);
     }
     
     return false;
@@ -23,14 +21,7 @@ export async function handleCombinedReport(sock, sender, text, state) {
 
 async function showReportSubmenu(sock, sender, state) {
     const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
-    const menuText = `📈 *Combined Reports* (*${regNumber}*)
-
-*Examples:*
-• *Average* - General collection average
-• *Average Today* - Today's average performance
-• *Average This Month* - Monthly performance average
-
-Please select an option:
+    const menuText = `📈 *Reports* (*${regNumber}*)
 
 📊 Reply *Average* or *A* - for Average Reports
 🔙 Reply *Exit* or *E* - to go back to Main Menu
@@ -39,39 +30,104 @@ Type your choice:`;
     return sock.sendMessage(sender, { text: menuText });
 }
 
-async function handleAverageReport(sock, sender, state) {
-    const busCode = state.selectedBus;
-    if (!busCode) return;
+function parseCustomDate(dateStr) {
+    try {
+        // DD/MM/YYYY
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+            return parse(dateStr, 'dd/MM/yyyy', new Date());
+        }
+        // Sunday, 15 March 2026
+        const match = dateStr.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+        if (match) {
+            const date = parse(`${match[1]} ${match[2]} ${match[3]}`, 'd MMMM yyyy', new Date());
+            return date;
+        }
+    } catch (e) {}
+    return null;
+}
 
-    // Load Daily Data
-    await safeDailyRead();
-    const dailyData = dailyDb.data || {};
+async function handleAverageReport(sock, sender, text, state) {
+    const busCode = state.selectedBus;
+    const lowerText = text.toLowerCase().trim();
     
-    // Load Booking Data
-    // Note: In this architecture, it seems daily and bookings might be in different files
-    // based on replit.md: daily_data.json and bookings_data.json
-    // I need to be careful with the DB references.
-    
-    let totalDailyCollection = 0;
-    let dailyCount = 0;
-    
-    for (const [key, record] of Object.entries(dailyData)) {
-        if (key.startsWith(busCode + "_")) {
-            totalDailyCollection += (record.TotalCashCollection || 0) + (record.Online || 0);
-            dailyCount++;
+    let startDate = new Date(0);
+    let endDate = new Date();
+    let periodName = "All Time";
+
+    if (lowerText === 'average today' || lowerText === 'a today') {
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        periodName = "Today";
+    } else if (lowerText === 'average this week') {
+        startDate = startOfWeek(new Date(), { weekStartsOn: 1 });
+        periodName = "This Week";
+    } else if (lowerText === 'average this month') {
+        startDate = startOfMonth(new Date());
+        periodName = "This Month";
+    } else if (lowerText === 'average this year') {
+        startDate = startOfYear(new Date());
+        periodName = "This Year";
+    } else {
+        // Handle "Average Nov 2025" or similar
+        const monthMatch = lowerText.match(/average\s+(\w+)\s+(\d{4})/);
+        if (monthMatch) {
+            const monthStr = monthMatch[1];
+            const yearStr = monthMatch[2];
+            try {
+                startDate = parse(`${monthStr} ${yearStr}`, 'MMMM yyyy', new Date());
+                endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0, 23, 59, 59);
+                periodName = `${monthStr} ${yearStr}`;
+            } catch (e) {}
         }
     }
 
-    const avgDaily = dailyCount > 0 ? (totalDailyCollection / dailyCount).toFixed(2) : 0;
+    // Daily Data
+    let dailyTotal = 0;
+    let dailyCount = 0;
+    for (const [key, record] of Object.entries(dailyDb.data || {})) {
+        if (key.startsWith(busCode + "_")) {
+            const dateStr = key.split('_')[1];
+            const recordDate = parse(dateStr, 'dd/MM/yyyy', new Date());
+            if (isWithinInterval(recordDate, { start: startDate, end: endDate })) {
+                dailyTotal += (record.TotalCashCollection || 0) + (record.Online || 0);
+                dailyCount++;
+            }
+        }
+    }
 
-    const reportText = `📈 *Average Report* (*${busCode}*)
+    // Booking Data
+    let bookingTotal = 0;
+    let bookingCount = 0;
+    for (const record of Object.values(bookingsDb.data || {})) {
+        if (record.BusCode === busCode) {
+            const recordDate = parseCustomDate(record.Date?.Start);
+            if (recordDate && isWithinInterval(recordDate, { start: startDate, end: endDate })) {
+                bookingTotal += record.TotalFare?.Amount || 0;
+                bookingCount++;
+            }
+        }
+    }
 
-*Daily Operations:*
-• Total Entries: ${dailyCount}
-• Average Collection: ₹${avgDaily}
+    const totalCollection = dailyTotal + bookingTotal;
+    const totalCount = dailyCount + bookingCount;
+    const combinedAvg = totalCount > 0 ? (totalCollection / totalCount).toFixed(2) : 0;
+    const dailyAvg = dailyCount > 0 ? (dailyTotal / dailyCount).toFixed(2) : 0;
+    const bookingAvg = bookingCount > 0 ? (bookingTotal / bookingCount).toFixed(2) : 0;
 
-*Summary:*
-Combined average reporting is being initialized. This shows your performance across all operations for this bus.`;
+    const reportText = `📈 *Average Report: ${periodName}*
+🚌 Bus: *${state.selectedBusInfo?.registrationNumber || busCode}*
+
+📊 *Daily Operations:*
+• Total: ₹${dailyTotal} (${dailyCount} entries)
+• Avg: ₹${dailyAvg}
+
+🚌 *Bookings:*
+• Total: ₹${bookingTotal} (${bookingCount} entries)
+• Avg: ₹${bookingAvg}
+
+⭐ *Combined Average:*
+• Total: ₹${totalCollection} (${totalCount} entries)
+• *Overall Avg: ₹${combinedAvg}*`;
 
     return sock.sendMessage(sender, { text: reportText });
 }
