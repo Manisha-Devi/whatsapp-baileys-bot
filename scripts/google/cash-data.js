@@ -6,6 +6,7 @@
  *  ✅ Auto-parses JSON-like strings (dailyEntries, bookingEntries, breakdown, balance)
  *  ✅ Keeps consistent column order in sheet
  *  ✅ Uses Bearer Token authentication
+ *  ✅ Added "Dated" column in "Day, DD Month YYYY" format
  * 
  * Updated: December 2025
  */
@@ -27,6 +28,21 @@ function syncCashData() {
       }
     } catch (err) {}
     return value;
+  }
+
+  /**
+   * Formats a date string into "Day, DD Month YYYY"
+   * Example: 2025-12-17 -> Wednesday, 17 December 2025
+   */
+  function formatDate(dateStr) {
+    if (!dateStr) return "";
+    try {
+      const date = new Date(dateStr);
+      const options = { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' };
+      return date.toLocaleDateString('en-GB', options);
+    } catch (e) {
+      return "";
+    }
   }
 
   // --- STEP 1: Get sheet reference ---
@@ -140,11 +156,13 @@ function syncCashData() {
     const allRecords = Object.entries(merged).map(([key, rec]) => ({
       PrimaryKey: key,
       ...rec,
+      Dated: formatDate(rec.depositedAt) // Add formatted date
     }));
 
     const expectedHeaders = [
       "PrimaryKey",
       "sender",
+      "Dated", // Added after sender
       "busCode",
       "amount",
       "dailyEntries",
