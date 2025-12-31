@@ -8,7 +8,7 @@
  *  ✅ Uses Bearer Token authentication
  *  ✅ Added "Dated" field in "Day, DD Month YYYY" format in JSON
  *  ✅ Keeps "depositedAt" as raw timestamp
- *  ✅ Formats "sender" by removing domain suffix (e.g., 919876543210@s.whatsapp.net -> 919876543210)
+ *  ✅ Formats "sender" to display User Name based on internal ID
  * 
  * Updated: December 2025
  */
@@ -48,12 +48,19 @@ function syncCashData() {
   }
 
   /**
-   * Formats the sender by removing WhatsApp domain suffixes
-   * Example: 919876543210@s.whatsapp.net -> 919876543210
+   * Maps sender ID to User Name
    */
-  function formatSender(sender) {
+  function getUserName(sender) {
     if (!sender) return "";
-    return sender.toString().split('@')[0];
+    const cleanId = sender.toString().split('@')[0];
+    
+    // User Mapping based on src/data/users.json
+    const userMap = {
+      "207150735483028": "Pankaj Parihar",
+      "24696179441690": "Akshay Kumar"
+    };
+
+    return userMap[cleanId] || cleanId;
   }
 
   // --- STEP 1: Get sheet reference ---
@@ -106,10 +113,7 @@ function syncCashData() {
     const serverRec = serverData[key];
     
     if (!serverRec) {
-      // Format before sending to server
       if (sheetRec.depositedAt) sheetRec.Dated = formatDate(sheetRec.depositedAt);
-      if (sheetRec.sender) sheetRec.sender = formatSender(sheetRec.sender);
-      
       merged[key] = sheetRec;
       newToServer++;
     } else {
@@ -123,8 +127,6 @@ function syncCashData() {
       
       if (sheetTime > serverTime) {
         if (sheetRec.depositedAt) sheetRec.Dated = formatDate(sheetRec.depositedAt);
-        if (sheetRec.sender) sheetRec.sender = formatSender(sheetRec.sender);
-        
         merged[key] = sheetRec;
         newToServer++;
       }
@@ -133,12 +135,8 @@ function syncCashData() {
 
   // Check Server records - Need to bring to Sheet?
   for (const [key, serverRec] of Object.entries(serverData)) {
-    // Format server record for consistency
     if (serverRec.depositedAt && !serverRec.Dated) {
       serverRec.Dated = formatDate(serverRec.depositedAt);
-    }
-    if (serverRec.sender) {
-      serverRec.sender = formatSender(serverRec.sender);
     }
     
     const sheetRec = sheetData[key];
@@ -181,7 +179,8 @@ function syncCashData() {
   if (newToSheet > 0) {
     const allRecords = Object.entries(merged).map(([key, rec]) => ({
       PrimaryKey: key,
-      ...rec
+      ...rec,
+      sender: getUserName(rec.sender) // Map ID to Name for display
     }));
 
     const expectedHeaders = [
