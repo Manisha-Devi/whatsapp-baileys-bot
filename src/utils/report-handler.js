@@ -25,6 +25,11 @@ async function showReportSubmenu(sock, sender, state) {
     const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
     const menuText = `📈 *Combined Reports* (*${regNumber}*)
 
+*Examples:*
+• *Average* - General collection average
+• *Average Today* - Today's average performance
+• *Average This Month* - Monthly performance average
+
 Please select an option:
 
 📊 Reply *Average* or *A* - for Average Reports
