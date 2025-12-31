@@ -66,6 +66,10 @@ async function handleAverageReport(sock, sender, text, state) {
     }
   }
 
+  // Force DB read to get latest data from JSON files
+  await dailyDb.read();
+  await bookingsDb.read();
+
   // Daily Data
   let dailyCollection = 0;
   let dailyExpenses = 0;
