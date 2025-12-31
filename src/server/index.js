@@ -46,6 +46,7 @@ import makeWASocket, {
 import { handleIncomingMessageFromDaily } from "../features/daily/daily.js";      // Daily report handling
 import { handleIncomingMessageFromBooking } from "../features/bookings/booking.js"; // Booking handling
 import { handleIncomingMessageFromCash } from "../features/cash/cash.js";          // Cash management handling
+import { handleIncomingMessageFromReports } from "../features/reports/reports.js";    // Reports feature
 import { handleMenuNavigation } from "../utils/menu-handler.js";                    // Menu navigation
 import { getMenuState } from "../utils/menu-state.js";                              // User's current menu state
 
@@ -458,6 +459,10 @@ async function connectToWhatsApp() {
             exitToHome(sender);
             await showMainMenu(sock, sender);
           }
+        }
+        // Reports mode - Send to reports feature handler
+        else if (menuState.mode === 'report') {
+          await handleIncomingMessageFromReports(sock, msg);
         }
         // No mode selected - Error message
         else {

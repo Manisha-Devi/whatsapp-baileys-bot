@@ -1,4 +1,4 @@
-import { handleCombinedReport } from './report-handler.js';
+import { handleIncomingMessageFromReports } from '../features/reports/reports.js';
 import { 
   getMenuState, 
   setMenuMode, 
@@ -403,9 +403,7 @@ function getCurrentMenuPath(state) {
       path += " -> 📊 Reports";
     }
   } else if (state.mode === 'report') {
-    const handled = await handleCombinedReport(sock, sender, text, state);
-    if (handled) return true;
-    
+    // Basic navigation in reports mode
     if (resolvedCommand === 'exit' || resolvedCommand === 'home') {
       exitToHome(sender);
       await showMainMenu(sock, sender);
@@ -684,8 +682,16 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
     if (resolvedCommand === 'reports') {
+      const { setMenuMode } = await import('./menu-state.js');
       setMenuMode(sender, 'report');
-      await handleCombinedReport(sock, sender, text, state);
+      const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
+      const menuText = `📈 *Reports Menu* (*${regNumber}*)
+
+📊 Reply *Summary* - for Lifetime Summary
+🔙 Reply *Exit* - to go back
+
+Type your choice:`;
+      await sock.sendMessage(sender, { text: menuText });
       return true;
     }
   } else if (state.mode && !state.submode) {
