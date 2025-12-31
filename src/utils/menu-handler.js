@@ -687,9 +687,8 @@ export async function handleMenuNavigation(sock, sender, text) {
       const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
       const menuText = `📈 *Reports* (*${regNumber}*)
 
-Enter Command or Select Option:
+Enter Average Command (e.g., Average Today, Average Nov):
 
-❓ Reply *Help* or *H* - for Help with Commands
 🔙 Reply *Exit* or *E* - to go back to Main Menu
 
 Type your choice:`;
