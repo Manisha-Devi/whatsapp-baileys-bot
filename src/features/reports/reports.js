@@ -76,11 +76,22 @@ async function handleAverageReport(sock, sender, text, state) {
       try {
         const recordDate = parse(dateStr, 'dd/MM/yyyy', new Date());
         if (isWithinInterval(recordDate, { start: startDate, end: endDate })) {
-          dailyCollection += (record.TotalCashCollection || 0) + (record.Online || 0);
-          dailyExpenses += (record.TotalExpense || 0);
+          const cashColl = parseFloat(record.TotalCashCollection?.amount || record.TotalCashCollection) || 0;
+          const onlineColl = parseFloat(record.Online?.amount || record.Online) || 0;
+          dailyCollection += cashColl + onlineColl;
+
+          const diesel = parseFloat(record.Diesel?.amount || record.Diesel) || 0;
+          const adda = parseFloat(record.Adda?.amount || record.Adda) || 0;
+          const union = parseFloat(record.Union?.amount || record.Union) || 0;
+          const extraTotal = (record.ExtraExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+          const employTotal = (record.EmployExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+          
+          dailyExpenses += diesel + adda + union + extraTotal + employTotal;
           dailyCount++;
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error("Error processing daily record:", e);
+      }
     }
   }
   const dailyNet = dailyCollection - dailyExpenses;
@@ -102,14 +113,20 @@ async function handleAverageReport(sock, sender, text, state) {
           }
         }
         if (recordDate && isWithinInterval(recordDate, { start: startDate, end: endDate })) {
-          bookingCollection += record.TotalFare?.Amount || 0;
-          // Calculate booking expenses from sub-records if available
-          if (record.Expenses) {
-             bookingExpenses += Object.values(record.Expenses).reduce((sum, exp) => sum + (exp.Amount || 0), 0);
-          }
+          bookingCollection += parseFloat(record.TotalFare?.Amount || record.TotalFare) || 0;
+          
+          const bDiesel = parseFloat(record.Diesel?.amount || record.Diesel) || 0;
+          const bAdda = parseFloat(record.Adda?.amount || record.Adda) || 0;
+          const bUnion = parseFloat(record.Union?.amount || record.Union) || 0;
+          const bExtraTotal = (record.ExtraExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+          const bEmployTotal = (record.EmployExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+          
+          bookingExpenses += bDiesel + bAdda + bUnion + bExtraTotal + bEmployTotal;
           bookingCount++;
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error("Error processing booking record:", e);
+      }
     }
   }
   const bookingNet = bookingCollection - bookingExpenses;
