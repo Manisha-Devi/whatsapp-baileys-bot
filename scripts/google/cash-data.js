@@ -201,7 +201,7 @@ function syncCashData() {
     sheet.getRange(2, 1, rows.length, headersList.length).setValues(rows);
   }
 
-  // --- STEP 7: Completion message ---
+  // --- STEP 7: Success Notification ---
   SpreadsheetApp.getActiveSpreadsheet().toast(
     `✅ Sync Complete → Sent: ${newToServer}, ← Received: ${newToSheet}`,
     "Cash Deposit Sync"
