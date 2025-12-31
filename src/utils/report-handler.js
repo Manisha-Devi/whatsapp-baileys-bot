@@ -9,15 +9,18 @@ export async function handleCombinedReport(sock, sender, text, state) {
     const lowerText = text.toLowerCase().trim();
     
     if (lowerText === 'report' || lowerText === 'r') {
-        return showReportSubmenu(sock, sender, state);
+        await showReportSubmenu(sock, sender, state);
+        return true;
     }
     
     if (lowerText === 'help' || lowerText === 'h') {
-        return showReportHelp(sock, sender, state);
+        await showReportHelp(sock, sender, state);
+        return true;
     }
     
     if (lowerText.startsWith('average')) {
-        return handleAverageReport(sock, sender, text, state);
+        await handleAverageReport(sock, sender, text, state);
+        return true;
     }
     
     return false;
