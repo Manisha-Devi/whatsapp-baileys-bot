@@ -7,6 +7,7 @@
  *  ✅ Keeps consistent column order in sheet
  *  ✅ Uses Bearer Token authentication
  *  ✅ Added "Dated" column in "Day, DD Month YYYY" format
+ *  ✅ Keeps "depositedAt" as raw timestamp
  * 
  * Updated: December 2025
  */
@@ -156,13 +157,13 @@ function syncCashData() {
     const allRecords = Object.entries(merged).map(([key, rec]) => ({
       PrimaryKey: key,
       ...rec,
-      Dated: formatDate(rec.depositedAt) // Add formatted date
+      Dated: formatDate(rec.depositedAt)
     }));
 
     const expectedHeaders = [
       "PrimaryKey",
       "sender",
-      "Dated", // Added after sender
+      "Dated",
       "busCode",
       "amount",
       "dailyEntries",
