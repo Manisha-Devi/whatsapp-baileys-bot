@@ -10,6 +10,19 @@ export async function handleIncomingMessageFromReports(sock, msg) {
 
   const text = messageContent.trim().toLowerCase();
   
+  if (text === 'help' || text === 'h') {
+    const { getMenuState } = await import("../../utils/menu-state.js");
+    const state = getMenuState(sender);
+    const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
+    const helpText = `📈 *Reports Help* (*${regNumber}*)
+
+*Commands:*
+• *Summary* - Lifetime collection report
+• *Exit* - Back to Main Menu`;
+    await sock.sendMessage(sender, { text: helpText });
+    return true;
+  }
+
   if (text === 'summary') {
     const { getMenuState } = await import("../../utils/menu-state.js");
     const state = getMenuState(sender);

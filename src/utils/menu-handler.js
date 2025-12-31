@@ -406,7 +406,7 @@ function getCurrentMenuPath(state) {
     // Basic navigation in reports mode
     if (resolvedCommand === 'exit' || resolvedCommand === 'home') {
       exitToHome(sender);
-      await showMainMenu(sock, sender);
+      showMainMenu(sock, sender);
       return true;
     }
     return false;
@@ -685,10 +685,12 @@ export async function handleMenuNavigation(sock, sender, text) {
       const { setMenuMode } = await import('./menu-state.js');
       setMenuMode(sender, 'report');
       const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
-      const menuText = `📈 *Reports Menu* (*${regNumber}*)
+      const menuText = `📈 *Reports* (*${regNumber}*)
 
-📊 Reply *Summary* - for Lifetime Summary
-🔙 Reply *Exit* - to go back
+Enter Command or Select Option:
+
+❓ Reply *Help* or *H* - for Help with Commands
+🔙 Reply *Exit* or *E* - to go back to Main Menu
 
 Type your choice:`;
       await sock.sendMessage(sender, { text: menuText });
