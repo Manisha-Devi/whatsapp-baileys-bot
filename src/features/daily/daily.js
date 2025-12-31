@@ -111,13 +111,6 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
                 `• today\n` +
                 `• yesterday\n` +
                 `• [DD/MM/YYYY]\n\n` +
-                `📊 *Average Reports:*\n` +
-                `• average today\n` +
-                `• average this week\n` +
-                `• average this month\n` +
-                `• average this year\n` +
-                `• average [MonthName]\n` +
-                `• average [MonthName] [Year]\n\n` +
                 `⚙️ *Other:*\n` +
                 `• clear - clear session\n` +
                 `• exit - back to menu\n\n` +
@@ -142,13 +135,6 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
                 `• daily yesterday\n` +
                 `• daily last [N]\n` +
                 `• daily [DD/MM/YYYY]\n\n` +
-                `3️⃣ *Average Reports*\n` +
-                `• daily average today\n` +
-                `• daily average this week\n` +
-                `• daily average this month\n` +
-                `• daily average this year\n` +
-                `• daily average [MonthName]\n` +
-                `• daily average [MonthName] [Year]\n\n` +
                 `4️⃣ *Employee (Manual Entry)*\n` +
                 `• daily driver [amount]\n` +
                 `• daily conductor [amount]\n` +

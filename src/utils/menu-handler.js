@@ -1,17 +1,3 @@
-import { handleCombinedReport } from './report-handler.js';
-
-/**
- * menu-handler.js - Menu Navigation and Display Handler
- * 
- * This module handles:
- * - Displaying all menu screens (main menu, submenus, help screens)
- * - Processing menu navigation commands
- * - User authentication flow
- * - Command alias resolution (e.g., 'd' -> 'daily', 'e' -> 'exit')
- * 
- * This is the central hub for all menu-related interactions.
- */
-
 import { 
   getMenuState, 
   setMenuMode, 
@@ -51,7 +37,6 @@ Please select an option:
 📊 Reply *Daily* or *D* - for Daily Reports
 🚌 Reply *Booking* or *B* - for Booking Management
 💵 Reply *Cash* or *C* - for Cash Management
-📈 Reply *Report* or *R* - for Reports
 🔄 Reply *Switch* or *S* - to change bus
 🚪 Reply *Exit* or *E* - to close menu
 
@@ -349,12 +334,6 @@ View your daily reports using various formats:
 • *This Week* - Current week reports
 • *6 Days Ago* - View report from 6 days ago
 
-*📈 Average Profit Reports:*
-• *Average Today* - Today's profit
-• *Average This Week* - Weekly average profit
-• *Average This Month* - Monthly average profit
-• *Average This Year* - Yearly average profit
-
 *Other Commands:*
 • *Help* - Show this help
 • *Exit* - Back to Daily Menu
@@ -440,7 +419,6 @@ const commandAliases = {
   'cash': ['cash'],
   'data': ['data', 'd'],
   'status': ['status', 's'],
-  'reports': ['reports', 'r'],
   'help': ['help', 'h'],
   'yes': ['yes', 'y'],
   'no': ['no', 'n'],
@@ -692,11 +670,6 @@ export async function handleMenuNavigation(sock, sender, text) {
       await showCashSubmenu(sock, sender);
       return true;
     }
-    if (resolvedCommand === 'reports') {
-      setMenuMode(sender, 'report');
-      await handleCombinedReport(sock, sender, text, state);
-      return true;
-    }
   } else if (state.mode && !state.submode) {
     // Handle navigation within mode menus (submenu selection)
     if (resolvedCommand === 'help') {
@@ -728,18 +701,6 @@ export async function handleMenuNavigation(sock, sender, text) {
       }
       return true;
     }
-  } else if (state.mode === 'report') {
-    const handled = await handleCombinedReport(sock, sender, text, state);
-    if (handled) return true;
-    
-    // Handle exit from report menu
-    if (resolvedCommand === 'exit' || resolvedCommand === 'home') {
-      exitToHome(sender);
-      await showMainMenu(sock, sender);
-      return true;
-    }
-    
-    return false;
   } else if (state.submode) {
     // Handle help command within submodes
     if (resolvedCommand === 'help') {
