@@ -2,7 +2,7 @@
  * reports.js - Reports Feature Entry Point
  */
 import dailyDb, { bookingsDb } from "../../utils/db.js";
-import { format, subDays, startOfWeek, startOfMonth, startOfYear, isWithinInterval, parse, endOfMonth } from "date-fns";
+import { format, subDays, startOfWeek, startOfMonth, startOfYear, isWithinInterval, parse, endOfMonth, differenceInDays } from "date-fns";
 
 export async function handleIncomingMessageFromReports(sock, msg) {
   const sender = msg.key.remoteJid;
@@ -12,7 +12,6 @@ export async function handleIncomingMessageFromReports(sock, msg) {
   const text = messageContent.trim().toLowerCase();
   
   if (text === 'help' || text === 'h') {
-    // User requested help to be empty or not open anything
     return true; 
   }
 
@@ -37,6 +36,8 @@ async function handleAverageReport(sock, sender, text, state) {
   if (text === 'average today') {
     startDate = new Date(now);
     startDate.setHours(0, 0, 0, 0);
+    endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
     periodName = "Today";
   } else if (text === 'average this week') {
     startDate = startOfWeek(now, { weekStartsOn: 1 });
@@ -48,7 +49,6 @@ async function handleAverageReport(sock, sender, text, state) {
     startDate = startOfYear(now);
     periodName = "This Year";
   } else {
-    // Handle "average nov" or "average nov 2024"
     const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
     const words = text.split(' ');
     if (words.length >= 2) {
@@ -67,7 +67,8 @@ async function handleAverageReport(sock, sender, text, state) {
   }
 
   // Daily Data
-  let dailyTotal = 0;
+  let dailyCollection = 0;
+  let dailyExpenses = 0;
   let dailyCount = 0;
   for (const [key, record] of Object.entries(dailyDb.data || {})) {
     if (key.startsWith(busCode + "_")) {
@@ -75,15 +76,18 @@ async function handleAverageReport(sock, sender, text, state) {
       try {
         const recordDate = parse(dateStr, 'dd/MM/yyyy', new Date());
         if (isWithinInterval(recordDate, { start: startDate, end: endDate })) {
-          dailyTotal += (record.TotalCashCollection || 0) + (record.Online || 0);
+          dailyCollection += (record.TotalCashCollection || 0) + (record.Online || 0);
+          dailyExpenses += (record.TotalExpense || 0);
           dailyCount++;
         }
       } catch (e) {}
     }
   }
+  const dailyNet = dailyCollection - dailyExpenses;
 
   // Booking Data
-  let bookingTotal = 0;
+  let bookingCollection = 0;
+  let bookingExpenses = 0;
   let bookingCount = 0;
   for (const record of Object.values(bookingsDb.data || {})) {
     if (record.BusCode === busCode && record.Date?.Start) {
@@ -92,32 +96,59 @@ async function handleAverageReport(sock, sender, text, state) {
         if (/^\d{2}\/\d{2}\/\d{4}$/.test(record.Date.Start)) {
           recordDate = parse(record.Date.Start, 'dd/MM/yyyy', new Date());
         } else {
-          // Sunday, 15 March 2026
           const match = record.Date.Start.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
           if (match) {
             recordDate = parse(`${match[1]} ${match[2]} ${match[3]}`, 'd MMMM yyyy', new Date());
           }
         }
         if (recordDate && isWithinInterval(recordDate, { start: startDate, end: endDate })) {
-          bookingTotal += record.TotalFare?.Amount || 0;
+          bookingCollection += record.TotalFare?.Amount || 0;
+          // Calculate booking expenses from sub-records if available
+          if (record.Expenses) {
+             bookingExpenses += Object.values(record.Expenses).reduce((sum, exp) => sum + (exp.Amount || 0), 0);
+          }
           bookingCount++;
         }
       } catch (e) {}
     }
   }
+  const bookingNet = bookingCollection - bookingExpenses;
 
-  const totalCollection = dailyTotal + bookingTotal;
-  const totalCount = dailyCount + bookingCount;
-  const combinedAvg = totalCount > 0 ? (totalCollection / totalCount).toFixed(2) : 0;
+  // Overall
+  const totalCollection = dailyCollection + bookingCollection;
+  const totalExpenses = dailyExpenses + bookingExpenses;
+  const totalNet = totalCollection - totalExpenses;
+  
+  // Calculate days in period for average
+  const daysInPeriod = Math.max(1, differenceInDays(endDate, startDate) + 1);
+  const avgProfitPerDay = Math.round(totalNet / daysInPeriod);
 
-  const reportText = `📈 *Average Report: ${periodName}*
+  const startFmt = format(startDate, 'dd/MM/yyyy');
+  const endFmt = format(endDate, 'dd/MM/yyyy');
+
+  const reportText = `📊 *Average Profit Report - ${periodName}*
 🚌 Bus: *${state.selectedBusInfo?.registrationNumber || busCode}*
 
-📊 *Daily:* ₹${dailyTotal} (${dailyCount} entries)
-🚌 *Bookings:* ₹${bookingTotal} (${bookingCount} entries)
+📊 *Daily:* ₹${dailyCollection.toLocaleString()} (${dailyCount} entries)
+💰 *Breakdown:*
+📅 Period: ${startFmt} to ${endFmt}
+📥 Total Collection: ₹${dailyCollection.toLocaleString()}
+📤 Total Expenses: ₹${dailyExpenses.toLocaleString()}
+💵 Net Profit: ₹${dailyNet.toLocaleString()}
 
-⭐ *Total:* ₹${totalCollection}
-✨ *Overall Avg: ₹${combinedAvg}*`;
+🚌 *Bookings:* ₹${bookingCollection.toLocaleString()} (${bookingCount} entries)
+💰 *Breakdown:*
+📅 Period: ${startFmt} to ${endFmt}
+📥 Total Collection: ₹${bookingCollection.toLocaleString()}
+📤 Total Expenses: ₹${bookingExpenses.toLocaleString()}
+💵 Net Profit: ₹${bookingNet.toLocaleString()}
+
+✨ *Overall:*
+📥 Total Collection: ₹${totalCollection.toLocaleString()}
+📤 Total Expenses: ₹${totalExpenses.toLocaleString()}
+💵 Net Profit: ₹${totalNet.toLocaleString()}
+
+✨ *Average Profit/Day:* ₹${avgProfitPerDay.toLocaleString()}`;
 
   await sock.sendMessage(sender, { text: reportText });
 }
