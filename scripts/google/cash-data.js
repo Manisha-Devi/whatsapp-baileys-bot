@@ -8,6 +8,7 @@
  *  ✅ Uses Bearer Token authentication
  *  ✅ Added "Dated" field in "Day, DD Month YYYY" format in JSON
  *  ✅ Keeps "depositedAt" as raw timestamp
+ *  ✅ Formats "sender" by removing domain suffix (e.g., 919876543210@s.whatsapp.net -> 919876543210)
  * 
  * Updated: December 2025
  */
@@ -44,6 +45,15 @@ function syncCashData() {
     } catch (e) {
       return "";
     }
+  }
+
+  /**
+   * Formats the sender by removing WhatsApp domain suffixes
+   * Example: 919876543210@s.whatsapp.net -> 919876543210
+   */
+  function formatSender(sender) {
+    if (!sender) return "";
+    return sender.toString().split('@')[0];
   }
 
   // --- STEP 1: Get sheet reference ---
@@ -96,10 +106,10 @@ function syncCashData() {
     const serverRec = serverData[key];
     
     if (!serverRec) {
-      // Ensure "Dated" is added to the record before sending to server
-      if (sheetRec.depositedAt) {
-        sheetRec.Dated = formatDate(sheetRec.depositedAt);
-      }
+      // Format before sending to server
+      if (sheetRec.depositedAt) sheetRec.Dated = formatDate(sheetRec.depositedAt);
+      if (sheetRec.sender) sheetRec.sender = formatSender(sheetRec.sender);
+      
       merged[key] = sheetRec;
       newToServer++;
     } else {
@@ -112,9 +122,9 @@ function syncCashData() {
         : new Date(0);
       
       if (sheetTime > serverTime) {
-        if (sheetRec.depositedAt) {
-          sheetRec.Dated = formatDate(sheetRec.depositedAt);
-        }
+        if (sheetRec.depositedAt) sheetRec.Dated = formatDate(sheetRec.depositedAt);
+        if (sheetRec.sender) sheetRec.sender = formatSender(sheetRec.sender);
+        
         merged[key] = sheetRec;
         newToServer++;
       }
@@ -123,9 +133,12 @@ function syncCashData() {
 
   // Check Server records - Need to bring to Sheet?
   for (const [key, serverRec] of Object.entries(serverData)) {
-    // Ensure Dated field exists in server record for the merge
+    // Format server record for consistency
     if (serverRec.depositedAt && !serverRec.Dated) {
       serverRec.Dated = formatDate(serverRec.depositedAt);
+    }
+    if (serverRec.sender) {
+      serverRec.sender = formatSender(serverRec.sender);
     }
     
     const sheetRec = sheetData[key];
@@ -201,7 +214,7 @@ function syncCashData() {
     sheet.getRange(2, 1, rows.length, headersList.length).setValues(rows);
   }
 
-  // --- STEP 7: Success Notification ---
+  // --- STEP 7: Success Message ---
   SpreadsheetApp.getActiveSpreadsheet().toast(
     `✅ Sync Complete → Sent: ${newToServer}, ← Received: ${newToSheet}`,
     "Cash Deposit Sync"
