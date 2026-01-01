@@ -352,8 +352,8 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
         const driverName = existingDriver?.name || "Driver";
         user.EmployExpenses.push({ name: driverName, role: "Driver", type: "dailySalary", amount, mode });
       }
-      // Auto-update status to Confirmed when salary is entered
-      user.Status = "Confirmed";
+      // Auto-update status to Completed when salary is entered
+      user.Status = "Completed";
       anyFieldFound = true;
     }
 
@@ -371,8 +371,8 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
         const conductorName = existingConductor?.name || "Conductor";
         user.EmployExpenses.push({ name: conductorName, role: "Conductor", type: "dailySalary", amount, mode });
       }
-      // Auto-update status to Confirmed when salary is entered
-      user.Status = "Confirmed";
+      // Auto-update status to Completed when salary is entered
+      user.Status = "Completed";
       anyFieldFound = true;
     }
 
@@ -390,7 +390,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
         const driverName = existingDriver?.name || "Driver";
         user.EmployExpenses.push({ name: driverName, role: "Driver", type: "trip", amount, mode });
       }
-      user.Status = "Confirmed";
+      user.Status = "Completed";
       anyFieldFound = true;
     }
 
@@ -408,16 +408,16 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
         const conductorName = existingConductor?.name || "Conductor";
         user.EmployExpenses.push({ name: conductorName, role: "Conductor", type: "trip", amount, mode });
       }
-      user.Status = "Confirmed";
+      user.Status = "Completed";
       anyFieldFound = true;
     }
 
-    // Extract Payment: "pay [amount] [optional: mode] [optional: DD/MM/YYYY]"
-    const payMatch = normalizedText.match(/^pay\s+(\d+)(?:\s+(online|cash))?(?:\s+(\d{1,2}\/\d{1,2}\/\d{4}))?$/i);
-    if (payMatch) {
-      const amount = parseInt(payMatch[1]);
-      const mode = payMatch[2]?.toLowerCase() || "cash";
-      const date = payMatch[3] || new Date().toLocaleDateString('en-GB');
+    // Extract Payment: "Received [amount] [optional: mode] [optional: DD/MM/YYYY]"
+    const receivedMatch = normalizedText.match(/^received\s+(\d+)(?:\s+(online|cash))?(?:\s+(\d{1,2}\/\d{1,2}\/\d{4}))?$/i);
+    if (receivedMatch) {
+      const amount = parseInt(receivedMatch[1]);
+      const mode = receivedMatch[2]?.toLowerCase() || "cash";
+      const date = receivedMatch[3] || new Date().toLocaleDateString('en-GB');
       
       if (!user.PaymentHistory) user.PaymentHistory = [];
       user.PaymentHistory.push({ amount, mode, date });
