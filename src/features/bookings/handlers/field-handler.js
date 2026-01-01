@@ -417,16 +417,33 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     if (receivedMatch) {
       const amount = parseInt(receivedMatch[1]);
       const mode = (receivedMatch[2] || "cash").toLowerCase();
+      // Format date to "Thursday, 1 January 2026"
+      const formatDateLong = (dateStr) => {
+        try {
+          const [dd, mm, yyyy] = dateStr.split('/').map(Number);
+          const dateObj = new Date(yyyy, mm - 1, dd);
+          return dateObj.toLocaleDateString('en-GB', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          });
+        } catch {
+          return dateStr;
+        }
+      };
+
       const date = receivedMatch[3] || new Date().toLocaleDateString('en-GB');
+      const formattedDate = formatDateLong(date);
       
       if (!user.PaymentHistory) user.PaymentHistory = [];
       
       // Update if entry with same date and mode exists, otherwise push new
-      const existingIdx = user.PaymentHistory.findIndex(p => p.date === date && p.mode === mode);
+      const existingIdx = user.PaymentHistory.findIndex(p => p.date === formattedDate && p.mode === mode);
       if (existingIdx !== -1) {
         user.PaymentHistory[existingIdx].amount = amount;
       } else {
-        user.PaymentHistory.push({ amount, mode, date });
+        user.PaymentHistory.push({ amount, mode, date: formattedDate });
       }
       
       // Calculate total payments including Advance
