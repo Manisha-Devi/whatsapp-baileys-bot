@@ -155,8 +155,8 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
     
     msgParts.push(``);
     msgParts.push(`✨ *Calculation:*`);
-    msgParts.push(`💰 Cash HandOver: ₹${cashHandover.toLocaleString('en-IN')}`);
     msgParts.push(`💵 Total Cash Collection: ₹${totalCashReceived.toLocaleString('en-IN')}`);
+    msgParts.push(`💰 Cash HandOver: ₹${cashHandover.toLocaleString('en-IN')}`);
     msgParts.push(`💳 Online Received: ₹${(fareAmt - (user.BalanceAmount?.Amount || user.BalanceAmount) - totalCashReceived).toLocaleString('en-IN')}`);
     msgParts.push(`📈 Bachat (Profit): ₹${bachat.toLocaleString('en-IN')}`);
     

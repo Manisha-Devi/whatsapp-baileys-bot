@@ -389,8 +389,8 @@ export async function handleSubmit(sock, sender, text, user) {
     summary += `\n✨ *Summary:*\n`;
     summary += `💵 Total Cash Expense: ₹${totalCashExpense.toLocaleString('en-IN')}\n`;
     summary += `💳 Total Online Expense: ₹${totalOnlineExpense.toLocaleString('en-IN')}\n`;
-    summary += `💰 Cash HandOver: ₹${cashHandover.toLocaleString('en-IN')}\n`;
     summary += `💵 Total Cash Collection: ₹${totalCashReceived.toLocaleString('en-IN')}\n`;
+    summary += `💰 Cash HandOver: ₹${cashHandover.toLocaleString('en-IN')}\n`;
     summary += `💳 Online Received: ₹${totalOnlineReceived.toLocaleString('en-IN')}\n`;
     summary += `📈 Bachat (Profit): ₹${bachat.toLocaleString('en-IN')}\n`;
   }
