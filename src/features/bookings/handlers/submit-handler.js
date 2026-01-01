@@ -113,6 +113,37 @@ export async function handleSubmit(sock, sender, text, user) {
   const startDate = user.TravelDateFrom;
   const endDate = user.TravelDateTo || user.TravelDateFrom;
   
+  if (!startDate) {
+    await safeSendMessage(sock, sender, {
+      text: "⚠️ Start date is missing. Please enter a valid date.",
+    });
+    return true;
+  }
+  
+  // Format booking date as "Day, DD Month YYYY"
+  const now = new Date();
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const formattedBookingDate = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  
+  // Helper to format date from DD/MM/YYYY to "Sunday, 15 March 2026"
+  const formatDateForJson = (dateStr) => {
+    if (!dateStr) return "___";
+    try {
+      const parts = dateStr.split('/');
+      if (parts.length !== 3) return dateStr;
+      const [dd, mm, yyyy] = parts.map(Number);
+      const dateObj = new Date(yyyy, mm - 1, dd);
+      if (isNaN(dateObj.getTime())) return dateStr;
+      return `${days[dateObj.getDay()]}, ${dd} ${months[mm - 1]} ${yyyy}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const startFormatted = formatDateForJson(startDate);
+  const endFormatted = formatDateForJson(endDate);
+
   // BookingId format: 
   // Single day: BUS102_14/11/2025
   // Multi-day: BUS102_15/11/2025_TO_17/11/2025
@@ -127,26 +158,10 @@ export async function handleSubmit(sock, sender, text, user) {
     const start = new Date(startYear, startMonth - 1, startDay);
     const end = new Date(endYear, endMonth - 1, endDay);
     numberOfDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    if (isNaN(numberOfDays)) numberOfDays = 1;
   } catch (err) {
     numberOfDays = 1;
   }
-  
-  // Format booking date as "Day, DD Month YYYY"
-  const now = new Date();
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const formattedBookingDate = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-  
-  // Helper to format date from DD/MM/YYYY to "Sunday, 15 March 2026"
-  const formatDateForJson = (dateStr) => {
-    try {
-      const [dd, mm, yyyy] = dateStr.split('/').map(Number);
-      const dateObj = new Date(yyyy, mm - 1, dd);
-      return `${days[dateObj.getDay()]}, ${dd} ${months[mm - 1]} ${yyyy}`;
-    } catch {
-      return dateStr;
-    }
-  };
   
   // Get sender name from users.json
   let senderName = sender;
@@ -174,8 +189,8 @@ export async function handleSubmit(sock, sender, text, user) {
     },
     Date: {
       NoOfDays: numberOfDays,
-      Start: formatDateForJson(startDate),
-      End: formatDateForJson(endDate)
+      Start: startFormatted,
+      End: endFormatted
     },
     Capacity: user.Capacity,
     TotalFare: {
