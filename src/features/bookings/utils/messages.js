@@ -98,8 +98,20 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
     `💰 *Payment Details:*`,
     `💵 Total Fare: ₹${formatAmount(user.TotalFare)}`,
     `💳 Advance: ₹${formatAmount(user.AdvancePaid)}`,
-    `💸 Balance: ₹${formatAmount(user.BalanceAmount)}`,
   ];
+
+  // Show Payment History in summary if exists
+  if (user.PaymentHistory && user.PaymentHistory.length > 0) {
+    msgParts.push(``);
+    msgParts.push(`💰 *Payment Collected:*`);
+    user.PaymentHistory.forEach(p => {
+      const mode = p.mode === "online" ? " 💳" : "";
+      msgParts.push(`💵 ${p.date}: ₹${p.amount.toLocaleString('en-IN')}${mode}`);
+    });
+  }
+
+  msgParts.push(`💸 Balance: ₹${formatAmount(user.BalanceAmount)}`);
+  msgParts.push(``);
   
   // Add Real-time summary for Post-Booking
   if (user.editingExisting && user.TotalFare && user.AdvancePaid) {

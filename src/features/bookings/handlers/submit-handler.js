@@ -193,8 +193,9 @@ export async function handleSubmit(sock, sender, text, user) {
     Union: user.Union || null,
     EmployExpenses: user.EmployExpenses || [],
     ExtraExpenses: user.ExtraExpenses || [],
+    PaymentHistory: user.PaymentHistory || [],
     // Status and metadata at the end
-    Status: user.editingExisting ? "Initiated" : "Pending",
+    Status: user.Status || (user.editingExisting ? "Initiated" : "Pending"),
     Remarks: user.Remarks || "",
     submittedAt: new Date().toISOString(),
   };
@@ -248,7 +249,17 @@ export async function handleSubmit(sock, sender, text, user) {
 
   summary += `🚌 Bus: ${bookingRecord.BusCode} | Capacity: ${bookingRecord.Capacity}\n`;
   summary += `💰 Total Fare: ₹${fareAmt.toLocaleString('en-IN')}${fareMode}\n`;
-  summary += `💵 Advance: ₹${advAmt.toLocaleString('en-IN')}${advMode}\n`;
+  summary += `💳 Advance: ₹${advAmt.toLocaleString('en-IN')}${advMode}\n`;
+
+  // Show Payment History if exists
+  if (bookingRecord.PaymentHistory && bookingRecord.PaymentHistory.length > 0) {
+    summary += `💰 *Payment Collected:*\n`;
+    bookingRecord.PaymentHistory.forEach(p => {
+      const mode = p.mode === "online" ? " 💳" : "";
+      summary += `💵 ${p.date}: ₹${p.amount.toLocaleString('en-IN')}${mode}\n`;
+    });
+  }
+
   summary += `💸 Balance: ₹${bookingRecord.BalanceAmount.Amount.toLocaleString('en-IN')}\n`;
   
   // For Post-Booking updates, show full expense details
