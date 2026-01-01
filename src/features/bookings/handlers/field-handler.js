@@ -420,7 +420,14 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       const date = receivedMatch[3] || new Date().toLocaleDateString('en-GB');
       
       if (!user.PaymentHistory) user.PaymentHistory = [];
-      user.PaymentHistory.push({ amount, mode, date });
+      
+      // Update if entry with same date and mode exists, otherwise push new
+      const existingIdx = user.PaymentHistory.findIndex(p => p.date === date && p.mode === mode);
+      if (existingIdx !== -1) {
+        user.PaymentHistory[existingIdx].amount = amount;
+      } else {
+        user.PaymentHistory.push({ amount, mode, date });
+      }
       
       // Calculate total payments including Advance
       const getAmt = (f) => {
@@ -438,23 +445,8 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       
       anyFieldFound = true;
 
-      // PROVIDE IMMEDIATE FEEDBACK FOR RECEIVED COMMAND
-      const modeIcon = mode === "online" ? "💳" : "💵";
-      let paymentSummary = `💰 *Payment Details:*\n`;
-      paymentSummary += `💵 Total Fare: ₹${fareAmt.toLocaleString('en-IN')}\n`;
-      paymentSummary += `💳 Advance: ₹${advAmt.toLocaleString('en-IN')}\n`;
-      paymentSummary += `💵 Received:\n`;
-      
-      user.PaymentHistory.forEach(p => {
-        const pModeIcon = p.mode === "online" ? "💳" : "💵";
-        // Match user's requested format: 💰DD/MM/YYYY : ₹Amount 💳
-        paymentSummary += `      💰${p.date} : ₹${p.amount.toLocaleString('en-IN')} ${pModeIcon}\n`;
-      });
-      
-      paymentSummary += `💸 Balance: ₹${remainingBalance.toLocaleString('en-IN')}\n\n`;
-      paymentSummary += `_Type *Yes* to save this payment or continue adding details._`;
-      
-      await safeSendMessage(sock, sender, { text: paymentSummary });
+      // Show Full Booking Summary instead of just payment summary
+      import("../utils/messages.js").then(m => m.sendSummary(sock, sender, "", user));
       return { handled: true, anyFieldFound: true };
     }
     
