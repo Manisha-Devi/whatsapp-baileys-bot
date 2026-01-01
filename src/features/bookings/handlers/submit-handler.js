@@ -196,7 +196,7 @@ export async function handleSubmit(sock, sender, text, user) {
       mode: 'cash'
     },
     BalanceAmount: user.editingExisting 
-      ? { Amount: calculatedBalance, Date: new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) }
+      ? { Amount: calculatedBalance }
       : { Amount: calculatedBalance },
     Online: { amount: 0 },
     TotalCashCollection: { amount: 0 },
