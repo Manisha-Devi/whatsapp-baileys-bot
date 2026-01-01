@@ -130,18 +130,34 @@ export async function handleBookingCommand(sock, sender, normalizedText, user) {
     });
 
   if (bookings.length === 0) {
-    await safeSendMessage(sock, sender, { text: `🔍 No bookings found for *${periodName}* (Bus: ${busCode})` });
-    return true;
+    // If only date was provided and no bookings found, Task 1 logic applies (triggering date extraction in field-handler)
+    return false;
   }
 
-  let listMsg = `🔍 *Bookings for ${periodName}* (Bus: ${busCode})\n\n`;
-  bookings.forEach(([id, b]) => {
-    const amt = b.TotalFare?.Amount || b.TotalFare || 0;
-    const bal = b.BalanceAmount?.Amount || b.BalanceAmount || 0;
-    listMsg += `📌 *${id}*\n👤 ${b.CustomerName}\n💰 Fare: ₹${amt.toLocaleString()}\n💸 Bal: ₹${bal.toLocaleString()}\n📊 Status: ${b.Status}\n\n`;
-  });
-  listMsg += `Total: ${bookings.length} bookings found.`;
+  const [id, foundBooking] = bookings[0]; // Take first overlap
 
-  await safeSendMessage(sock, sender, { text: listMsg });
+  // Status-specific warnings
+  let warningPrefix = "⚠️ Booking";
+  if (foundBooking.Status === "Pending") warningPrefix = "⚠️ Pre Booking";
+  else if (foundBooking.Status === "Completed") warningPrefix = "⚠️ Post Booking";
+
+  user.confirmingFetch = true;
+  user.pendingBookingId = id;
+  user.pendingStartDate = format(startDate, 'dd/MM/yyyy');
+  user.pendingEndDate = format(endDate, 'dd/MM/yyyy');
+
+  // Format date display
+  const formatDisplay = foundBooking.Date?.Start === foundBooking.Date?.End 
+    ? foundBooking.Date?.Start 
+    : `${foundBooking.Date?.Start} to ${foundBooking.Date?.End}`;
+
+  await safeSendMessage(sock, sender, {
+    text: `${warningPrefix} for *${busCode}* found!\n\n` +
+          `📅 Date: ${formatDisplay}\n` +
+          `👤 Customer: ${foundBooking.CustomerName}\n` +
+          `📱 Phone: ${foundBooking.CustomerPhone}\n` +
+          `📊 Status: ${foundBooking.Status}\n\n` +
+          `Do you want to open this booking for updates? (*Yes* or *No*)`
+  });
   return true;
 }

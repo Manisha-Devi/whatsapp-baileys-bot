@@ -35,3 +35,8 @@ externalPort = 3000
 
 [deployment]
 deploymentTarget = "vm"
+
+[userenv]
+
+[userenv.shared]
+API_KEY = "MySuperSecretKey12345"

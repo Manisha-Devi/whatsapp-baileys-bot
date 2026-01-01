@@ -62,7 +62,6 @@ export async function handleSubmit(sock, sender, text, user) {
     "TravelDateFrom",
     "BusCode",
     "TotalFare",
-    "AdvancePaid",
   ];
 
   const missingFields = requiredFields.filter((field) => 
@@ -74,6 +73,11 @@ export async function handleSubmit(sock, sender, text, user) {
       text: `⚠️ Cannot submit. Missing fields: ${missingFields.join(", ")}`,
     });
     return true;
+  }
+
+  // Set default Advance if missing
+  if (user.AdvancePaid === undefined || user.AdvancePaid === null || user.AdvancePaid === "") {
+    user.AdvancePaid = { amount: 0, mode: "cash" };
   }
 
   const totalFare = Number(String(user.TotalFare || 0).replace(/,/g, ''));
@@ -227,7 +231,7 @@ export async function handleSubmit(sock, sender, text, user) {
   };
   
   const regNumber = user.RegistrationNumber || bookingRecord.BusCode;
-  const actionText = isUpdate ? "Updated" : "Confirmed";
+  const actionText = isUpdate ? "Updated" : "Taken";
   let summary = `✅ *Booking ${actionText}!* (${regNumber})\n\n`;
   summary += `👤 Customer: ${bookingRecord.CustomerName}\n`;
   summary += `📱 Phone: ${bookingRecord.CustomerPhone}\n`;

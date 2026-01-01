@@ -259,7 +259,6 @@ export function getCompletionMessage(user) {
     "DropLocation": "Drop",
     "TravelDateFrom": "Date",
     "TotalFare": "Fare",
-    "AdvancePaid": "Advance",
   };
 
   const missingFields = Object.entries(requiredFieldsMap)
@@ -268,6 +267,13 @@ export function getCompletionMessage(user) {
 
   if (missingFields.length === 0) {
     user.waitingForSubmit = true;
+    // Set Advance to 0 if not provided
+    if (user.AdvancePaid === undefined || user.AdvancePaid === null || user.AdvancePaid === "") {
+      user.AdvancePaid = { amount: 0, mode: "cash" };
+      if (user.TotalFare) {
+        user.BalanceAmount = (typeof user.TotalFare === 'object' ? user.TotalFare.Amount : user.TotalFare) - 0;
+      }
+    }
     return "✅ All fields complete!\nDo you want to Submit? (Yes/Y or No/N)";
   } else {
     user.waitingForSubmit = false;
