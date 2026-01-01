@@ -412,7 +412,8 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     }
 
     // Extract Payment: "Received [amount] [optional: mode] [optional: DD/MM/YYYY]"
-    const receivedMatch = normalizedText.match(/^received\s+(\d+)(?:\s+(online|cash))?(?:\s+(\d{1,2}\/\d{1,2}\/\d{4}))?$/i);
+    // Support both spellings: Received and Recieved
+    const receivedMatch = normalizedText.match(/^(?:received|recieved)\s+(\d+)(?:\s+(online|cash))?(?:\s+(\d{1,2}\/\d{1,2}\/\d{4}))?$/i);
     if (receivedMatch) {
       const amount = parseInt(receivedMatch[1]);
       const mode = (receivedMatch[2] || "cash").toLowerCase();

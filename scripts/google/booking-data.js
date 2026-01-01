@@ -175,6 +175,8 @@ function syncBookingData() {
       "AdvancePaid",
       "PaymentHistory",
       "BalanceAmount",
+      "Online",
+      "CashHandover",
       "Diesel",
       "Adda",
       "Union",

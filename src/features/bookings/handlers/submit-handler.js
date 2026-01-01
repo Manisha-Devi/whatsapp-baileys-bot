@@ -203,6 +203,9 @@ export async function handleSubmit(sock, sender, text, user) {
     BalanceAmount: user.editingExisting 
       ? { Amount: balanceAmount, Date: new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) }
       : { Amount: balanceAmount },
+    // New fields: Online and CashHandover
+    Online: { amount: 0 }, // Placeholder for calculation
+    CashHandover: { amount: 0 }, // Placeholder for calculation
     // Post-Booking expense fields (always included, empty by default)
     Diesel: user.Diesel || null,
     Adda: user.Adda || null,
@@ -345,17 +348,25 @@ export async function handleSubmit(sock, sender, text, user) {
     
     // Calculate total cash received (Advance + Payments)
     let totalCashReceived = 0;
+    let totalOnlinePayments = 0;
     if (bookingRecord.AdvancePaid?.mode !== 'online') {
       totalCashReceived += advAmt;
     }
     (bookingRecord.PaymentHistory || []).forEach(p => {
       if (p.mode !== 'online') {
         totalCashReceived += Number(p.amount) || 0;
+      } else {
+        totalOnlinePayments += Number(p.amount) || 0;
       }
     });
 
     const cashHandover = totalCashReceived - totalCashExpense;
+    const totalOnlineReceived = totalOnlinePayments + (bookingRecord.AdvancePaid?.mode === 'online' ? advAmt : 0);
     const bachat = totalFare - totalExpense;
+    
+    // Update bookingRecord with calculated values for JSON storage
+    bookingRecord.Online = { amount: totalOnlineReceived };
+    bookingRecord.CashHandover = { amount: cashHandover };
     
     summary += `\n💰 *Expenses (Post-Trip):*\n`;
     summary += `⛽ Diesel: ₹${dieselAmt.toLocaleString('en-IN')}${bookingRecord.Diesel?.mode === "online" ? " 💳" : ""}\n`;
@@ -377,6 +388,7 @@ export async function handleSubmit(sock, sender, text, user) {
     summary += `💵 Total Cash Expense: ₹${totalCashExpense.toLocaleString('en-IN')}\n`;
     summary += `💳 Total Online Expense: ₹${totalOnlineExpense.toLocaleString('en-IN')}\n`;
     summary += `💰 Cash HandOver: ₹${cashHandover.toLocaleString('en-IN')}\n`;
+    summary += `💳 Online Received: ₹${totalOnlineReceived.toLocaleString('en-IN')}\n`;
     summary += `📈 Bachat (Profit): ₹${bachat.toLocaleString('en-IN')}\n`;
   }
   
