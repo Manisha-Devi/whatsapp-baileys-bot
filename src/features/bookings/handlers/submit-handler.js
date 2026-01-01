@@ -76,9 +76,7 @@ export async function handleSubmit(sock, sender, text, user) {
     return true;
   }
 
-  const totalFare = typeof user.TotalFare === 'object' 
-    ? Number(user.TotalFare.amount) 
-    : Number(String(user.TotalFare || 0).replace(/,/g, ''));
+  const totalFare = Number(String(user.TotalFare || 0).replace(/,/g, ''));
     
   const advancePaid = typeof user.AdvancePaid === 'object'
     ? Number(user.AdvancePaid.amount)
@@ -176,9 +174,8 @@ export async function handleSubmit(sock, sender, text, user) {
       End: formatDateForJson(endDate)
     },
     Capacity: user.Capacity,
-    TotalFare: typeof user.TotalFare === 'object' ? user.TotalFare : {
-      Amount: totalFare,
-      mode: 'cash'
+    TotalFare: {
+      Amount: totalFare
     },
     AdvancePaid: typeof user.AdvancePaid === 'object' ? user.AdvancePaid : {
       Amount: advancePaid,
@@ -242,13 +239,12 @@ export async function handleSubmit(sock, sender, text, user) {
     summary += `📅 Date: ${formatDateDisplay(bookingRecord.Date.Start)} to ${formatDateDisplay(bookingRecord.Date.End)} (${bookingRecord.Date.NoOfDays} days)\n`;
   }
   
-  const fareAmt = typeof bookingRecord.TotalFare === 'object' ? (bookingRecord.TotalFare.Amount || bookingRecord.TotalFare.amount) : bookingRecord.TotalFare.Amount;
+  const fareAmt = typeof bookingRecord.TotalFare === 'object' ? (bookingRecord.TotalFare.Amount || bookingRecord.TotalFare.amount) : bookingRecord.TotalFare;
   const advAmt = typeof bookingRecord.AdvancePaid === 'object' ? (bookingRecord.AdvancePaid.Amount || bookingRecord.AdvancePaid.amount) : bookingRecord.AdvancePaid.Amount;
-  const fareMode = bookingRecord.TotalFare?.mode === 'online' ? ' 💳' : '';
   const advMode = bookingRecord.AdvancePaid?.mode === 'online' ? ' 💳' : '';
 
   summary += `🚌 Bus: ${bookingRecord.BusCode} | Capacity: ${bookingRecord.Capacity}\n`;
-  summary += `💰 Total Fare: ₹${fareAmt.toLocaleString('en-IN')}${fareMode}\n`;
+  summary += `💰 Total Fare: ₹${fareAmt.toLocaleString('en-IN')}\n`;
   summary += `💳 Advance: ₹${advAmt.toLocaleString('en-IN')}${advMode}\n`;
 
   // Show Payment History if exists

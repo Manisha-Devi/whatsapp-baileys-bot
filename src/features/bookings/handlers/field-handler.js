@@ -244,12 +244,11 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     }
   }
 
-  // Extract Fare: "fare [amount] [optional: online]"
-  const fareMatch = normalizedText.match(/^fare\s+(\d+)(?:\s+(online))?$/i);
+  // Extract Fare: "fare [amount]"
+  const fareMatch = normalizedText.match(/^fare\s+(\d+)$/i);
   if (fareMatch) {
     const amount = parseInt(fareMatch[1]);
-    const mode = fareMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
-    user.TotalFare = { amount, mode };
+    user.TotalFare = amount;
     if (user.AdvancePaid) {
       const advAmt = typeof user.AdvancePaid === 'object' ? user.AdvancePaid.amount : user.AdvancePaid;
       user.BalanceAmount = amount - advAmt;

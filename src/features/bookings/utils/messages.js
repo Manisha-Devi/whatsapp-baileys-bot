@@ -69,6 +69,7 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
     if (val === undefined || val === null || val === "") return "___";
     if (typeof val === 'object') {
       const amt = val.Amount || val.amount;
+      // Show mode icon ONLY if it's NOT TotalFare (Fare doesn't have mode anymore)
       const mode = val.mode === "online" ? " 💳" : "";
       return `${amt.toLocaleString('en-IN')}${mode}`;
     }
