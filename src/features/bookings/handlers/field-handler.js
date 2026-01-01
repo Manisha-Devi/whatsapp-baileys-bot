@@ -417,6 +417,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     if (receivedMatch) {
       const amount = parseInt(receivedMatch[1]);
       const mode = receivedMatch[2]?.toLowerCase() || "cash";
+      // Ensure we extract the date correctly from the match groups
       const date = receivedMatch[3] || new Date().toLocaleDateString('en-GB');
       
       if (!user.PaymentHistory) user.PaymentHistory = [];
