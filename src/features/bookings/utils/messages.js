@@ -95,6 +95,33 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
     `💳 Advance: ₹${formatAmount(user.AdvancePaid)}`,
     `💸 Balance: ₹${formatAmount(user.BalanceAmount)}`,
   ];
+
+  // Add Real-time summary for Post-Booking
+  if (user.editingExisting && user.TotalFare && user.AdvancePaid) {
+    const getAmt = (f) => (f && f.amount) ? Number(f.amount) : 0;
+    const diesel = getAmt(user.Diesel);
+    const adda = getAmt(user.Adda);
+    const union = getAmt(user.Union);
+    const extra = (user.ExtraExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const employ = (user.EmployExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+    const totalExp = diesel + adda + union + extra + employ;
+    const cashExp = totalExp - (
+      (user.Diesel?.mode === 'online' ? diesel : 0) +
+      (user.Adda?.mode === 'online' ? adda : 0) +
+      (user.Union?.mode === 'online' ? union : 0) +
+      (user.ExtraExpenses || []).filter(e => e.mode === 'online').reduce((s, e) => s + (Number(e.amount) || 0), 0) +
+      (user.EmployExpenses || []).filter(e => e.mode === 'online').reduce((s, e) => s + (Number(e.amount) || 0), 0)
+    );
+
+    const cashHandover = user.AdvancePaid - cashExp;
+    const bachat = user.TotalFare - totalExp;
+
+    msgParts.push(``);
+    msgParts.push(`✨ *Live Calculation:*`);
+    msgParts.push(`💰 Cash HandOver: ₹${cashHandover.toLocaleString('en-IN')}`);
+    msgParts.push(`📈 Bachat (Profit): ₹${bachat.toLocaleString('en-IN')}`);
+  }
   
   // Add expense fields for Post-Booking phase
   if (user.editingExisting) {
