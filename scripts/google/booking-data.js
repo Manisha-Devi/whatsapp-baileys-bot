@@ -14,8 +14,8 @@
 
 function syncBookingData() {
   const SHEET_NAME = "BookingData";
-  const SERVER_GET = "https://bot.sukoononline.com/booking_data.json";
-  const SERVER_POST = "https://bot.sukoononline.com/update-booking-data";
+  const SERVER_GET = "https://bot.sukoononline.com/bookings_data.json";
+  const SERVER_POST = "https://bot.sukoononline.com/update-bookings-data";
   const API_KEY = "MySuperSecretKey12345"; // <-- replace with your actual key
 
   // --- Helper: Try to parse JSON-like strings ---
