@@ -130,11 +130,38 @@ export async function handleBookingCommand(sock, sender, normalizedText, user) {
     });
 
   if (bookings.length === 0) {
-    // If only date was provided and no bookings found, Task 1 logic applies (triggering date extraction in field-handler)
     return false;
   }
 
-  const [id, foundBooking] = bookings[0]; // Take first overlap
+  // If "this month" or "nov" format, list all bookings one by one
+  const isPeriodSearch = text === 'this month' || text === 'this year' || text === 'this week' || 
+                        (text.split(' ').length <= 2 && ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].includes(text.split(' ')[0].substring(0, 3)));
+
+  if (isPeriodSearch) {
+    let listMsg = `📋 *Bookings for ${periodName}* (${busCode})\n\n`;
+    
+    // Sort bookings by start date
+    const sortedBookings = bookings.sort((a, b) => {
+      const dateA = parse(a[1].Date?.Start.split(', ')[1] || a[0].split('_')[1], 'dd MMMM yyyy', new Date());
+      const dateB = parse(b[1].Date?.Start.split(', ')[1] || b[0].split('_')[1], 'dd MMMM yyyy', new Date());
+      return dateA - dateB;
+    });
+
+    sortedBookings.forEach(([id, b], index) => {
+      const dateDisplay = b.Date?.Start === b.Date?.End ? b.Date?.Start : `${b.Date?.Start} to ${b.Date?.End}`;
+      listMsg += `${index + 1}. 📅 ${dateDisplay}\n`;
+      listMsg += `👤 ${b.CustomerName} | 📱 ${b.CustomerPhone}\n`;
+      listMsg += `📊 Status: ${b.Status}\n`;
+      listMsg += `------------------\n`;
+    });
+    
+    listMsg += `\nType the *Date* or *BusCode_Date* to open a booking.`;
+    
+    await safeSendMessage(sock, sender, { text: listMsg });
+    return true;
+  }
+
+  const [id, foundBooking] = bookings[0]; // Default behavior for single date lookup
 
   // Status-specific warnings
   let warningPrefix = "⚠️ Booking";
