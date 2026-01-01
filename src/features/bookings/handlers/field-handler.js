@@ -450,11 +450,10 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
                       normalizedText.startsWith('trip');
 
     if (anyFieldFound) {
-      if (isExpense) {
-        user.Status = "Completed";
-      }
+      // Default to Completed for updates if any post-entry field is touched
+      user.Status = "Completed";
       
-      // Check balance for Initiated status (takes priority)
+      // Check balance for Initiated status (takes priority if balance is cleared)
       const getAmtValue = (f) => {
         if (!f) return 0;
         if (typeof f === 'object') return Number(f.amount || f.Amount) || 0;

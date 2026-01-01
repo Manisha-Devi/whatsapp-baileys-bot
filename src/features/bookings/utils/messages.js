@@ -102,8 +102,15 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
 
   // Show Received for updates
   if (user.editingExisting) {
-    const totalReceived = (user.PaymentHistory || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-    msgParts.push(`💵 Received: ₹${totalReceived.toLocaleString('en-IN')}`);
+    if (user.PaymentHistory && user.PaymentHistory.length > 0) {
+      msgParts.push(`💵 Received:`);
+      user.PaymentHistory.forEach(p => {
+        const mode = p.mode === "online" ? " 💳" : "";
+        msgParts.push(`    ${p.date} : ₹${Number(p.amount).toLocaleString('en-IN')}${mode}`);
+      });
+    } else {
+      msgParts.push(`💵 Received: ₹0`);
+    }
   }
 
   msgParts.push(`💸 Balance: ₹${formatAmount(user.BalanceAmount)}`);
