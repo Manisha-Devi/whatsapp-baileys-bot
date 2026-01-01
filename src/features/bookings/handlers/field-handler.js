@@ -446,7 +446,8 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       
       user.PaymentHistory.forEach(p => {
         const pModeIcon = p.mode === "online" ? "💳" : "💵";
-        paymentSummary += `    ${pModeIcon} ${p.date} : ₹${p.amount.toLocaleString('en-IN')}\n`;
+        // Match user's requested format: 💰DD/MM/YYYY : ₹Amount 💳
+        paymentSummary += `      💰${p.date} : ₹${p.amount.toLocaleString('en-IN')} ${pModeIcon}\n`;
       });
       
       paymentSummary += `💸 Balance: ₹${remainingBalance.toLocaleString('en-IN')}\n\n`;
