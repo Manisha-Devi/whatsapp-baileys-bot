@@ -142,7 +142,31 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
     (user.EmployExpenses || []).forEach(e => { if (e.mode === 'online') totalOnline += (Number(e.amount) || 0); });
 
     const cashExp = totalExp - totalOnline;
-    const cashHandover = advAmt - cashExp;
+    
+    // Cash Handover calculation logic:
+    // 1. Start with Advance (if Cash)
+    // 2. Add all 'Received' payments (if Cash)
+    // 3. Subtract all 'Cash' expenses
+    
+    const getAmtVal = (f) => {
+      if (!f) return 0;
+      if (typeof f === 'object') return Number(f.amount || f.Amount) || 0;
+      return Number(f) || 0;
+    };
+
+    let totalCashReceived = 0;
+    // Check Advance mode
+    if (user.AdvancePaid?.mode !== 'online') {
+      totalCashReceived += getAmtVal(user.AdvancePaid);
+    }
+    // Check all Received payments
+    (user.PaymentHistory || []).forEach(p => {
+      if (p.mode !== 'online') {
+        totalCashReceived += Number(p.amount) || 0;
+      }
+    });
+
+    const cashHandover = totalCashReceived - cashExp;
     const bachat = fareAmt - totalExp;
 
     msgParts.push(``);

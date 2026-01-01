@@ -323,7 +323,19 @@ export async function handleSubmit(sock, sender, text, user) {
     }
     
     const totalExpense = totalCashExpense + totalOnlineExpense;
-    const cashHandover = advancePaid - totalCashExpense;
+    
+    // Calculate total cash received (Advance + Payments)
+    let totalCashReceived = 0;
+    if (bookingRecord.AdvancePaid?.mode !== 'online') {
+      totalCashReceived += advAmt;
+    }
+    (bookingRecord.PaymentHistory || []).forEach(p => {
+      if (p.mode !== 'online') {
+        totalCashReceived += Number(p.amount) || 0;
+      }
+    });
+
+    const cashHandover = totalCashReceived - totalCashExpense;
     const bachat = totalFare - totalExpense;
     
     summary += `\n💰 *Expenses (Post-Trip):*\n`;
