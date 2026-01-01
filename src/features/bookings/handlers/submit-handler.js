@@ -205,6 +205,7 @@ export async function handleSubmit(sock, sender, text, user) {
       : { Amount: balanceAmount },
     // New fields: Online and CashHandover
     Online: { amount: 0 }, // Placeholder for calculation
+    TotalCashCollection: { amount: 0 }, // Placeholder for calculation
     CashHandover: { amount: 0 }, // Placeholder for calculation
     // Post-Booking expense fields (always included, empty by default)
     Diesel: user.Diesel || null,
@@ -366,6 +367,7 @@ export async function handleSubmit(sock, sender, text, user) {
     
     // Update bookingRecord with calculated values for JSON storage
     bookingRecord.Online = { amount: totalOnlineReceived };
+    bookingRecord.TotalCashCollection = { amount: totalCashReceived };
     bookingRecord.CashHandover = { amount: cashHandover };
     
     summary += `\n💰 *Expenses (Post-Trip):*\n`;
@@ -388,6 +390,7 @@ export async function handleSubmit(sock, sender, text, user) {
     summary += `💵 Total Cash Expense: ₹${totalCashExpense.toLocaleString('en-IN')}\n`;
     summary += `💳 Total Online Expense: ₹${totalOnlineExpense.toLocaleString('en-IN')}\n`;
     summary += `💰 Cash HandOver: ₹${cashHandover.toLocaleString('en-IN')}\n`;
+    summary += `💵 Total Cash Collection: ₹${totalCashReceived.toLocaleString('en-IN')}\n`;
     summary += `💳 Online Received: ₹${totalOnlineReceived.toLocaleString('en-IN')}\n`;
     summary += `📈 Bachat (Profit): ₹${bachat.toLocaleString('en-IN')}\n`;
   }
