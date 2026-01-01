@@ -303,23 +303,23 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       anyFieldFound = true;
     }
 
-    // Extract Adda: "adda [amount] [optional: online]"
-    const addaMatch = normalizedText.match(/^adda\s+(\d+)(?:\s+(online))?$/i);
-    if (addaMatch) {
-      const amount = parseInt(addaMatch[1]);
-      const mode = addaMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
-      user.Adda = { amount, mode };
-      anyFieldFound = true;
-    }
+  // Extract Adda: "adda [amount] [optional: online]"
+  const addaMatch = normalizedText.match(/^adda\s+(\d+)(?:\s+(online))?$/i);
+  if (addaMatch) {
+    const amount = parseInt(addaMatch[1]);
+    const mode = addaMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
+    user.Adda = { amount, mode };
+    anyFieldFound = true;
+  }
 
-    // Extract Union: "union [amount] [optional: online]"
-    const unionMatch = normalizedText.match(/^union\s+(\d+)(?:\s+(online))?$/i);
-    if (unionMatch) {
-      const amount = parseInt(unionMatch[1]);
-      const mode = unionMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
-      user.Union = { amount, mode };
-      anyFieldFound = true;
-    }
+  // Extract Union: "union [amount] [optional: online]"
+  const unionMatch = normalizedText.match(/^union\s+(\d+)(?:\s+(online))?$/i);
+  if (unionMatch) {
+    const amount = parseInt(unionMatch[1]);
+    const mode = unionMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
+    user.Union = { amount, mode };
+    anyFieldFound = true;
+  }
 
     // Extract Extra Expense: "expense [name] [amount] [optional: online]"
     const expenseMatch = normalizedText.match(/^expense\s+(\w+)\s+(\d+)(?:\s+(online))?$/i);
