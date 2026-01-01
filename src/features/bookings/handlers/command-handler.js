@@ -140,6 +140,7 @@ export async function handleBookingCommand(sock, sender, normalizedText, user) {
   let warningPrefix = "⚠️ Booking";
   if (foundBooking.Status === "Pending") warningPrefix = "⚠️ Pre Booking";
   else if (foundBooking.Status === "Completed") warningPrefix = "⚠️ Post Booking";
+  else if (foundBooking.Status === "Initiated") warningPrefix = "⚠️ Booking";
 
   user.confirmingFetch = true;
   user.pendingBookingId = id;

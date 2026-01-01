@@ -103,7 +103,7 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
   // Show Received for updates
   if (user.editingExisting) {
     const totalReceived = (user.PaymentHistory || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-    msgParts.push(`💵 Recived: ₹${totalReceived.toLocaleString('en-IN')}`);
+    msgParts.push(`💵 Received: ₹${totalReceived.toLocaleString('en-IN')}`);
   }
 
   msgParts.push(`💸 Balance: ₹${formatAmount(user.BalanceAmount)}`);

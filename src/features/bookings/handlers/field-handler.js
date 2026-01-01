@@ -415,7 +415,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     const receivedMatch = normalizedText.match(/^received\s+(\d+)(?:\s+(online|cash))?(?:\s+(\d{1,2}\/\d{1,2}\/\d{4}))?$/i);
     if (receivedMatch) {
       const amount = parseInt(receivedMatch[1]);
-      const mode = receivedMatch[2]?.toLowerCase() || "cash";
+      const mode = (receivedMatch[2] || "cash").toLowerCase();
       const date = receivedMatch[3] || new Date().toLocaleDateString('en-GB');
       
       if (!user.PaymentHistory) user.PaymentHistory = [];
@@ -435,17 +435,37 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       const remainingBalance = fareAmt - advAmt - totalPayments;
       user.BalanceAmount = remainingBalance;
       
-      // Auto-update status based on balance
-      if (remainingBalance <= 0) {
-        user.Status = "Initiated";
-      }
-      
       anyFieldFound = true;
     }
     
-    // Auto-update status to Completed if any expense is added
-    if (anyFieldFound && (normalizedText.startsWith('diesel') || normalizedText.startsWith('adda') || normalizedText.startsWith('union') || normalizedText.startsWith('expense') || normalizedText.startsWith('driver') || normalizedText.startsWith('conductor'))) {
-      user.Status = "Completed";
+    // Auto-update status logic:
+    // 1. If any expense/post-trip field is added, status is Completed
+    // 2. But if Balance is 0 or less, status MUST be Initiated
+    const isExpense = normalizedText.startsWith('diesel') || 
+                      normalizedText.startsWith('adda') || 
+                      normalizedText.startsWith('union') || 
+                      normalizedText.startsWith('expense') || 
+                      normalizedText.startsWith('driver') || 
+                      normalizedText.startsWith('conductor') ||
+                      normalizedText.startsWith('trip');
+
+    if (anyFieldFound) {
+      if (isExpense) {
+        user.Status = "Completed";
+      }
+      
+      // Check balance for Initiated status (takes priority)
+      const getAmtValue = (f) => {
+        if (!f) return 0;
+        if (typeof f === 'object') return Number(f.amount || f.Amount) || 0;
+        return Number(f) || 0;
+      };
+      const totalPayments = (user.PaymentHistory || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const currentBalance = getAmtValue(user.TotalFare) - getAmtValue(user.AdvancePaid) - totalPayments;
+      
+      if (currentBalance <= 0) {
+        user.Status = "Initiated";
+      }
     }
   }
 
