@@ -436,6 +436,24 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       user.BalanceAmount = remainingBalance;
       
       anyFieldFound = true;
+
+      // PROVIDE IMMEDIATE FEEDBACK FOR RECEIVED COMMAND
+      const modeIcon = mode === "online" ? "💳" : "💵";
+      let paymentSummary = `💰 *Payment Details:*\n`;
+      paymentSummary += `💵 Total Fare: ₹${fareAmt.toLocaleString('en-IN')}\n`;
+      paymentSummary += `💳 Advance: ₹${advAmt.toLocaleString('en-IN')}\n`;
+      paymentSummary += `💵 Received:\n`;
+      
+      user.PaymentHistory.forEach(p => {
+        const pModeIcon = p.mode === "online" ? "💳" : "💵";
+        paymentSummary += `    ${pModeIcon} ${p.date} : ₹${p.amount.toLocaleString('en-IN')}\n`;
+      });
+      
+      paymentSummary += `💸 Balance: ₹${remainingBalance.toLocaleString('en-IN')}\n\n`;
+      paymentSummary += `_Type *Yes* to save this payment or continue adding details._`;
+      
+      await safeSendMessage(sock, sender, { text: paymentSummary });
+      return { handled: true, anyFieldFound: true };
     }
     
     // Auto-update status logic:

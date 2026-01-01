@@ -246,7 +246,7 @@ export async function handleSubmit(sock, sender, text, user) {
   };
   
   const regNumber = user.RegistrationNumber || bookingRecord.BusCode;
-  const actionText = isUpdate ? "Taken" : "Taken";
+  const actionText = isUpdate ? "Updated" : "Taken";
   let summary = `✅ *Booking ${actionText}!* (${regNumber})\n\n`;
   summary += `👤 Customer: ${bookingRecord.CustomerName}\n`;
   summary += `📱 Phone: ${bookingRecord.CustomerPhone}\n`;
@@ -259,7 +259,7 @@ export async function handleSubmit(sock, sender, text, user) {
   }
   
   const fareAmt = typeof bookingRecord.TotalFare === 'object' ? (bookingRecord.TotalFare.Amount || bookingRecord.TotalFare.amount) : bookingRecord.TotalFare;
-  const advAmt = typeof bookingRecord.AdvancePaid === 'object' ? (bookingRecord.AdvancePaid.Amount || bookingRecord.AdvancePaid.amount) : bookingRecord.AdvancePaid.Amount;
+  const advAmt = typeof bookingRecord.AdvancePaid === 'object' ? (bookingRecord.AdvancePaid.Amount || bookingRecord.AdvancePaid.amount || 0) : (bookingRecord.AdvancePaid || 0);
   const advMode = bookingRecord.AdvancePaid?.mode === 'online' ? ' 💳' : '';
 
   summary += `🚌 Bus: ${bookingRecord.BusCode} | Capacity: ${bookingRecord.Capacity}\n`;
