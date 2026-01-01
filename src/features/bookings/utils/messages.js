@@ -165,8 +165,10 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
         });
       }
       
-      // Add Daily Salary if any
-      if (dailySalaryExpenses.length > 0) {
+    // Add Daily Salary if any (check if amount > 0 or it's from defaults)
+    if (dailySalaryExpenses.length > 0) {
+      const hasVisibleSalary = dailySalaryExpenses.some(e => (Number(e.amount) || 0) > 0);
+      if (hasVisibleSalary) {
         msgParts.push(``);
         msgParts.push(`👥 *Employee (Daily Salary):*`);
         dailySalaryExpenses.forEach(e => {
@@ -174,6 +176,7 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
           msgParts.push(`👤 ${displayName}: ₹${formatExpenseField(e)}`);
         });
       }
+    }
       
       // Add Trip Expenses if any
       if (tripExpenses.length > 0) {

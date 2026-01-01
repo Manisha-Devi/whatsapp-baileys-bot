@@ -67,11 +67,12 @@ export async function handleFetchConfirmation(sock, sender, text, user) {
         user.TravelDateTo = parseDateToNormalized(existingBooking.Date?.End);
         user.BusCode = existingBooking.BusCode;
         user.Capacity = existingBooking.Capacity;
-        user.TotalFare = existingBooking.TotalFare?.Amount;
-        user.AdvancePaid = existingBooking.AdvancePaid?.Amount;
-        user.BalanceAmount = existingBooking.BalanceAmount?.Amount;
+        user.TotalFare = existingBooking.TotalFare?.Amount || existingBooking.TotalFare;
+        user.AdvancePaid = existingBooking.AdvancePaid;
+        user.BalanceAmount = existingBooking.BalanceAmount?.Amount || existingBooking.BalanceAmount;
         user.Remarks = existingBooking.Remarks;
         user.Status = existingBooking.Status;
+        user.PaymentHistory = existingBooking.PaymentHistory || [];
         
         // Load expense fields if they exist
         user.Diesel = existingBooking.Diesel || null;

@@ -471,9 +471,13 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
         if (typeof f === 'object') return Number(f.amount || f.Amount) || 0;
         return Number(f) || 0;
       };
-      const totalPayments = (user.PaymentHistory || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-      const currentBalance = getAmtValue(user.TotalFare) - getAmtValue(user.AdvancePaid) - totalPayments;
       
+      const totalPayments = (user.PaymentHistory || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const fareAmt = getAmtValue(user.TotalFare);
+      const advAmt = getAmtValue(user.AdvancePaid);
+      const currentBalance = fareAmt - advAmt - totalPayments;
+      
+      // If balance is 0 or less, it must be Initiated
       if (currentBalance <= 0) {
         user.Status = "Initiated";
       }
