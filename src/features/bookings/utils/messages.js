@@ -82,83 +82,115 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
     return `${field.amount.toLocaleString('en-IN')}${mode}`;
   };
 
-  // Build base summary
-  const msgParts = [
-    `📋 *Booking Entry${titleBus}*`,
-    ``,
-    `👤 *Customer Details:*`,
-    `👤 Name: ${user.CustomerName || "___"}`,
-    `📱 Mobile: ${user.CustomerPhone || "___"}`,
-    ``,
-    `📍 *Route Details:*`,
-    `🚏 Pickup: ${user.PickupLocation || "___"}`,
-    `🏁 Drop: ${user.DropLocation || "___"}`,
-    `📅 Date: ${dateDisplay}`,
-    ``,
-    `💰 *Payment Details:*`,
-    `💵 Total Fare: ₹${formatAmount(user.TotalFare)}`,
-    `💳 Advance: ₹${formatAmount(user.AdvancePaid)}`,
-  ];
-
-  // Show Received for updates
-  if (user.editingExisting) {
-    if (user.PaymentHistory && user.PaymentHistory.length > 0) {
-      msgParts.push(`💵 Received:`);
-      user.PaymentHistory.forEach(p => {
-        const pModeIcon = p.mode === "online" ? " 💳" : "";
-        // Match user's requested format: 💰DD/MM/YYYY : ₹Amount (Icon only for online)
-        msgParts.push(`      💰${p.date} : ₹${Number(p.amount).toLocaleString('en-IN')}${pModeIcon}`);
-      });
-    } else {
-      msgParts.push(`💵 Received: ₹0`);
-    }
-  }
-
-  msgParts.push(`💸 Balance: ₹${formatAmount(user.BalanceAmount)}`);
+    // Build base summary
+    const msgParts = [
+      `📋 *Booking Entry${titleBus}*`,
+      ``,
+      `👤 *Customer Details:*`,
+      `👤 Name: ${user.CustomerName || "___"}`,
+      `📱 Mobile: ${user.CustomerPhone || "___"}`,
+      ``,
+      `📍 *Route Details:*`,
+      `🚏 Pickup: ${user.PickupLocation || "___"}`,
+      `🏁 Drop: ${user.DropLocation || "___"}`,
+      `📅 Date: ${dateDisplay}`,
+      ``,
+      `💰 *Payment Details:*`,
+      `💵 Total Fare: ₹${formatAmount(user.TotalFare)}`,
+      `💳 Advance: ₹${formatAmount(user.AdvancePaid)}`,
+    ];
   
-  if (user.editingExisting) {
-    // Helper to get numeric value
-    const getVal = (f) => {
-      if (!f) return 0;
-      if (typeof f === 'object') return Number(f.amount || f.Amount) || 0;
-      return Number(f) || 0;
-    };
-
-    const fareAmt = getVal(user.TotalFare);
-    const diesel = getVal(user.Diesel);
-    const adda = getVal(user.Adda);
-    const union = getVal(user.Union);
-    const extra = (user.ExtraExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const employ = (user.EmployExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const totalExp = diesel + adda + union + extra + employ;
-
-    // Cash Handover calculation
-    let totalCashReceived = 0;
-    if (user.AdvancePaid?.mode !== 'online') totalCashReceived += getVal(user.AdvancePaid);
-    (user.PaymentHistory || []).forEach(p => { if (p.mode !== 'online') totalCashReceived += (Number(p.amount) || 0); });
-
-    let cashExp = 0;
-    if (user.Diesel?.mode !== 'online') cashExp += diesel;
-    if (user.Adda?.mode !== 'online') cashExp += adda;
-    if (user.Union?.mode !== 'online') cashExp += union;
-    (user.ExtraExpenses || []).forEach(e => { if (e.mode !== 'online') cashExp += (Number(e.amount) || 0); });
-    (user.EmployExpenses || []).forEach(e => { if (e.mode !== 'online') cashExp += (Number(e.amount) || 0); });
-
-    const cashHandover = totalCashReceived - cashExp;
-    const bachat = fareAmt - totalExp;
-
-    msgParts.push(``);
-    msgParts.push(`💰 *Expenses:*`);
-    msgParts.push(`⛽ Diesel: ₹${formatExpenseField(user.Diesel)}`);
-    msgParts.push(`🚌 Adda: ₹${formatExpenseField(user.Adda)}`);
-    msgParts.push(`🤝 Union: ₹${formatExpenseField(user.Union)}`);
+    // Show Received for updates
+    if (user.editingExisting) {
+      if (user.PaymentHistory && user.PaymentHistory.length > 0) {
+        msgParts.push(`💵 Received:`);
+        user.PaymentHistory.forEach(p => {
+          const pModeIcon = p.mode === "online" ? " 💳" : "";
+          // Match user's requested format: 💰DD/MM/YYYY : ₹Amount (Icon only for online)
+          msgParts.push(`      💰${p.date} : ₹${Number(p.amount).toLocaleString('en-IN')}${pModeIcon}`);
+        });
+      } else {
+        msgParts.push(`💵 Received: ₹0`);
+      }
+    }
+  
+    msgParts.push(`💸 Balance: ₹${formatAmount(user.BalanceAmount)}`);
     
-    msgParts.push(``);
-    msgParts.push(`✨ *Calculation:*`);
-    msgParts.push(`💵 Total Cash Collection: ₹${totalCashReceived.toLocaleString('en-IN')}`);
-    msgParts.push(`💰 Cash HandOver: ₹${cashHandover.toLocaleString('en-IN')}`);
-    msgParts.push(`💳 Online Received: ₹${(fareAmt - (user.BalanceAmount?.Amount || user.BalanceAmount) - totalCashReceived).toLocaleString('en-IN')}`);
-    msgParts.push(`📈 Bachat (Profit): ₹${bachat.toLocaleString('en-IN')}`);
+    if (user.editingExisting) {
+      // Helper to get numeric value
+      const getVal = (f) => {
+        if (!f) return 0;
+        if (typeof f === 'object') return Number(f.amount || f.Amount) || 0;
+        return Number(f) || 0;
+      };
+  
+      const fareAmt = getVal(user.TotalFare);
+      const diesel = getVal(user.Diesel);
+      const adda = getVal(user.Adda);
+      const union = getVal(user.Union);
+      const extra = (user.ExtraExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      
+      // Separate Daily Salary and Trip expenses for summary
+      const dailySalaryExpenses = (user.EmployExpenses || []).filter(e => !e.type || e.type === "dailySalary");
+      const tripExpenses = (user.EmployExpenses || []).filter(e => e.type === "trip");
+      
+      const employ = (user.EmployExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      const totalExp = diesel + adda + union + extra + employ;
+  
+      // Cash Handover calculation
+      let totalCashReceived = 0;
+      if (user.AdvancePaid?.mode !== 'online') totalCashReceived += getVal(user.AdvancePaid);
+      (user.PaymentHistory || []).forEach(p => { if (p.mode !== 'online') totalCashReceived += (Number(p.amount) || 0); });
+  
+      let cashExp = 0;
+      if (user.Diesel?.mode !== 'online') cashExp += diesel;
+      if (user.Adda?.mode !== 'online') cashExp += adda;
+      if (user.Union?.mode !== 'online') cashExp += union;
+      (user.ExtraExpenses || []).forEach(e => { if (e.mode !== 'online') cashExp += (Number(e.amount) || 0); });
+      (user.EmployExpenses || []).forEach(e => { if (e.mode !== 'online') cashExp += (Number(e.amount) || 0); });
+  
+      const cashHandover = totalCashReceived - cashExp;
+      const bachat = fareAmt - totalExp;
+  
+      msgParts.push(``);
+      msgParts.push(`💰 *Expenses:*`);
+      msgParts.push(`⛽ Diesel: ₹${formatExpenseField(user.Diesel)}`);
+      msgParts.push(`🚌 Adda: ₹${formatExpenseField(user.Adda)}`);
+      msgParts.push(`🤝 Union: ₹${formatExpenseField(user.Union)}`);
+      
+      // Add Extra Expenses if any
+      if (user.ExtraExpenses && user.ExtraExpenses.length > 0) {
+        user.ExtraExpenses.forEach(e => {
+          msgParts.push(`🧾 ${e.name.charAt(0).toUpperCase() + e.name.slice(1)}: ₹${formatExpenseField(e)}`);
+        });
+      }
+      
+      // Add Daily Salary if any
+      if (dailySalaryExpenses.length > 0) {
+        msgParts.push(``);
+        msgParts.push(`👥 *Employee (Daily Salary):*`);
+        dailySalaryExpenses.forEach(e => {
+          const displayName = e.role || e.name;
+          msgParts.push(`👤 ${displayName}: ₹${formatExpenseField(e)}`);
+        });
+      }
+      
+      // Add Trip Expenses if any
+      if (tripExpenses.length > 0) {
+        msgParts.push(``);
+        msgParts.push(`🚌 *Employee (Trip):*`);
+        tripExpenses.forEach(e => {
+          const displayName = e.role || e.name;
+          msgParts.push(`👤 ${displayName}: ₹${formatExpenseField(e)}`);
+        });
+      }
+      
+      msgParts.push(``);
+      msgParts.push(`✨ *Calculation:*`);
+      msgParts.push(`💵 Total Cash Collection: ₹${totalCashReceived.toLocaleString('en-IN')}`);
+      msgParts.push(`💰 Cash HandOver: ₹${cashHandover.toLocaleString('en-IN')}`);
+      msgParts.push(`💳 Online Received: ₹${(fareAmt - (user.BalanceAmount?.Amount || user.BalanceAmount) - totalCashReceived).toLocaleString('en-IN')}`);
+      msgParts.push(`📈 Bachat (Profit): ₹${bachat.toLocaleString('en-IN')}`);
     
     msgParts.push(``);
     msgParts.push(`You can now update any field.`);
