@@ -244,22 +244,28 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     }
   }
 
-  // Extract Fare: "fare [amount]" (displays as Total Fare in summary)
-  const fareMatch = normalizedText.match(/^fare\s+(\d+)$/i);
+  // Extract Fare: "fare [amount] [optional: online]"
+  const fareMatch = normalizedText.match(/^fare\s+(\d+)(?:\s+(online))?$/i);
   if (fareMatch) {
-    user.TotalFare = parseInt(fareMatch[1]);
+    const amount = parseInt(fareMatch[1]);
+    const mode = fareMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
+    user.TotalFare = { amount, mode };
     if (user.AdvancePaid) {
-      user.BalanceAmount = user.TotalFare - user.AdvancePaid;
+      const advAmt = typeof user.AdvancePaid === 'object' ? user.AdvancePaid.amount : user.AdvancePaid;
+      user.BalanceAmount = amount - advAmt;
     }
     anyFieldFound = true;
   }
 
-  // Extract Advance: "advance [amount]"
-  const advanceMatch = normalizedText.match(/^advance\s+(\d+)$/i);
+  // Extract Advance: "advance [amount] [optional: online]"
+  const advanceMatch = normalizedText.match(/^advance\s+(\d+)(?:\s+(online))?$/i);
   if (advanceMatch) {
-    user.AdvancePaid = parseInt(advanceMatch[1]);
+    const amount = parseInt(advanceMatch[1]);
+    const mode = advanceMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
+    user.AdvancePaid = { amount, mode };
     if (user.TotalFare) {
-      user.BalanceAmount = user.TotalFare - user.AdvancePaid;
+      const fareAmt = typeof user.TotalFare === 'object' ? user.TotalFare.amount : user.TotalFare;
+      user.BalanceAmount = fareAmt - amount;
     }
     anyFieldFound = true;
   }

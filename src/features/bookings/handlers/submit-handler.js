@@ -76,8 +76,13 @@ export async function handleSubmit(sock, sender, text, user) {
     return true;
   }
 
-  const totalFare = Number(String(user.TotalFare).replace(/,/g, ''));
-  const advancePaid = Number(String(user.AdvancePaid).replace(/,/g, ''));
+  const totalFare = typeof user.TotalFare === 'object' 
+    ? Number(user.TotalFare.amount) 
+    : Number(String(user.TotalFare || 0).replace(/,/g, ''));
+    
+  const advancePaid = typeof user.AdvancePaid === 'object'
+    ? Number(user.AdvancePaid.amount)
+    : Number(String(user.AdvancePaid || 0).replace(/,/g, ''));
 
   if (isNaN(totalFare) || totalFare <= 0) {
     await safeSendMessage(sock, sender, {
@@ -171,11 +176,13 @@ export async function handleSubmit(sock, sender, text, user) {
       End: formatDateForJson(endDate)
     },
     Capacity: user.Capacity,
-    TotalFare: {
-      Amount: totalFare
+    TotalFare: typeof user.TotalFare === 'object' ? user.TotalFare : {
+      Amount: totalFare,
+      mode: 'cash'
     },
-    AdvancePaid: {
-      Amount: advancePaid
+    AdvancePaid: typeof user.AdvancePaid === 'object' ? user.AdvancePaid : {
+      Amount: advancePaid,
+      mode: 'cash'
     },
     BalanceAmount: user.editingExisting 
       ? { Amount: balanceAmount, Date: new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) }
@@ -234,9 +241,14 @@ export async function handleSubmit(sock, sender, text, user) {
     summary += `📅 Date: ${formatDateDisplay(bookingRecord.Date.Start)} to ${formatDateDisplay(bookingRecord.Date.End)} (${bookingRecord.Date.NoOfDays} days)\n`;
   }
   
+  const fareAmt = typeof bookingRecord.TotalFare === 'object' ? (bookingRecord.TotalFare.Amount || bookingRecord.TotalFare.amount) : bookingRecord.TotalFare.Amount;
+  const advAmt = typeof bookingRecord.AdvancePaid === 'object' ? (bookingRecord.AdvancePaid.Amount || bookingRecord.AdvancePaid.amount) : bookingRecord.AdvancePaid.Amount;
+  const fareMode = bookingRecord.TotalFare?.mode === 'online' ? ' 💳' : '';
+  const advMode = bookingRecord.AdvancePaid?.mode === 'online' ? ' 💳' : '';
+
   summary += `🚌 Bus: ${bookingRecord.BusCode} | Capacity: ${bookingRecord.Capacity}\n`;
-  summary += `💰 Total Fare: ₹${bookingRecord.TotalFare.Amount.toLocaleString('en-IN')}\n`;
-  summary += `💵 Advance: ₹${bookingRecord.AdvancePaid.Amount.toLocaleString('en-IN')}\n`;
+  summary += `💰 Total Fare: ₹${fareAmt.toLocaleString('en-IN')}${fareMode}\n`;
+  summary += `💵 Advance: ₹${advAmt.toLocaleString('en-IN')}${advMode}\n`;
   summary += `💸 Balance: ₹${bookingRecord.BalanceAmount.Amount.toLocaleString('en-IN')}\n`;
   
   // For Post-Booking updates, show full expense details

@@ -67,6 +67,11 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
   // Format amounts with ₹___ for missing values
   const formatAmount = (val) => {
     if (val === undefined || val === null || val === "") return "___";
+    if (typeof val === 'object') {
+      const amt = val.Amount || val.amount;
+      const mode = val.mode === "online" ? " 💳" : "";
+      return `${amt.toLocaleString('en-IN')}${mode}`;
+    }
     return val.toLocaleString('en-IN');
   };
   
@@ -96,6 +101,43 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
     `💸 Balance: ₹${formatAmount(user.BalanceAmount)}`,
   ];
   
+  // Add Real-time summary for Post-Booking
+  if (user.editingExisting && user.TotalFare && user.AdvancePaid) {
+    const getAmtValue = (f) => {
+      if (!f) return 0;
+      if (typeof f === 'object') return Number(f.amount || f.Amount) || 0;
+      return Number(f) || 0;
+    };
+    
+    const fareAmt = getAmtValue(user.TotalFare);
+    const advAmt = getAmtValue(user.AdvancePaid);
+    
+    const diesel = getAmtValue(user.Diesel);
+    const adda = getAmtValue(user.Adda);
+    const union = getAmtValue(user.Union);
+    const extra = (user.ExtraExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const employ = (user.EmployExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+    const totalExp = diesel + adda + union + extra + employ;
+    
+    // Calculate total online expenses
+    let totalOnline = 0;
+    if (user.Diesel?.mode === 'online') totalOnline += diesel;
+    if (user.Adda?.mode === 'online') totalOnline += adda;
+    if (user.Union?.mode === 'online') totalOnline += union;
+    (user.ExtraExpenses || []).forEach(e => { if (e.mode === 'online') totalOnline += (Number(e.amount) || 0); });
+    (user.EmployExpenses || []).forEach(e => { if (e.mode === 'online') totalOnline += (Number(e.amount) || 0); });
+
+    const cashExp = totalExp - totalOnline;
+    const cashHandover = advAmt - cashExp;
+    const bachat = fareAmt - totalExp;
+
+    msgParts.push(``);
+    msgParts.push(`✨ *Live Calculation:*`);
+    msgParts.push(`💰 Cash HandOver: ₹${cashHandover.toLocaleString('en-IN')}`);
+    msgParts.push(`📈 Bachat (Profit): ₹${bachat.toLocaleString('en-IN')}`);
+  }
+
   // Add expense fields for Post-Booking phase
   if (user.editingExisting) {
     msgParts.push(``);
