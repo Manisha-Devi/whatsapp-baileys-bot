@@ -105,9 +105,9 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
     if (user.PaymentHistory && user.PaymentHistory.length > 0) {
       msgParts.push(`💵 Received:`);
       user.PaymentHistory.forEach(p => {
-        const pModeIcon = p.mode === "online" ? "💳" : "💵";
-        // Match user's requested format: 💰DD/MM/YYYY : ₹Amount 💳
-        msgParts.push(`      💰${p.date} : ₹${Number(p.amount).toLocaleString('en-IN')} ${pModeIcon}`);
+        const pModeIcon = p.mode === "online" ? " 💳" : "";
+        // Match user's requested format: 💰DD/MM/YYYY : ₹Amount (Icon only for online)
+        msgParts.push(`      💰${p.date} : ₹${Number(p.amount).toLocaleString('en-IN')}${pModeIcon}`);
       });
     } else {
       msgParts.push(`💵 Received: ₹0`);
