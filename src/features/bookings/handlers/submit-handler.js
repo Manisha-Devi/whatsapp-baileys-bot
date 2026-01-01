@@ -231,7 +231,7 @@ export async function handleSubmit(sock, sender, text, user) {
   };
   
   const regNumber = user.RegistrationNumber || bookingRecord.BusCode;
-  const actionText = isUpdate ? "Updated" : "Taken";
+  const actionText = isUpdate ? "Taken" : "Taken";
   let summary = `✅ *Booking ${actionText}!* (${regNumber})\n\n`;
   summary += `👤 Customer: ${bookingRecord.CustomerName}\n`;
   summary += `📱 Phone: ${bookingRecord.CustomerPhone}\n`;

@@ -416,7 +416,6 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     if (receivedMatch) {
       const amount = parseInt(receivedMatch[1]);
       const mode = receivedMatch[2]?.toLowerCase() || "cash";
-      // Ensure we extract the date correctly from the match groups
       const date = receivedMatch[3] || new Date().toLocaleDateString('en-GB');
       
       if (!user.PaymentHistory) user.PaymentHistory = [];
@@ -436,12 +435,17 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       const remainingBalance = fareAmt - advAmt - totalPayments;
       user.BalanceAmount = remainingBalance;
       
-      // Auto-update status to Initiated if balance is cleared
+      // Auto-update status based on balance
       if (remainingBalance <= 0) {
         user.Status = "Initiated";
       }
       
       anyFieldFound = true;
+    }
+    
+    // Auto-update status to Completed if any expense is added
+    if (anyFieldFound && (normalizedText.startsWith('diesel') || normalizedText.startsWith('adda') || normalizedText.startsWith('union') || normalizedText.startsWith('expense') || normalizedText.startsWith('driver') || normalizedText.startsWith('conductor'))) {
+      user.Status = "Completed";
     }
   }
 
