@@ -102,12 +102,43 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
 
   // Show Received for updates
   if (user.editingExisting) {
-    msgParts.push(`💵 Recived: ₹${user.ReceivedAmount || 0}`);
+    const totalReceived = (user.PaymentHistory || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    msgParts.push(`💵 Recived: ₹${totalReceived.toLocaleString('en-IN')}`);
   }
 
   msgParts.push(`💸 Balance: ₹${formatAmount(user.BalanceAmount)}`);
   
   if (user.editingExisting) {
+    // Helper to get numeric value
+    const getVal = (f) => {
+      if (!f) return 0;
+      if (typeof f === 'object') return Number(f.amount || f.Amount) || 0;
+      return Number(f) || 0;
+    };
+
+    const fareAmt = getVal(user.TotalFare);
+    const diesel = getVal(user.Diesel);
+    const adda = getVal(user.Adda);
+    const union = getVal(user.Union);
+    const extra = (user.ExtraExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const employ = (user.EmployExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const totalExp = diesel + adda + union + extra + employ;
+
+    // Cash Handover calculation
+    let totalCashReceived = 0;
+    if (user.AdvancePaid?.mode !== 'online') totalCashReceived += getVal(user.AdvancePaid);
+    (user.PaymentHistory || []).forEach(p => { if (p.mode !== 'online') totalCashReceived += (Number(p.amount) || 0); });
+
+    let cashExp = 0;
+    if (user.Diesel?.mode !== 'online') cashExp += diesel;
+    if (user.Adda?.mode !== 'online') cashExp += adda;
+    if (user.Union?.mode !== 'online') cashExp += union;
+    (user.ExtraExpenses || []).forEach(e => { if (e.mode !== 'online') cashExp += (Number(e.amount) || 0); });
+    (user.EmployExpenses || []).forEach(e => { if (e.mode !== 'online') cashExp += (Number(e.amount) || 0); });
+
+    const cashHandover = totalCashReceived - cashExp;
+    const bachat = fareAmt - totalExp;
+
     msgParts.push(``);
     msgParts.push(`💰 *Expenses:*`);
     msgParts.push(`⛽ Diesel: ₹${formatExpenseField(user.Diesel)}`);
@@ -116,8 +147,8 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
     
     msgParts.push(``);
     msgParts.push(`✨ *Calculation:*`);
-    msgParts.push(`💰 Cash HandOver: ₹${user.CashHandover || "___"}`);
-    msgParts.push(`📈 Bachat (Profit): ₹${user.Bachat || "___"}`);
+    msgParts.push(`💰 Cash HandOver: ₹${cashHandover.toLocaleString('en-IN')}`);
+    msgParts.push(`📈 Bachat (Profit): ₹${bachat.toLocaleString('en-IN')}`);
     
     msgParts.push(``);
     msgParts.push(`You can now update any field.`);
