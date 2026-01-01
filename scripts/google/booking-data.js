@@ -173,6 +173,7 @@ function syncBookingData() {
       "Capacity",
       "TotalFare",
       "AdvancePaid",
+      "PaymentHistory",
       "BalanceAmount",
       "Diesel",
       "Adda",
