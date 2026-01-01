@@ -248,11 +248,26 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
   const fareMatch = normalizedText.match(/^fare\s+(\d+)$/i);
   if (fareMatch) {
     const amount = parseInt(fareMatch[1]);
-    user.TotalFare = amount;
-    if (user.AdvancePaid) {
-      const advAmt = typeof user.AdvancePaid === 'object' ? user.AdvancePaid.amount : user.AdvancePaid;
-      user.BalanceAmount = amount - advAmt;
+    
+    // Calculate total received including Advance
+    const getAmtValue = (f) => {
+      if (!f) return 0;
+      if (typeof f === 'object') return Number(f.amount || f.Amount) || 0;
+      return Number(f) || 0;
+    };
+    const totalPayments = (user.PaymentHistory || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const advAmt = getAmtValue(user.AdvancePaid);
+    const totalReceived = advAmt + totalPayments;
+
+    if (amount < totalReceived) {
+      await safeSendMessage(sock, sender, {
+        text: `⚠️ Fare cannot be less than total received amount (₹${totalReceived.toLocaleString('en-IN')}).`
+      });
+      return { handled: true, anyFieldFound: false };
     }
+
+    user.TotalFare = amount;
+    user.BalanceAmount = amount - totalReceived;
     anyFieldFound = true;
   }
 
@@ -261,25 +276,46 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
   if (advanceMatch) {
     const amount = parseInt(advanceMatch[1]);
     const mode = advanceMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
+    
+    const getAmtValue = (f) => {
+      if (!f) return 0;
+      if (typeof f === 'object') return Number(f.amount || f.Amount) || 0;
+      return Number(f) || 0;
+    };
+    const totalPayments = (user.PaymentHistory || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const fareAmt = getAmtValue(user.TotalFare);
+
+    if (fareAmt > 0 && (amount + totalPayments) > fareAmt) {
+      await safeSendMessage(sock, sender, {
+        text: `⚠️ Total received (Advance + Payments: ₹${(amount + totalPayments).toLocaleString('en-IN')}) cannot exceed Fare (₹${fareAmt.toLocaleString('en-IN')}).`
+      });
+      return { handled: true, anyFieldFound: false };
+    }
+
     user.AdvancePaid = { amount, mode };
-    if (user.TotalFare) {
-      const fareAmt = typeof user.TotalFare === 'object' ? user.TotalFare.amount : user.TotalFare;
-      user.BalanceAmount = fareAmt - amount;
+    if (fareAmt > 0) {
+      user.BalanceAmount = fareAmt - (amount + totalPayments);
     }
     anyFieldFound = true;
   }
 
   // Extract Balance: "balance [amount]" - For Post-Booking phase
-  // Updates balance and recalculates TotalFare = Advance + NewBalance
   if (user.editingExisting) {
     const balanceMatch = normalizedText.match(/^balance\s+(\d+)$/i);
     if (balanceMatch) {
       const newBalance = parseInt(balanceMatch[1]);
+      
+      const getAmtValue = (f) => {
+        if (!f) return 0;
+        if (typeof f === 'object') return Number(f.amount || f.Amount) || 0;
+        return Number(f) || 0;
+      };
+      const totalPayments = (user.PaymentHistory || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const advAmt = getAmtValue(user.AdvancePaid);
+      const totalReceived = advAmt + totalPayments;
+
       user.BalanceAmount = newBalance;
-      // Recalculate TotalFare based on new balance
-      if (user.AdvancePaid !== undefined) {
-        user.TotalFare = user.AdvancePaid + newBalance;
-      }
+      user.TotalFare = totalReceived + newBalance;
       anyFieldFound = true;
     }
   }
