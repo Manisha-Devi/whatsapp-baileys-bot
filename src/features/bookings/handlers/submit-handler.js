@@ -22,16 +22,6 @@ const __dirname = dirname(__filename);
  * Validates all required fields, generates a unique booking ID,
  * calculates balance amount, and saves to the database.
  * 
- * Required fields for submission:
- * - CustomerName
- * - CustomerPhone
- * - PickupLocation
- * - DropLocation
- * - TravelDateFrom
- * - BusCode
- * - TotalFare
- * - AdvancePaid
- * 
  * @param {Object} sock - WhatsApp socket connection instance
  * @param {string} sender - Sender's phone number/ID
  * @param {string} text - Lowercase user input text
@@ -144,9 +134,6 @@ export async function handleSubmit(sock, sender, text, user) {
   const startFormatted = formatDateForJson(startDate);
   const endFormatted = formatDateForJson(endDate);
 
-  // BookingId format: 
-  // Single day: BUS102_14/11/2025
-  // Multi-day: BUS102_15/11/2025_TO_17/11/2025
   const bookingId = (startDate === endDate) 
     ? `${user.BusCode}_${startDate}`
     : `${user.BusCode}_${startDate}_TO_${endDate}`;
@@ -163,7 +150,6 @@ export async function handleSubmit(sock, sender, text, user) {
     numberOfDays = 1;
   }
   
-  // Get sender name from users.json
   let senderName = sender;
   try {
     const usersPath = join(__dirname, "../../..", "data", "users.json");
@@ -173,10 +159,19 @@ export async function handleSubmit(sock, sender, text, user) {
     if (foundUser) {
       senderName = foundUser.name;
     }
-  } catch (err) {
-    // Keep sender as is if users.json read fails
-  }
+  } catch (err) {}
   
+  const getAmtValue = (f) => {
+    if (!f) return 0;
+    if (typeof f === 'object') return Number(f.amount || f.Amount) || 0;
+    return Number(f) || 0;
+  };
+  
+  const totalReceivedFromHistory = (user.PaymentHistory || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const fareAmtValue = getAmtValue(user.TotalFare);
+  const advAmtValue = getAmtValue(user.AdvancePaid);
+  const calculatedBalance = fareAmtValue - advAmtValue - totalReceivedFromHistory;
+
   const bookingRecord = {
     Sender: senderName,
     BookingDate: formattedBookingDate,
@@ -201,27 +196,23 @@ export async function handleSubmit(sock, sender, text, user) {
       mode: 'cash'
     },
     BalanceAmount: user.editingExisting 
-      ? { Amount: balanceAmount, Date: new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) }
-      : { Amount: balanceAmount },
-    // New fields: Online and CashHandover
-    Online: { amount: 0 }, // Placeholder for calculation
-    TotalCashCollection: { amount: 0 }, // Placeholder for calculation
-    CashHandover: { amount: 0 }, // Placeholder for calculation
-    // Post-Booking expense fields (always included, empty by default)
+      ? { Amount: calculatedBalance, Date: new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) }
+      : { Amount: calculatedBalance },
+    Online: { amount: 0 },
+    TotalCashCollection: { amount: 0 },
+    CashHandover: { amount: 0 },
     Diesel: user.Diesel || null,
     Adda: user.Adda || null,
     Union: user.Union || null,
     EmployExpenses: user.EmployExpenses || [],
     ExtraExpenses: user.ExtraExpenses || [],
     PaymentHistory: user.PaymentHistory || [],
-    // Status and metadata at the end
     Status: user.Status || (user.editingExisting ? "Initiated" : "Pending"),
     Remarks: user.Remarks || "",
     submittedAt: new Date().toISOString(),
   };
 
   const isUpdate = user.editingExisting;
-  
   await safeDbRead(bookingsDb);
   bookingsDb.data[bookingId] = bookingRecord;
   const saved = await safeDbWrite(bookingsDb);
@@ -233,7 +224,6 @@ export async function handleSubmit(sock, sender, text, user) {
     return true;
   }
   
-  // Format date as "Friday, 12 December 2025"
   const formatDateDisplay = (dateStr) => {
     try {
       const [dd, mm, yyyy] = dateStr.split('/').map(Number);
@@ -257,20 +247,19 @@ export async function handleSubmit(sock, sender, text, user) {
   summary += `📍 Pickup: ${bookingRecord.Location.Pickup} → Drop: ${bookingRecord.Location.Drop}\n`;
   
   if (bookingRecord.Date.Start === bookingRecord.Date.End) {
-    summary += `📅 Date: ${formatDateDisplay(bookingRecord.Date.Start)}\n`;
+    summary += `📅 Date: ${formatDateDisplay(startDate)}\n`;
   } else {
-    summary += `📅 Date: ${formatDateDisplay(bookingRecord.Date.Start)} to ${formatDateDisplay(bookingRecord.Date.End)} (${bookingRecord.Date.NoOfDays} days)\n`;
+    summary += `📅 Date: ${formatDateDisplay(startDate)} to ${formatDateDisplay(endDate)} (${bookingRecord.Date.NoOfDays} days)\n`;
   }
   
-  const fareAmt = typeof bookingRecord.TotalFare === 'object' ? (bookingRecord.TotalFare.Amount || bookingRecord.TotalFare.amount) : bookingRecord.TotalFare;
-  const advAmt = typeof bookingRecord.AdvancePaid === 'object' ? (bookingRecord.AdvancePaid.Amount || bookingRecord.AdvancePaid.amount || 0) : (bookingRecord.AdvancePaid || 0);
+  const fareAmt = fareAmtValue;
+  const advAmt = advAmtValue;
   const advMode = bookingRecord.AdvancePaid?.mode === 'online' ? ' 💳' : '';
 
   summary += `🚌 Bus: ${bookingRecord.BusCode} | Capacity: ${bookingRecord.Capacity}\n`;
   summary += `💰 Total Fare: ₹${fareAmt.toLocaleString('en-IN')}\n`;
   summary += `💳 Advance: ₹${advAmt.toLocaleString('en-IN')}${advMode}\n`;
 
-  // Show Payment History if exists
   if (bookingRecord.PaymentHistory && bookingRecord.PaymentHistory.length > 0) {
     summary += `💰 *Payment Collected:*\n`;
     bookingRecord.PaymentHistory.forEach(p => {
@@ -281,19 +270,15 @@ export async function handleSubmit(sock, sender, text, user) {
 
   summary += `💸 Balance: ₹${bookingRecord.BalanceAmount.Amount.toLocaleString('en-IN')}\n`;
   
-  // For Post-Booking updates, show full expense details
   if (isUpdate) {
-    // Helper to get expense amount
     const getExpenseAmount = (field) => {
       if (!field || field.amount === undefined || field.amount === null) return 0;
       return Number(field.amount) || 0;
     };
     
-    // Calculate total expenses (cash and online separately)
     let totalCashExpense = 0;
     let totalOnlineExpense = 0;
     
-    // Diesel, Adda, Union expenses
     const dieselAmt = getExpenseAmount(bookingRecord.Diesel);
     const addaAmt = getExpenseAmount(bookingRecord.Adda);
     const unionAmt = getExpenseAmount(bookingRecord.Union);
@@ -307,7 +292,6 @@ export async function handleSubmit(sock, sender, text, user) {
     if (bookingRecord.Union?.mode === "online") totalOnlineExpense += unionAmt;
     else totalCashExpense += unionAmt;
     
-    // Extra expenses
     let extraExpensesText = "";
     if (bookingRecord.ExtraExpenses && bookingRecord.ExtraExpenses.length > 0) {
       bookingRecord.ExtraExpenses.forEach(e => {
@@ -319,7 +303,6 @@ export async function handleSubmit(sock, sender, text, user) {
       });
     }
     
-    // Employee expenses
     let dailySalaryText = "";
     let tripText = "";
     if (bookingRecord.EmployExpenses && bookingRecord.EmployExpenses.length > 0) {
@@ -346,27 +329,18 @@ export async function handleSubmit(sock, sender, text, user) {
     }
     
     const totalExpense = totalCashExpense + totalOnlineExpense;
-    
-    // Calculate total cash received (Advance + Payments)
-    let totalCashReceived = 0;
-    let totalOnlinePayments = 0;
-    if (bookingRecord.AdvancePaid?.mode !== 'online') {
-      totalCashReceived += advAmt;
-    }
+    let totalCashReceived = (bookingRecord.AdvancePaid?.mode !== 'online' ? advAmt : 0);
+    let totalOnlinePayments = (bookingRecord.AdvancePaid?.mode === 'online' ? advAmt : 0);
+
     (bookingRecord.PaymentHistory || []).forEach(p => {
-      if (p.mode !== 'online') {
-        totalCashReceived += Number(p.amount) || 0;
-      } else {
-        totalOnlinePayments += Number(p.amount) || 0;
-      }
+      if (p.mode !== 'online') totalCashReceived += Number(p.amount) || 0;
+      else totalOnlinePayments += Number(p.amount) || 0;
     });
 
     const cashHandover = totalCashReceived - totalCashExpense;
-    const totalOnlineReceived = totalOnlinePayments + (bookingRecord.AdvancePaid?.mode === 'online' ? advAmt : 0);
     const bachat = totalFare - totalExpense;
     
-    // Update bookingRecord with calculated values for JSON storage
-    bookingRecord.Online = { amount: totalOnlineReceived };
+    bookingRecord.Online = { amount: totalOnlinePayments };
     bookingRecord.TotalCashCollection = { amount: totalCashReceived };
     bookingRecord.CashHandover = { amount: cashHandover };
     
@@ -391,7 +365,7 @@ export async function handleSubmit(sock, sender, text, user) {
     summary += `💳 Total Online Expense: ₹${totalOnlineExpense.toLocaleString('en-IN')}\n`;
     summary += `💵 Total Cash Collection: ₹${totalCashReceived.toLocaleString('en-IN')}\n`;
     summary += `💰 Cash HandOver: ₹${cashHandover.toLocaleString('en-IN')}\n`;
-    summary += `💳 Online Received: ₹${totalOnlineReceived.toLocaleString('en-IN')}\n`;
+    summary += `💳 Online Received: ₹${totalOnlinePayments.toLocaleString('en-IN')}\n`;
     summary += `📈 Bachat (Profit): ₹${bachat.toLocaleString('en-IN')}\n`;
   }
   

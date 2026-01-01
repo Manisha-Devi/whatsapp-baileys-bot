@@ -125,6 +125,7 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
       };
   
       const fareAmt = getVal(user.TotalFare);
+      const advAmt = getVal(user.AdvancePaid);
       const diesel = getVal(user.Diesel);
       const adda = getVal(user.Adda);
       const union = getVal(user.Union);
@@ -137,11 +138,15 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
       const employ = (user.EmployExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
       const totalExp = diesel + adda + union + extra + employ;
   
-      // Cash Handover calculation
-      let totalCashReceived = 0;
-      if (user.AdvancePaid?.mode !== 'online') totalCashReceived += getVal(user.AdvancePaid);
-      (user.PaymentHistory || []).forEach(p => { if (p.mode !== 'online') totalCashReceived += (Number(p.amount) || 0); });
-  
+      // Calculation of Online Received and Cash Collection
+      let totalOnlinePayments = (user.AdvancePaid?.mode === 'online' ? advAmt : 0);
+      let totalCashReceived = (user.AdvancePaid?.mode !== 'online' ? advAmt : 0);
+
+      (user.PaymentHistory || []).forEach(p => { 
+        if (p.mode === 'online') totalOnlinePayments += (Number(p.amount) || 0);
+        else totalCashReceived += (Number(p.amount) || 0);
+      });
+
       let cashExp = 0;
       if (user.Diesel?.mode !== 'online') cashExp += diesel;
       if (user.Adda?.mode !== 'online') cashExp += adda;
@@ -151,7 +156,7 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
   
       const cashHandover = totalCashReceived - cashExp;
       const bachat = fareAmt - totalExp;
-  
+
       msgParts.push(``);
       msgParts.push(`💰 *Expenses:*`);
       msgParts.push(`⛽ Diesel: ₹${formatExpenseField(user.Diesel)}`);
@@ -192,7 +197,7 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
       msgParts.push(`✨ *Calculation:*`);
       msgParts.push(`💵 Total Cash Collection: ₹${totalCashReceived.toLocaleString('en-IN')}`);
       msgParts.push(`💰 Cash HandOver: ₹${cashHandover.toLocaleString('en-IN')}`);
-      msgParts.push(`💳 Online Received: ₹${(fareAmt - (user.BalanceAmount?.Amount || user.BalanceAmount) - totalCashReceived).toLocaleString('en-IN')}`);
+      msgParts.push(`💳 Online Received: ₹${totalOnlinePayments.toLocaleString('en-IN')}`);
       msgParts.push(`📈 Bachat (Profit): ₹${bachat.toLocaleString('en-IN')}`);
     
     msgParts.push(``);
