@@ -111,18 +111,21 @@ async function handleAverageReport(sock, sender, text, state) {
       try {
         const recordDate = parse(dateStr, 'dd/MM/yyyy', new Date());
         if (isWithinInterval(recordDate, { start: startDate, end: endDate })) {
-          bookingCollection += parseFloat(record.TotalFare?.Amount || record.TotalFare) || 0;
-          
-          const bDiesel = parseFloat(record.Diesel?.amount || record.Diesel) || 0;
-          const bAdda = parseFloat(record.Adda?.amount || record.Adda) || 0;
-          const bUnion = parseFloat(record.Union?.amount || record.Union) || 0;
-          const bExtraTotal = (record.ExtraExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-          const bEmployTotal = (record.EmployExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-          
-          bookingExpenses += bDiesel + bAdda + bUnion + bExtraTotal + bEmployTotal;
-          bookingCount++;
-          // Add actual number of days from booking record
-          bookingWorkingDays += parseInt(record.Date?.NoOfDays || 1);
+          // IMPORTANT: Only count if Status is "Initiated" or "Completed"
+          // This ensures we only count bookings that actually happened
+          if (record.Status === "Initiated" || record.Status === "Completed") {
+            bookingCollection += parseFloat(record.TotalFare?.Amount || record.TotalFare) || 0;
+            
+            const bDiesel = parseFloat(record.Diesel?.amount || record.Diesel) || 0;
+            const bAdda = parseFloat(record.Adda?.amount || record.Adda) || 0;
+            const bUnion = parseFloat(record.Union?.amount || record.Union) || 0;
+            const bExtraTotal = (record.ExtraExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+            const bEmployTotal = (record.EmployExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+            
+            bookingExpenses += bDiesel + bAdda + bUnion + bExtraTotal + bEmployTotal;
+            bookingCount++;
+            bookingWorkingDays += parseInt(record.Date?.NoOfDays || 1);
+          }
         }
       } catch (e) {
         console.error("Error processing booking record:", e);
