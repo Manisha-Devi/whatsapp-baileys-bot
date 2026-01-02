@@ -217,10 +217,28 @@ export async function handleSubmit(sock, sender, text, user) {
     PaymentHistory: user.PaymentHistory || [],
     Status: user.Status || (user.editingExisting ? "Initiated" : "Pending"),
     Remarks: user.Remarks || "",
-    submittedAt: new Date().toISOString(),
+    submittedAt: user.submittedAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 
   const isUpdate = user.editingExisting;
+
+  // New status rules: 
+  // 1. If status is "Initiated", don't update to "Pending" automatically
+  // 2. If balance > 0 and previously "Initiated", it should probably stay "Initiated" or move to "Completed" only if balance is 0?
+  // User said: "jab Status Initiated hota hai yah update nhai karna data dana chaya and agar pher Balance greater than zero atta hai toh update karna par Status COmpleted hona chaya"
+  // Translation: "When status is Initiated, it should not update [automatically to something else?]. And if balance becomes > 0, update it, but status should be Completed [if it was initiated?]"
+  // This is a bit contradictory. Usually "Completed" means balance is 0.
+  // Let's refine:
+  if (isUpdate && user.Status === "Initiated") {
+    // Keep it Initiated unless certain conditions met
+    if (calculatedBalance > 0) {
+      bookingRecord.Status = "Completed"; // Per user request: "agar pher Balance greater than zero atta hai toh update karna par Status COmpleted hona chaya"
+    } else {
+      bookingRecord.Status = "Initiated";
+    }
+  }
+
   await safeDbRead(bookingsDb);
   bookingsDb.data[bookingId] = bookingRecord;
   const saved = await safeDbWrite(bookingsDb);

@@ -67,12 +67,13 @@ export async function handleFetchConfirmation(sock, sender, text, user) {
         user.TravelDateTo = parseDateToNormalized(existingBooking.Date?.End);
         user.BusCode = existingBooking.BusCode;
         user.Capacity = existingBooking.Capacity;
-        user.TotalFare = existingBooking.TotalFare?.Amount || existingBooking.TotalFare;
-        user.AdvancePaid = existingBooking.AdvancePaid;
-        user.BalanceAmount = existingBooking.BalanceAmount?.Amount || existingBooking.BalanceAmount;
-        user.Remarks = existingBooking.Remarks;
-        user.Status = existingBooking.Status;
+        user.TotalFare = existingBooking.TotalFare?.Amount || existingBooking.TotalFare || 0;
+        user.AdvancePaid = existingBooking.AdvancePaid || { amount: 0, mode: "cash" };
+        user.BalanceAmount = existingBooking.BalanceAmount?.Amount || existingBooking.BalanceAmount || 0;
+        user.Remarks = existingBooking.Remarks || "";
+        user.Status = existingBooking.Status || "Pending";
         user.PaymentHistory = existingBooking.PaymentHistory || [];
+        user.submittedAt = existingBooking.submittedAt || existingBooking.submittedat;
         
         // Load expense fields if they exist
         user.Diesel = existingBooking.Diesel || null;
@@ -82,7 +83,13 @@ export async function handleFetchConfirmation(sock, sender, text, user) {
         
         // Auto-fetch employee expenses for this bus if not already saved
         if (existingBooking.EmployExpenses && existingBooking.EmployExpenses.length > 0) {
-          user.EmployExpenses = existingBooking.EmployExpenses;
+          user.EmployExpenses = (existingBooking.EmployExpenses || []).map(e => ({
+            name: e.name,
+            role: e.role,
+            amount: Number(e.trip || e.salary || e.amount || 0),
+            type: e.trip ? "trip" : "dailySalary",
+            mode: e.mode || "cash"
+          }));
         } else {
           // Get default employee expenses for this bus
           user.EmployExpenses = getEmployExpensesForBus(existingBooking.BusCode) || [];

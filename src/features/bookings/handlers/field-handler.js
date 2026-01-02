@@ -515,7 +515,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
 
     if (anyFieldFound) {
       // Default to Completed for updates if any post-entry field is touched
-      user.Status = "Completed";
+      // user.Status = "Completed"; // Removed auto-update to Completed here to let submit-handler handle it based on balance
       
       // Check balance for Initiated status (takes priority if balance is cleared)
       const getAmtValue = (f) => {
@@ -532,6 +532,10 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       // If balance is 0 or less, it must be Initiated
       if (currentBalance <= 0) {
         user.Status = "Initiated";
+      } else if (user.editingExisting && (user.Status === "Initiated" || user.Status === "Completed")) {
+        // If balance > 0 and it was Initiated, it should move to Completed per user request
+        // "agar pher Balance greater than zero atta hai toh update karna par Status COmpleted hona chaya"
+        user.Status = "Completed";
       }
     }
   }
