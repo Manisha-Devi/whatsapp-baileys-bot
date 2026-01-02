@@ -131,10 +131,6 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
       const union = getVal(user.Union);
       const extra = (user.ExtraExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
       
-      // Separate Daily Salary and Trip expenses for summary
-      const dailySalaryExpenses = (user.EmployExpenses || []).filter(e => !e.type || e.type === "dailySalary");
-      const tripExpenses = (user.EmployExpenses || []).filter(e => e.type === "trip");
-      
       const employ = (user.EmployExpenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
       const totalExp = diesel + adda + union + extra + employ;
   
@@ -170,18 +166,22 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
         });
       }
       
-    // Add Daily Salary if any (check if amount > 0 or it's from defaults)
-    if (dailySalaryExpenses.length > 0) {
-      const hasVisibleSalary = dailySalaryExpenses.some(e => (Number(e.amount) || 0) > 0);
-      if (hasVisibleSalary) {
-        msgParts.push(``);
-        msgParts.push(`👥 *Employee (Daily Salary):*`);
-        dailySalaryExpenses.forEach(e => {
-          const displayName = e.role || e.name;
-          msgParts.push(`👤 ${displayName}: ₹${formatExpenseField(e)}`);
-        });
+      // Separate Daily Salary and Trip expenses for summary
+      const dailySalaryExpenses = (user.EmployExpenses || []).filter(e => !e.type || e.type === "dailySalary");
+      const tripExpenses = (user.EmployExpenses || []).filter(e => e.type === "trip");
+      
+      // Add Daily Salary if any (check if amount > 0 or it's from defaults)
+      if (dailySalaryExpenses.length > 0) {
+        const hasVisibleSalary = dailySalaryExpenses.some(e => (Number(e.amount) || 0) > 0);
+        if (hasVisibleSalary) {
+          msgParts.push(``);
+          msgParts.push(`👥 *Employee (Daily Salary):*`);
+          dailySalaryExpenses.forEach(e => {
+            const displayName = e.role || e.name;
+            msgParts.push(`👤 ${displayName}: ₹${formatExpenseField(e)}`);
+          });
+        }
       }
-    }
       
       // Add Trip Expenses if any
       if (tripExpenses.length > 0) {

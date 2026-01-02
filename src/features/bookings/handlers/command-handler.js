@@ -169,6 +169,7 @@ export async function handleBookingCommand(sock, sender, normalizedText, user) {
   else if (foundBooking.Status === "Completed") warningPrefix = "⚠️ Post Booking";
   else if (foundBooking.Status === "Initiated") warningPrefix = "⚠️ Booking";
 
+  // Per user request: If status is Initiated, let it be updated normally
   user.confirmingFetch = true;
   user.pendingBookingId = id;
   user.pendingStartDate = format(startDate, 'dd/MM/yyyy');
