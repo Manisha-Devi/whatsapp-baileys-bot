@@ -88,7 +88,12 @@ async function handleAverageReport(sock, sender, text, state) {
           const adda = parseFloat(record.Adda?.amount || record.Adda) || 0;
           const union = parseFloat(record.Union?.amount || record.Union) || 0;
           const extraTotal = (record.ExtraExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-          const employTotal = (record.EmployExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+          
+          // Employees in Daily: Only include if they don't have 'trip' type (though Daily usually doesn't have it)
+          const employTotal = (record.EmployExpenses || []).reduce((sum, e) => {
+            if (e.type === 'trip') return sum;
+            return sum + (parseFloat(e.amount) || 0);
+          }, 0);
           
           dailyExpenses += diesel + adda + union + extraTotal + employTotal;
           dailyCount++;
@@ -117,7 +122,12 @@ async function handleAverageReport(sock, sender, text, state) {
           const bAdda = parseFloat(record.Adda?.amount || record.Adda) || 0;
           const bUnion = parseFloat(record.Union?.amount || record.Union) || 0;
           const bExtraTotal = (record.ExtraExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-          const bEmployTotal = (record.EmployExpenses || []).reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+          
+          // Employees in Bookings: Exclude 'trip' type expenses from profit average calculation
+          const bEmployTotal = (record.EmployExpenses || []).reduce((sum, e) => {
+            if (e.type === 'trip') return sum;
+            return sum + (parseFloat(e.amount) || 0);
+          }, 0);
           
           bookingExpenses += bDiesel + bAdda + bUnion + bExtraTotal + bEmployTotal;
           bookingCount++;
