@@ -94,13 +94,17 @@ export async function handleFetchConfirmation(sock, sender, text, user) {
         
         // Auto-fetch employee expenses for this bus if not already saved
         if (existingBooking.EmployExpenses && existingBooking.EmployExpenses.length > 0) {
-          user.EmployExpenses = (existingBooking.EmployExpenses || []).map(e => ({
-            name: e.name || e.role,
-            role: e.role,
-            amount: Number(e.trip || e.salary || e.amount || 0),
-            type: e.trip ? "trip" : "dailySalary",
-            mode: e.mode || "cash"
-          }));
+          user.EmployExpenses = (existingBooking.EmployExpenses || []).map(e => {
+            const isTrip = e.type === "trip" || e.trip !== undefined;
+            const amt = e.trip || e.salary || e.amount || 0;
+            return {
+              name: e.name || e.role,
+              role: e.role || e.name,
+              amount: Number(amt),
+              type: isTrip ? "trip" : "dailySalary",
+              mode: e.mode || "cash"
+            };
+          });
         } else {
           // Get default employee expenses for this bus
           user.EmployExpenses = getEmployExpensesForBus(existingBooking.BusCode) || [];

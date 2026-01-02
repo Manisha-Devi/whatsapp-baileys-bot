@@ -208,7 +208,9 @@ export async function handleSubmit(sock, sender, text, user) {
       const isTrip = e.type === "trip";
       return {
         role: e.role || e.name,
-        name: e.name,
+        name: e.name || e.role,
+        type: e.type || (isTrip ? "trip" : "dailySalary"),
+        amount: Number(e.amount || 0),
         [isTrip ? "trip" : "salary"]: String(e.amount || 0),
         mode: e.mode || "cash"
       };
