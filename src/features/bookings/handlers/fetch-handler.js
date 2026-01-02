@@ -61,15 +61,26 @@ export async function handleFetchConfirmation(sock, sender, text, user) {
         // Load existing booking into user session
         user.CustomerName = existingBooking.CustomerName;
         user.CustomerPhone = existingBooking.CustomerPhone;
-        user.PickupLocation = existingBooking.Location?.Pickup;
-        user.DropLocation = existingBooking.Location?.Drop;
-        user.TravelDateFrom = parseDateToNormalized(existingBooking.Date?.Start);
-        user.TravelDateTo = parseDateToNormalized(existingBooking.Date?.End);
+        user.PickupLocation = existingBooking.Location?.Pickup || existingBooking.PickupLocation;
+        user.DropLocation = existingBooking.Location?.Drop || existingBooking.DropLocation;
+        user.TravelDateFrom = parseDateToNormalized(existingBooking.Date?.Start || existingBooking.TravelDateFrom);
+        user.TravelDateTo = parseDateToNormalized(existingBooking.Date?.End || existingBooking.TravelDateTo);
         user.BusCode = existingBooking.BusCode;
+        user.RegistrationNumber = existingBooking.RegistrationNumber;
+        user.BusType = existingBooking.BusType;
         user.Capacity = existingBooking.Capacity;
         user.TotalFare = existingBooking.TotalFare?.Amount !== undefined ? existingBooking.TotalFare.Amount : (existingBooking.TotalFare || 0);
         user.AdvancePaid = existingBooking.AdvancePaid || { amount: 0, mode: "cash" };
-        user.BalanceAmount = existingBooking.BalanceAmount?.Amount !== undefined ? existingBooking.BalanceAmount.Amount : (existingBooking.BalanceAmount || 0);
+        
+        // Handle nested or flat BalanceAmount
+        if (existingBooking.BalanceAmount?.Amount !== undefined) {
+          user.BalanceAmount = existingBooking.BalanceAmount.Amount;
+        } else if (existingBooking.BalanceAmount !== undefined) {
+          user.BalanceAmount = existingBooking.BalanceAmount;
+        } else {
+          user.BalanceAmount = user.TotalFare - (user.AdvancePaid.amount || 0);
+        }
+        
         user.Remarks = existingBooking.Remarks || "";
         user.Status = existingBooking.Status || "Pending";
         user.PaymentHistory = existingBooking.PaymentHistory || [];
