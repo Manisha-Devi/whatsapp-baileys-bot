@@ -91,6 +91,12 @@ export async function handleSubmit(sock, sender, text, user) {
       db.data[primaryKey] = {
         sender: senderName,
         ...filteredUser,
+        employees: (user.EmployExpenses || []).map(e => ({
+          role: e.role,
+          name: e.name,
+          salary: Number(e.amount) || 0,
+          mode: e.mode || "cash"
+        })),
         submittedAt: new Date().toISOString(),
       };
 

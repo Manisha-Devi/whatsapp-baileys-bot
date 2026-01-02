@@ -204,7 +204,15 @@ export async function handleSubmit(sock, sender, text, user) {
     Diesel: user.Diesel || null,
     Adda: user.Adda || null,
     Union: user.Union || null,
-    EmployExpenses: user.EmployExpenses || [],
+    EmployExpenses: (user.EmployExpenses || []).map(e => {
+      const isTrip = e.type === "trip";
+      return {
+        role: e.role || e.name,
+        name: e.name,
+        [isTrip ? "trip" : "salary"]: String(e.amount || 0),
+        mode: e.mode || "cash"
+      };
+    }),
     ExtraExpenses: user.ExtraExpenses || [],
     PaymentHistory: user.PaymentHistory || [],
     Status: user.Status || (user.editingExisting ? "Initiated" : "Pending"),
