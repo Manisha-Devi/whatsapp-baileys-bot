@@ -61,7 +61,7 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
             .map(
               (e) =>
                 `🧾 ${capitalize(e.name)}: ₹${e.amount}${
-                  e.mode === "online" ? " 💳" : ""
+                  e.mode === "online" ? " (Online)" : ""
                 }`
             )
             .join("\n")
@@ -74,7 +74,7 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
             .map(
               (e) =>
                 `👤 ${capitalize(e.name)}: ₹${e.amount}${
-                  e.mode === "online" ? " 💳" : ""
+                  e.mode === "online" ? " (Online)" : ""
                 }`
             )
             .join("\n")
@@ -84,7 +84,7 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
     const formatField = (field, defaultVal = "0") => {
       if (!field) return { amt: defaultVal, mode: "", remarks: "" };
       const amt = field.amount || field || defaultVal;
-      const mode = field.mode === "online" ? " 💳" : "";
+      const mode = field.mode === "online" ? " (Online)" : "";
       const remarks = field.remarks ? ` ${field.remarks}` : "";
       return { amt, mode, remarks };
     };

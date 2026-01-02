@@ -69,7 +69,7 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
     if (val === undefined || val === null || val === "") return "___";
     if (typeof val === 'object') {
       const amt = val.Amount || val.amount;
-      const mode = val.mode === "online" ? " 💳" : "";
+      const mode = val.mode === "online" ? " (Online)" : "";
       return `${amt.toLocaleString('en-IN')}${mode}`;
     }
     return val.toLocaleString('en-IN');
@@ -78,7 +78,7 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
   // Helper to format expense field with amount and mode indicator
   const formatExpenseField = (field) => {
     if (!field || field.amount === undefined || field.amount === null) return "___";
-    const mode = field.mode === "online" ? " 💳" : "";
+    const mode = field.mode === "online" ? " (Online)" : "";
     return `${field.amount.toLocaleString('en-IN')}${mode}`;
   };
 
@@ -105,7 +105,7 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
       if (user.PaymentHistory && user.PaymentHistory.length > 0) {
         msgParts.push(`💵 Received:`);
         user.PaymentHistory.forEach(p => {
-          const pModeIcon = p.mode === "online" ? " 💳" : "";
+          const pModeIcon = p.mode === "online" ? " (Online)" : "";
           // Date is already stored in "Thursday, 1 January 2026" format
           msgParts.push(`      💰${p.date} : ₹${Number(p.amount).toLocaleString('en-IN')}${pModeIcon}`);
         });

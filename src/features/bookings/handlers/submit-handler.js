@@ -280,7 +280,7 @@ export async function handleSubmit(sock, sender, text, user) {
   
   const fareAmt = fareAmtValue;
   const advAmt = advAmtValue;
-  const advMode = bookingRecord.AdvancePaid?.mode === 'online' ? ' 💳' : '';
+  const advMode = bookingRecord.AdvancePaid?.mode === 'online' ? ' (Online)' : '';
 
   summary += `🚌 Bus: ${bookingRecord.BusCode} | Capacity: ${bookingRecord.Capacity}\n`;
   summary += `💰 Total Fare: ₹${fareAmt.toLocaleString('en-IN')}\n`;
@@ -289,7 +289,7 @@ export async function handleSubmit(sock, sender, text, user) {
   if (bookingRecord.PaymentHistory && bookingRecord.PaymentHistory.length > 0) {
     summary += `💰 *Payment Collected:*\n`;
     bookingRecord.PaymentHistory.forEach(p => {
-      const mode = p.mode === "online" ? " 💳" : "";
+      const mode = p.mode === "online" ? " (Online)" : "";
       summary += `💵 ${p.date}: ₹${p.amount.toLocaleString('en-IN')}${mode}\n`;
     });
   }
@@ -324,7 +324,7 @@ export async function handleSubmit(sock, sender, text, user) {
         const amt = Number(e.amount) || 0;
         if (e.mode === "online") totalOnlineExpense += amt;
         else totalCashExpense += amt;
-        const mode = e.mode === "online" ? " 💳" : "";
+        const mode = e.mode === "online" ? " (Online)" : "";
         extraExpensesText += `🧾 ${e.name.charAt(0).toUpperCase() + e.name.slice(1)}: ₹${amt.toLocaleString('en-IN')}${mode}\n`;
       });
     }
@@ -340,7 +340,7 @@ export async function handleSubmit(sock, sender, text, user) {
         if (e.mode === "online") totalOnlineExpense += amt;
         else totalCashExpense += amt;
         const displayName = e.role || e.name;
-        const mode = e.mode === "online" ? " 💳" : "";
+        const mode = e.mode === "online" ? " (Online)" : "";
         dailySalaryText += `👤 ${displayName}: ₹${amt.toLocaleString('en-IN')}${mode}\n`;
       });
       
@@ -349,7 +349,7 @@ export async function handleSubmit(sock, sender, text, user) {
         if (e.mode === "online") totalOnlineExpense += amt;
         else totalCashExpense += amt;
         const displayName = e.role || e.name;
-        const mode = e.mode === "online" ? " 💳" : "";
+        const mode = e.mode === "online" ? " (Online)" : "";
         tripText += `👤 ${displayName}: ₹${amt.toLocaleString('en-IN')}${mode}\n`;
       });
     }
@@ -371,9 +371,9 @@ export async function handleSubmit(sock, sender, text, user) {
     bookingRecord.CashHandover = { amount: cashHandover };
     
     summary += `\n💰 *Expenses (Post-Trip):*\n`;
-    summary += `⛽ Diesel: ₹${dieselAmt.toLocaleString('en-IN')}${bookingRecord.Diesel?.mode === "online" ? " 💳" : ""}\n`;
-    summary += `🚌 Adda: ₹${addaAmt.toLocaleString('en-IN')}${bookingRecord.Adda?.mode === "online" ? " 💳" : ""}\n`;
-    summary += `🤝 Union: ₹${unionAmt.toLocaleString('en-IN')}${bookingRecord.Union?.mode === "online" ? " 💳" : ""}\n`;
+    summary += `⛽ Diesel: ₹${dieselAmt.toLocaleString('en-IN')}${bookingRecord.Diesel?.mode === "online" ? " (Online)" : ""}\n`;
+    summary += `🚌 Adda: ₹${addaAmt.toLocaleString('en-IN')}${bookingRecord.Adda?.mode === "online" ? " (Online)" : ""}\n`;
+    summary += `🤝 Union: ₹${unionAmt.toLocaleString('en-IN')}${bookingRecord.Union?.mode === "online" ? " (Online)" : ""}\n`;
     if (extraExpensesText) summary += extraExpensesText;
     
     if (dailySalaryText) {

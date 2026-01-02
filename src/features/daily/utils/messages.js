@@ -50,7 +50,7 @@ export async function sendSummary(sock, jid, title, userData = {}) {
         ? userData.ExtraExpenses
             .map(
               (e) =>
-                `🧾 ${capitalize(e.name)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`
+                `🧾 ${capitalize(e.name)}: ₹${e.amount}${e.mode === "online" ? " (Online)" : ""}`
             )
             .join("\n")
         : "";
@@ -67,7 +67,7 @@ export async function sendSummary(sock, jid, title, userData = {}) {
         dailySalaryList = dailySalaryExpenses
           .map(e => {
             const displayName = e.role || e.name;
-            return `👤 ${capitalize(displayName)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`;
+            return `👤 ${capitalize(displayName)}: ₹${e.amount}${e.mode === "online" ? " (Online)" : ""}`;
           })
           .join("\n");
       }
@@ -76,7 +76,7 @@ export async function sendSummary(sock, jid, title, userData = {}) {
         tripList = tripExpenses
           .map(e => {
             const displayName = e.role || e.name;
-            return `👤 ${capitalize(displayName)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`;
+            return `👤 ${capitalize(displayName)}: ₹${e.amount}${e.mode === "online" ? " (Online)" : ""}`;
           })
           .join("\n");
       }
@@ -90,7 +90,7 @@ export async function sendSummary(sock, jid, title, userData = {}) {
       if (!field) return null;
       const amt = field.amount || field;
       if (amt === undefined || amt === null || amt === "") return null;
-      const mode = field.mode === "online" ? " 💳" : "";
+      const mode = field.mode === "online" ? " (Online)" : "";
       const remarks = field.remarks ? ` ${field.remarks}` : "";
       return { amt, mode, remarks };
     };
@@ -189,7 +189,7 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
         ? userData.ExtraExpenses
             .map(
               (e) =>
-                `🧾 ${capitalize(e.name)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`
+                `🧾 ${capitalize(e.name)}: ₹${e.amount}${e.mode === "online" ? " (Online)" : ""}`
             )
             .join("\n")
         : "";
@@ -206,7 +206,7 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
         dailySalaryList = dailySalaryExpenses
           .map(e => {
             const displayName = e.role || e.name;
-            return `👤 ${capitalize(displayName)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`;
+            return `👤 ${capitalize(displayName)}: ₹${e.amount}${e.mode === "online" ? " (Online)" : ""}`;
           })
           .join("\n");
       }
@@ -215,7 +215,7 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
         tripList = tripExpenses
           .map(e => {
             const displayName = e.role || e.name;
-            return `👤 ${capitalize(displayName)}: ₹${e.amount}${e.mode === "online" ? " 💳" : ""}`;
+            return `👤 ${capitalize(displayName)}: ₹${e.amount}${e.mode === "online" ? " (Online)" : ""}`;
           })
           .join("\n");
       }
@@ -225,7 +225,7 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
     const formatField = (field, defaultVal = "0") => {
       if (!field) return { amt: defaultVal, mode: "", remarks: "" };
       const amt = field.amount || field || defaultVal;
-      const mode = field.mode === "online" ? " 💳" : "";
+      const mode = field.mode === "online" ? " (Online)" : "";
       const remarks = field.remarks ? ` ${field.remarks}` : "";
       return { amt, mode, remarks };
     };
