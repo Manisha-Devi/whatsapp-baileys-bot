@@ -378,9 +378,17 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       const amount = parseInt(driverMatch[1]);
       const mode = driverMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
       if (!user.EmployExpenses) user.EmployExpenses = [];
-      const existingIndex = user.EmployExpenses.findIndex(e => (e.role || e.name)?.toLowerCase() === "driver" && e.type === "dailySalary" && e.mode === mode);
+      
+      // Fix: Match by role/name and handle both explicit 'dailySalary' and default (no type)
+      const existingIndex = user.EmployExpenses.findIndex(e => 
+        (e.role || e.name)?.toLowerCase() === "driver" && 
+        (e.type === "dailySalary" || !e.type)
+      );
+      
       if (existingIndex !== -1) {
         user.EmployExpenses[existingIndex].amount = amount;
+        user.EmployExpenses[existingIndex].mode = mode;
+        user.EmployExpenses[existingIndex].type = "dailySalary";
       } else {
         const existingDriver = user.EmployExpenses.find(e => (e.role || e.name)?.toLowerCase() === "driver");
         const driverName = existingDriver?.name || "Driver";
@@ -397,9 +405,17 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       const amount = parseInt(conductorMatch[1]);
       const mode = conductorMatch[2]?.toLowerCase() === "online" ? "online" : "cash";
       if (!user.EmployExpenses) user.EmployExpenses = [];
-      const existingIndex = user.EmployExpenses.findIndex(e => (e.role || e.name)?.toLowerCase() === "conductor" && e.type === "dailySalary" && e.mode === mode);
+      
+      // Fix: Match by role/name and handle both explicit 'dailySalary' and default (no type)
+      const existingIndex = user.EmployExpenses.findIndex(e => 
+        (e.role || e.name)?.toLowerCase() === "conductor" && 
+        (e.type === "dailySalary" || !e.type)
+      );
+      
       if (existingIndex !== -1) {
         user.EmployExpenses[existingIndex].amount = amount;
+        user.EmployExpenses[existingIndex].mode = mode;
+        user.EmployExpenses[existingIndex].type = "dailySalary";
       } else {
         const existingConductor = user.EmployExpenses.find(e => (e.role || e.name)?.toLowerCase() === "conductor");
         const conductorName = existingConductor?.name || "Conductor";
