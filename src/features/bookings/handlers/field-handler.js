@@ -363,10 +363,9 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
       const amount = parseInt(expenseMatch[2]);
       const mode = expenseMatch[3]?.toLowerCase() === "online" ? "online" : "cash";
       if (!user.ExtraExpenses) user.ExtraExpenses = [];
-      const existingIndex = user.ExtraExpenses.findIndex(e => e.name.toLowerCase() === name.toLowerCase());
+      const existingIndex = user.ExtraExpenses.findIndex(e => e.name.toLowerCase() === name.toLowerCase() && e.mode === mode);
       if (existingIndex !== -1) {
         user.ExtraExpenses[existingIndex].amount = amount;
-        user.ExtraExpenses[existingIndex].mode = mode;
       } else {
         user.ExtraExpenses.push({ name, amount, mode });
       }

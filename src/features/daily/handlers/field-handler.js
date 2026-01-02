@@ -329,20 +329,20 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
         const remarks = match[4] ? match[4].trim() : "";
         anyFieldFound = true;
 
-        // Check if this expense already exists
+        // Check if this expense already exists with same mode
         const existing = user.ExtraExpenses.find(
-          (e) => e.name.toLowerCase() === expenseName.toLowerCase()
+          (e) => e.name.toLowerCase() === expenseName.toLowerCase() && e.mode === mode
         );
 
-        // Queue update confirmation if value differs
-        if (existing && (existing.amount !== amount || existing.mode !== mode)) {
+        // Queue update confirmation if value differs (same name + same mode)
+        if (existing && (existing.amount !== amount || (remarks && existing.remarks !== remarks))) {
           const newVal = { amount, mode };
           if (remarks) newVal.remarks = remarks;
           
           const oldRemarks = existing.remarks || "";
-          let msg = `⚠️ *${capitalize(expenseName)}*\nAlready Have:\nAmount: ₹${existing.amount}\nMode: ${capitalize(existing.mode)}`;
+          let msg = `⚠️ *${capitalize(expenseName)} (${capitalize(mode)})*\nAlready Have:\nAmount: ₹${existing.amount}`;
           if (oldRemarks) msg += `\nRemark: ${oldRemarks}`;
-          msg += `\n\nDo you want to update it to:\nAmount: ₹${amount}\nMode: ${capitalize(mode)}`;
+          msg += `\n\nDo you want to update it to:\nAmount: ₹${amount}`;
           if (remarks) msg += `\nRemark: ${remarks}`;
           msg += `\n\n(Yes or Y / No or N)`;
           
