@@ -217,8 +217,7 @@ export async function handleSubmit(sock, sender, text, user) {
     PaymentHistory: user.PaymentHistory || [],
     Status: user.Status || (user.editingExisting ? "Initiated" : "Pending"),
     Remarks: user.Remarks || "",
-    submittedAt: user.submittedAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    submittedAt: new Date().toISOString(),
   };
 
   const isUpdate = user.editingExisting;
