@@ -62,36 +62,50 @@ export async function handleBookingCommand(sock, sender, normalizedText, user) {
 
   let startDate, endDate;
   let periodName = "";
+  let statusFilter = null; // null = show all, "pending"/"completed"/"deposited"
   const now = new Date();
+  const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const validStatuses = ["pending", "completed", "deposited"];
+
+  // Parse status filter from end of text
+  // e.g. "jul 2026 pending" → period="jul 2026", status="pending"
+  // e.g. "2026 completed" → period="2026", status="completed"
+  const words = text.split(' ');
+  const lastWord = words[words.length - 1];
+  let baseText = text;
+  if (validStatuses.includes(lastWord)) {
+    statusFilter = lastWord.charAt(0).toUpperCase() + lastWord.slice(1); // "Pending"/"Completed"/"Deposited"
+    baseText = words.slice(0, -1).join(' ').trim();
+  }
 
   // Basic period commands
-  if (text === 'today') {
+  if (baseText === 'today') {
     startDate = new Date(now);
     startDate.setHours(0, 0, 0, 0);
     endDate = new Date(now);
     endDate.setHours(23, 59, 59, 999);
     periodName = "Today";
-  } else if (text === 'yesterday') {
+  } else if (baseText === 'yesterday') {
     startDate = subDays(now, 1);
     startDate.setHours(0, 0, 0, 0);
     endDate = subDays(now, 1);
     endDate.setHours(23, 59, 59, 999);
     periodName = "Yesterday";
-  } else if (text === 'this week') {
+  } else if (baseText === 'this week') {
     startDate = startOfWeek(now, { weekStartsOn: 1 });
     endDate = now;
     periodName = "This Week";
-  } else if (text === 'this month') {
+  } else if (baseText === 'this month') {
     startDate = startOfMonth(now);
     endDate = now;
     periodName = "This Month";
-  } else if (text === 'this year') {
+  } else if (baseText === 'this year') {
     startDate = startOfYear(now);
     endDate = now;
     periodName = "This Year";
   } else {
-    // Check for DD/MM/YYYY
-    const dateMatch = text.match(/^(\d{2}\/\d{2}\/\d{4})$/);
+    // Check for DD/MM/YYYY (single date — no status filter for single date lookup)
+    const dateMatch = baseText.match(/^(\d{2}\/\d{2}\/\d{4})$/);
     if (dateMatch) {
       try {
         startDate = parse(dateMatch[1], 'dd/MM/yyyy', new Date());
@@ -99,19 +113,26 @@ export async function handleBookingCommand(sock, sender, normalizedText, user) {
         periodName = dateMatch[1];
       } catch (e) { return false; }
     } else {
-      // Check for Month name or Month Year
-      const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-      const words = text.split(' ');
-      const monthIndex = monthNames.indexOf(words[0].substring(0, 3));
-      
-      if (monthIndex !== -1) {
-        let year = now.getFullYear();
-        if (words.length >= 2 && /^\d{4}$/.test(words[1])) {
-          year = parseInt(words[1]);
+      // Check for year only: "2026" or "2025"
+      const yearOnlyMatch = baseText.match(/^(\d{4})$/);
+      if (yearOnlyMatch) {
+        const year = parseInt(yearOnlyMatch[1]);
+        startDate = new Date(year, 0, 1);
+        endDate = new Date(year, 11, 31, 23, 59, 59);
+        periodName = `Year ${year}`;
+      } else {
+        // Check for Month name or Month Year: "jul", "jul 2026"
+        const baseWords = baseText.split(' ');
+        const monthIndex = monthNames.indexOf(baseWords[0].substring(0, 3));
+        if (monthIndex !== -1) {
+          let year = now.getFullYear();
+          if (baseWords.length >= 2 && /^\d{4}$/.test(baseWords[1])) {
+            year = parseInt(baseWords[1]);
+          }
+          startDate = new Date(year, monthIndex, 1);
+          endDate = endOfMonth(startDate);
+          periodName = `${baseWords[0].toUpperCase()} ${year}`;
         }
-        startDate = new Date(year, monthIndex, 1);
-        endDate = endOfMonth(startDate);
-        periodName = `${words[0].toUpperCase()} ${year}`;
       }
     }
   }
@@ -119,7 +140,7 @@ export async function handleBookingCommand(sock, sender, normalizedText, user) {
   if (!startDate) return false;
 
   await bookingsDb.read();
-  const bookings = Object.entries(bookingsDb.data || {})
+  let bookings = Object.entries(bookingsDb.data || {})
     .filter(([key, record]) => {
       if (!key.startsWith(busCode + "_")) return false;
       const dateStr = key.split('_')[1];
@@ -129,13 +150,26 @@ export async function handleBookingCommand(sock, sender, normalizedText, user) {
       } catch (e) { return false; }
     });
 
+  // Apply status filter if provided
+  if (statusFilter) {
+    bookings = bookings.filter(([, record]) => record.Status === statusFilter);
+  }
+
   if (bookings.length === 0) {
+    if (statusFilter) {
+      await safeSendMessage(sock, sender, {
+        text: `📋 No *${statusFilter}* bookings found for ${periodName} (${busCode}).`
+      });
+      return true;
+    }
     return false;
   }
 
-  // If "this month" or "nov" format, list all bookings one by one
-  const isPeriodSearch = text === 'this month' || text === 'this year' || text === 'this week' || 
-                        (text.split(' ').length <= 2 && ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].includes(text.split(' ')[0].substring(0, 3)));
+  // If period search (not single date)
+  const isPeriodSearch = baseText !== periodName || // year/month/week/etc
+                        baseText === 'this month' || baseText === 'this year' || baseText === 'this week' ||
+                        /^\d{4}$/.test(baseText) ||
+                        (baseText.split(' ').length <= 2 && monthNames.includes(baseText.split(' ')[0].substring(0, 3)));
 
   if (isPeriodSearch) {
     let listMsg = `📋 *Bookings for ${periodName}* (${busCode})\n\n`;
