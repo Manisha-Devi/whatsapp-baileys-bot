@@ -530,27 +530,9 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
                       normalizedText.startsWith('trip');
 
     if (anyFieldFound) {
-      // Default to Completed for updates if any post-entry field is touched
-      // user.Status = "Completed"; // Removed auto-update to Completed here to let submit-handler handle it based on balance
-      
-      // Check balance for Initiated status (takes priority if balance is cleared)
-      const getAmtValue = (f) => {
-        if (!f) return 0;
-        if (typeof f === 'object') return Number(f.amount || f.Amount) || 0;
-        return Number(f) || 0;
-      };
-      
-      const totalPayments = (user.PaymentHistory || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-      const fareAmt = getAmtValue(user.TotalFare);
-      const advAmt = getAmtValue(user.AdvancePaid);
-      const currentBalance = fareAmt - advAmt - totalPayments;
-      
-      // If balance is 0 or less, it must be Initiated
-      if (currentBalance <= 0) {
-        user.Status = "Initiated";
-      } else if (user.editingExisting && (user.Status === "Initiated" || user.Status === "Completed")) {
-        // If balance > 0 and it was Initiated, it should move to Completed per user request
-        // "agar pher Balance greater than zero atta hai toh update karna par Status COmpleted hona chaya"
+      // Once any expense/update is made, booking becomes Completed and stays Completed
+      // Completed never goes back to Initiated (balance does not affect this)
+      if (user.Status !== "Completed") {
         user.Status = "Completed";
       }
     }

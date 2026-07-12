@@ -231,14 +231,10 @@ export async function handleSubmit(sock, sender, text, user) {
   // Translation: "When status is Initiated, it should not update [automatically to something else?]. And if balance becomes > 0, update it, but status should be Completed [if it was initiated?]"
   // This is a bit contradictory. Usually "Completed" means balance is 0.
   // Let's refine:
-  if (isUpdate && user.Status === "Initiated") {
-    // Per user request: "status Initatted pah Entry update hone chaya"
-    // This ensures that even if it's already "Initiated", it stays "Initiated" unless the balance check below changes it to "Completed"
-    bookingRecord.Status = "Initiated";
-    
-    if (calculatedBalance > 0) {
-      bookingRecord.Status = "Completed"; // Per user request: "agar pher Balance greater than zero atta hai toh update karna par Status COmpleted hona chaya"
-    }
+  // Once Completed, always stays Completed regardless of balance
+  // Only Initiated bookings with no expenses remain Initiated
+  if (isUpdate && user.Status === "Completed") {
+    bookingRecord.Status = "Completed";
   }
 
   await safeDbRead(bookingsDb);
