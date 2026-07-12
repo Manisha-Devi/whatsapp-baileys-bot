@@ -149,8 +149,11 @@ export async function handleBookingCommand(sock, sender, normalizedText, user) {
 
     sortedBookings.forEach(([id, b], index) => {
       const dateDisplay = b.Date?.Start === b.Date?.End ? b.Date?.Start : `${b.Date?.Start} to ${b.Date?.End}`;
+      const totalFare = b.TotalFare?.Amount || b.TotalFare || 0;
+      const balance = b.BalanceAmount?.Amount || b.BalanceAmount || 0;
       listMsg += `${index + 1}. 📅 ${dateDisplay}\n`;
       listMsg += `👤 ${b.CustomerName} | 📱 ${b.CustomerPhone}\n`;
+      listMsg += `💵 Fare: ₹${Number(totalFare).toLocaleString('en-IN')} | 💸 Balance: ₹${Number(balance).toLocaleString('en-IN')}\n`;
       listMsg += `📊 Status: ${b.Status}\n`;
       listMsg += `------------------\n`;
     });
