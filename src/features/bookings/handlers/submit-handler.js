@@ -217,7 +217,7 @@ export async function handleSubmit(sock, sender, text, user) {
     }),
     ExtraExpenses: user.ExtraExpenses || [],
     PaymentHistory: user.PaymentHistory || [],
-    Status: user.Status || (user.editingExisting ? "Initiated" : "Pending"),
+    Status: user.Status || "Pending",
     Remarks: user.Remarks || "",
     submittedAt: new Date().toISOString(),
   };
@@ -232,7 +232,6 @@ export async function handleSubmit(sock, sender, text, user) {
   // This is a bit contradictory. Usually "Completed" means balance is 0.
   // Let's refine:
   // Once Completed, always stays Completed regardless of balance
-  // Only Initiated bookings with no expenses remain Initiated
   if (isUpdate && user.Status === "Completed") {
     bookingRecord.Status = "Completed";
   }

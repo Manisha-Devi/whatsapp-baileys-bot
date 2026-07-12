@@ -56,7 +56,7 @@ export async function sendCashSummary(sock, jid, summaryData) {
     }
     
     if (bookingEntries.length > 0) {
-      msg += `🚌 *From Bookings (Status: Initiated):*\n`;
+      msg += `🚌 *From Bookings (Status: Pending):*\n`;
       let bookingSubtotal = 0;
       for (const entry of bookingEntries) {
         msg += `   - ${entry.id}: ₹${formatCurrency(entry.amount)}\n`;

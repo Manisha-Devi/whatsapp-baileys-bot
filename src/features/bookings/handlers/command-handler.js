@@ -165,9 +165,7 @@ export async function handleBookingCommand(sock, sender, normalizedText, user) {
 
   // Status-specific warnings
   let warningPrefix = "⚠️ Booking";
-  if (foundBooking.Status === "Pending") warningPrefix = "⚠️ Pre Booking";
-  else if (foundBooking.Status === "Completed") warningPrefix = "⚠️ Post Booking";
-  else if (foundBooking.Status === "Initiated") warningPrefix = "⚠️ Booking";
+  if (foundBooking.Status === "Completed") warningPrefix = "⚠️ Post Booking";
 
   // Per user request: If status is Initiated, let it be updated normally
   user.confirmingFetch = true;

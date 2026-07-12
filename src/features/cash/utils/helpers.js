@@ -46,7 +46,7 @@ export async function getInitiatedBookingEntries(busCode) {
   const entries = [];
   
   for (const [key, data] of Object.entries(bookingsDb.data || {})) {
-    if (key.startsWith(`${busCode}_`) && data.Status === "Initiated") {
+    if (key.startsWith(`${busCode}_`) && data.Status === "Pending") {
       const cashHandOver = data.CashHandOver?.Amount || 0;
       if (Number(cashHandOver) > 0) {
         const entryDate = data.TripDate || data.EndDate || data.StartDate;
