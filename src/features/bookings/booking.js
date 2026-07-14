@@ -97,64 +97,94 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
     // Handle help command - show available booking commands
     if (text === 'help' || text === '') {
       if (skipPrefixStripping) {
-        // Menu mode help - shorter format, no prefix needed (similar to Daily)
-        const busInfo = selectedBus ? `🚌 Bus: *${selectedBus}*\n\n` : '';
+        // Menu mode help - no prefix needed
+        const busLabel = selectedBus ? `🚌 Bus: *${selectedBus}*\n\n` : '';
         await safeSendMessage(sock, sender, {
-          text: `🚌 *BOOKING COMMANDS (Menu Mode)*\n${busInfo}` +
-                `📝 *Booking Entry:*\n` +
+          text: `🚌 *BOOKING COMMANDS*\n${busLabel}` +
+                `━━━━━━━━━━━━━━━━━━\n` +
+                `📝 *New Booking:*\n` +
                 `Name Rajesh Kumar\n` +
                 `Mobile 9876543210\n` +
                 `Pickup Doda\n` +
                 `Drop Jammu\n` +
-                `Date 20/12/2025\n` +
-                `Date 20/12/2025 to 22/12/2025\n` +
-                `Bus BUS101\n` +
+                `Date 20/07/2026\n` +
+                `Date 20/07/2026 to 22/07/2026\n` +
                 `Fare 25000\n` +
                 `Advance 10000\n` +
-                `Remarks Marriage booking\n` +
-                `Yes/Y or No/N\n\n` +
-                `📋 *Status Commands:*\n` +
-                `• status pending\n` +
-                `• status confirmed\n` +
-                `• update status BUS101_20/12/2025 confirmed\n\n` +
-                `🔍 *Fetch Bookings:*\n` +
-                `• today\n` +
-                `• yesterday\n` +
-                `• [DD/MM/YYYY]\n\n` +
-                `⚙️ *Other:*\n` +
-                `• clear - clear session\n` +
-                `• exit - back to menu\n\n` +
-                `No "booking" prefix needed in menu mode!`
+                `Advance 10000 online\n` +
+                `Advance 0\n` +
+                `Remarks Marriage function\n` +
+                `Yes / No\n\n` +
+                `━━━━━━━━━━━━━━━━━━\n` +
+                `✏️ *Update (after trip):*\n` +
+                `Received 5000\n` +
+                `Received 5000 online\n` +
+                `Diesel 2600\n` +
+                `Adda 200\n` +
+                `Union 100\n` +
+                `Expense Tyre 500\n` +
+                `Driver 500\n` +
+                `Conductor 300\n` +
+                `Trip Driver 1500\n` +
+                `Trip Conductor 800\n\n` +
+                `━━━━━━━━━━━━━━━━━━\n` +
+                `🔍 *View Bookings:*\n` +
+                `today / yesterday\n` +
+                `this week / this month\n` +
+                `20/07/2026\n` +
+                `jul / jul 2026 / 2026\n\n` +
+                `📊 *Filter by Status:*\n` +
+                `this month pending\n` +
+                `jul 2026 completed\n` +
+                `2026 pending\n\n` +
+                `💸 *Balance Filter:*\n` +
+                `bal / balance\n` +
+                `bal may / bal jul 2026\n` +
+                `bal 2026 / bal this month\n\n` +
+                `━━━━━━━━━━━━━━━━━━\n` +
+                `⚙️ clear — reset session`
         });
       } else {
-        // Normal mode help - full format with "booking" prefix examples
+        // Normal mode help - with "booking" prefix
         await safeSendMessage(sock, sender, {
           text: `🚌 *BOOKING FEATURE COMMANDS*\n\n` +
-                `1️⃣ *Create New Booking*\n` +
+                `━━━━━━━━━━━━━━━━━━\n` +
+                `📝 *New Booking:*\n` +
                 `booking Name Rajesh Kumar\n` +
                 `booking Mobile 9876543210\n` +
                 `booking Pickup Doda\n` +
                 `booking Drop Jammu\n` +
-                `booking Date 20/12/2025\n` +
-                `booking Date 20/12/2025 to 22/12/2025\n` +
-                `booking Bus BUS101\n` +
+                `booking Date 20/07/2026\n` +
+                `booking Date 20/07/2026 to 22/07/2026\n` +
                 `booking Fare 25000\n` +
                 `booking Advance 10000\n` +
-                `booking Remarks Marriage booking\n` +
-                `booking Yes/Y or No/N\n\n` +
-                `2️⃣ *Fetch Bookings*\n` +
-                `• booking today\n` +
-                `• booking yesterday\n` +
-                `• booking [DD/MM/YYYY]\n\n` +
-                `3️⃣ *Check Status*\n` +
-                `• booking status pending\n` +
-                `• booking status confirmed\n` +
-                `• booking status completed\n\n` +
-                `4️⃣ *Update Status*\n` +
-                `• booking update status BUS101_20/12/2025 confirmed\n\n` +
-                `5️⃣ *Other Commands*\n` +
-                `• booking clear - clear session\n\n` +
-                `For detailed guide, see documentation.`
+                `booking Advance 10000 online\n` +
+                `booking Remarks Marriage function\n` +
+                `booking Yes / booking No\n\n` +
+                `━━━━━━━━━━━━━━━━━━\n` +
+                `✏️ *Update (after trip):*\n` +
+                `booking Received 5000\n` +
+                `booking Diesel 2600\n` +
+                `booking Adda 200\n` +
+                `booking Expense Tyre 500\n` +
+                `booking Driver 500\n` +
+                `booking Trip Driver 1500\n\n` +
+                `━━━━━━━━━━━━━━━━━━\n` +
+                `🔍 *View Bookings:*\n` +
+                `booking today / booking yesterday\n` +
+                `booking this week / booking this month\n` +
+                `booking 20/07/2026\n` +
+                `booking jul / booking jul 2026 / booking 2026\n\n` +
+                `📊 *Filter by Status:*\n` +
+                `booking this month pending\n` +
+                `booking jul 2026 completed\n` +
+                `booking 2026 pending\n\n` +
+                `💸 *Balance Filter:*\n` +
+                `booking bal\n` +
+                `booking bal may / booking bal jul 2026\n` +
+                `booking bal 2026 / booking bal this month\n\n` +
+                `━━━━━━━━━━━━━━━━━━\n` +
+                `⚙️ booking clear — reset session`
         });
       }
       return;
