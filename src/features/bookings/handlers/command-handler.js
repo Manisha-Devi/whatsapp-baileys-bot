@@ -135,9 +135,12 @@ export async function handleBookingCommand(sock, sender, normalizedText, user) {
       const dateDisplay = b.Date?.Start === b.Date?.End ? b.Date?.Start : `${b.Date?.Start} to ${b.Date?.End}`;
       const totalFare = Number(b.TotalFare?.Amount || b.TotalFare || 0);
       const balance = Number(b.BalanceAmount?.Amount || b.BalanceAmount || 0);
+      const pickup = b.Location?.Pickup || b.PickupLocation || "";
+      const drop = b.Location?.Drop || b.DropLocation || "";
       totalBalance += balance;
       listMsg += `${index + 1}. 📅 ${dateDisplay}\n`;
       listMsg += `👤 ${b.CustomerName} | 📱 ${b.CustomerPhone}\n`;
+      if (pickup && drop) listMsg += `🚏 ${pickup} → ${drop}\n`;
       listMsg += `💵 Fare: ₹${totalFare.toLocaleString('en-IN')} | 💸 Balance: ₹${balance.toLocaleString('en-IN')}\n`;
       listMsg += `📊 Status: ${b.Status}\n`;
       listMsg += `------------------\n`;
