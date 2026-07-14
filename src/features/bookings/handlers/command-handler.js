@@ -62,10 +62,93 @@ export async function handleBookingCommand(sock, sender, normalizedText, user) {
 
   let startDate, endDate;
   let periodName = "";
-  let statusFilter = null; // null = show all, "pending"/"completed"/"deposited"
+  let statusFilter = null;
+  let balanceFilter = false; // true = show only bookings with balance > 0
   const now = new Date();
   const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
   const validStatuses = ["pending", "completed", "deposited"];
+
+  // Check for "bal" or "balance" prefix
+  const balMatch = text.match(/^(?:bal|balance)\s*(.*)$/i);
+  if (balMatch) {
+    balanceFilter = true;
+    const balPeriod = balMatch[1].trim();
+    // Parse the period part
+    const parsePeriod = (p) => {
+      if (!p || p === '') {
+        // No period = all time
+        return { start: new Date(2000, 0, 1), end: new Date(2099, 11, 31), name: "All Time" };
+      }
+      if (p === 'this month') return { start: startOfMonth(now), end: now, name: "This Month" };
+      if (p === 'this week') return { start: startOfWeek(now, { weekStartsOn: 1 }), end: now, name: "This Week" };
+      if (p === 'this year') return { start: startOfYear(now), end: now, name: "This Year" };
+      if (p === 'today') { const d = new Date(now); d.setHours(0,0,0,0); const e = new Date(now); e.setHours(23,59,59,999); return { start: d, end: e, name: "Today" }; }
+      const yearOnly = p.match(/^(\d{4})$/);
+      if (yearOnly) {
+        const y = parseInt(yearOnly[1]);
+        return { start: new Date(y, 0, 1), end: new Date(y, 11, 31, 23, 59, 59), name: `Year ${y}` };
+      }
+      const mWords = p.split(' ');
+      const mIdx = monthNames.indexOf(mWords[0].substring(0, 3));
+      if (mIdx !== -1) {
+        let y = now.getFullYear();
+        if (mWords[1] && /^\d{4}$/.test(mWords[1])) y = parseInt(mWords[1]);
+        const s = new Date(y, mIdx, 1);
+        return { start: s, end: endOfMonth(s), name: `${mWords[0].toUpperCase()} ${y}` };
+      }
+      return null;
+    };
+
+    const parsed = parsePeriod(balPeriod);
+    if (!parsed) return false;
+
+    await bookingsDb.read();
+    const allBookings = Object.entries(bookingsDb.data || {})
+      .filter(([key, record]) => {
+        if (!key.startsWith(busCode + "_")) return false;
+        const dateStr = key.split('_')[1];
+        try {
+          const recordDate = parse(dateStr, 'dd/MM/yyyy', new Date());
+          if (!isWithinInterval(recordDate, { start: parsed.start, end: parsed.end })) return false;
+        } catch { return false; }
+        const bal = Number(record.BalanceAmount?.Amount || record.BalanceAmount || 0);
+        return bal > 0;
+      });
+
+    if (allBookings.length === 0) {
+      await safeSendMessage(sock, sender, {
+        text: `✅ No pending balances for ${parsed.name} (${busCode}).`
+      });
+      return true;
+    }
+
+    const sorted = allBookings.sort((a, b) => {
+      const dA = parse(a[0].split('_')[1], 'dd/MM/yyyy', new Date());
+      const dB = parse(b[0].split('_')[1], 'dd/MM/yyyy', new Date());
+      return dA - dB;
+    });
+
+    let totalBalance = 0;
+    let listMsg = `📋 *Balance Pending — ${parsed.name}* (${busCode})\n\n`;
+
+    sorted.forEach(([id, b], index) => {
+      const dateDisplay = b.Date?.Start === b.Date?.End ? b.Date?.Start : `${b.Date?.Start} to ${b.Date?.End}`;
+      const totalFare = Number(b.TotalFare?.Amount || b.TotalFare || 0);
+      const balance = Number(b.BalanceAmount?.Amount || b.BalanceAmount || 0);
+      totalBalance += balance;
+      listMsg += `${index + 1}. 📅 ${dateDisplay}\n`;
+      listMsg += `👤 ${b.CustomerName} | 📱 ${b.CustomerPhone}\n`;
+      listMsg += `💵 Fare: ₹${totalFare.toLocaleString('en-IN')} | 💸 Balance: ₹${balance.toLocaleString('en-IN')}\n`;
+      listMsg += `📊 Status: ${b.Status}\n`;
+      listMsg += `------------------\n`;
+    });
+
+    listMsg += `\n💰 *Total Balance Due: ₹${totalBalance.toLocaleString('en-IN')}*`;
+    listMsg += `\n\nType the *Date* to open a booking.`;
+
+    await safeSendMessage(sock, sender, { text: listMsg });
+    return true;
+  }
 
   // Parse status filter from end of text
   // e.g. "jul 2026 pending" → period="jul 2026", status="pending"
