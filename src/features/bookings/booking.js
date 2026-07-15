@@ -98,93 +98,108 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
     if (text === 'help' || text === '') {
       if (skipPrefixStripping) {
         // Menu mode help - no prefix needed
-        const busLabel = selectedBus ? `🚌 Bus: *${selectedBus}*\n\n` : '';
+        const regNum = menuState?.selectedBusInfo?.registrationNumber || selectedBus || '';
+        const busLabel = regNum ? ` (*${regNum}*)` : '';
         await safeSendMessage(sock, sender, {
-          text: `🚌 *BOOKING COMMANDS*\n${busLabel}` +
-                `━━━━━━━━━━━━━━━━━━\n` +
-                `📝 *New Booking:*\n` +
-                `Name Rajesh Kumar\n` +
-                `Mobile 9876543210\n` +
-                `Pickup Doda\n` +
-                `Drop Jammu\n` +
-                `Date 20/07/2026\n` +
-                `Date 20/07/2026 to 22/07/2026\n` +
-                `Fare 25000\n` +
-                `Advance 10000\n` +
-                `Advance 10000 online\n` +
-                `Advance 0\n` +
-                `Remarks Marriage function\n` +
-                `Yes / No\n\n` +
-                `━━━━━━━━━━━━━━━━━━\n` +
-                `✏️ *Update (after trip):*\n` +
-                `Received 5000\n` +
-                `Received 5000 online\n` +
-                `Diesel 2600\n` +
-                `Adda 200\n` +
-                `Union 100\n` +
-                `Expense Tyre 500\n` +
-                `Driver 500\n` +
-                `Conductor 300\n` +
-                `Trip Driver 1500\n` +
-                `Trip Conductor 800\n\n` +
-                `━━━━━━━━━━━━━━━━━━\n` +
-                `🔍 *View Bookings:*\n` +
-                `today / yesterday\n` +
-                `this week / this month\n` +
-                `20/07/2026\n` +
-                `jul / jul 2026 / 2026\n\n` +
-                `📊 *Filter by Status:*\n` +
-                `this month pending\n` +
-                `jul 2026 completed\n` +
-                `2026 pending\n\n` +
-                `💸 *Balance Filter:*\n` +
-                `bal / balance\n` +
-                `bal may / bal jul 2026\n` +
-                `bal 2026 / bal this month\n\n` +
-                `━━━━━━━━━━━━━━━━━━\n` +
-                `⚙️ clear — reset session`
+          text: `🚌 *Booking Help*${busLabel}\n\n` +
+                `*Commands For Data Entry:*\n` +
+                `• Name [Customer Name]\n` +
+                `• Mobile [10-digit Phone]\n` +
+                `• Pickup [Location]\n` +
+                `• Drop [Location]\n` +
+                `• Date [DD/MM/YYYY]\n` +
+                `• Date [DD/MM/YYYY] to [DD/MM/YYYY]\n` +
+                `  For multi-day bookings\n` +
+                `• Fare [Amount]\n` +
+                `  Total Fare amount\n` +
+                `• Advance [Amount]\n` +
+                `  Advance payment (0 allowed)\n` +
+                `• Advance [Amount] online\n` +
+                `  For online payment\n` +
+                `• Remarks [Text]\n` +
+                `• Yes/Y or No/N to Submit\n\n` +
+                `*Commands After Trip:*\n` +
+                `• Received [Amount]\n` +
+                `• Received [Amount] online\n` +
+                `• Received [Amount] online [DD/MM/YYYY]\n` +
+                `• Diesel [Amount]\n` +
+                `• Adda [Amount]\n` +
+                `• Union [Amount]\n` +
+                `• Expense [Name] [Amount]\n` +
+                `  e.g. Expense Tyre 500\n` +
+                `• Driver [Amount]\n` +
+                `• Conductor [Amount]\n` +
+                `• Trip Driver [Amount]\n` +
+                `• Trip Conductor [Amount]\n\n` +
+                `*Commands for Reports:*\n` +
+                `• Today / Yesterday\n` +
+                `• This Week / This Month\n` +
+                `• [DD/MM/YYYY]\n` +
+                `• [Month] e.g. Jul\n` +
+                `• [Month Year] e.g. Jul 2026\n` +
+                `• [Year] e.g. 2026\n\n` +
+                `*Filter by Status:*\n` +
+                `• This Month Pending\n` +
+                `• Jul 2026 Completed\n` +
+                `• 2026 Pending\n` +
+                `  Add Pending/Completed/Deposited\n` +
+                `  after any period\n\n` +
+                `*Balance Filter:*\n` +
+                `• Bal — all bookings with balance\n` +
+                `• Bal May\n` +
+                `• Bal Jul 2026\n` +
+                `• Bal 2026\n` +
+                `• Bal This Month\n` +
+                `  Shows total balance due\n\n` +
+                `*Other:*\n` +
+                `• Clear — Clear session\n` +
+                `• Exit — Back to Main Menu`
         });
       } else {
         // Normal mode help - with "booking" prefix
         await safeSendMessage(sock, sender, {
-          text: `🚌 *BOOKING FEATURE COMMANDS*\n\n` +
-                `━━━━━━━━━━━━━━━━━━\n` +
-                `📝 *New Booking:*\n` +
-                `booking Name Rajesh Kumar\n` +
-                `booking Mobile 9876543210\n` +
-                `booking Pickup Doda\n` +
-                `booking Drop Jammu\n` +
-                `booking Date 20/07/2026\n` +
-                `booking Date 20/07/2026 to 22/07/2026\n` +
-                `booking Fare 25000\n` +
-                `booking Advance 10000\n` +
-                `booking Advance 10000 online\n` +
-                `booking Remarks Marriage function\n` +
-                `booking Yes / booking No\n\n` +
-                `━━━━━━━━━━━━━━━━━━\n` +
-                `✏️ *Update (after trip):*\n` +
-                `booking Received 5000\n` +
-                `booking Diesel 2600\n` +
-                `booking Adda 200\n` +
-                `booking Expense Tyre 500\n` +
-                `booking Driver 500\n` +
-                `booking Trip Driver 1500\n\n` +
-                `━━━━━━━━━━━━━━━━━━\n` +
-                `🔍 *View Bookings:*\n` +
-                `booking today / booking yesterday\n` +
-                `booking this week / booking this month\n` +
-                `booking 20/07/2026\n` +
-                `booking jul / booking jul 2026 / booking 2026\n\n` +
-                `📊 *Filter by Status:*\n` +
-                `booking this month pending\n` +
-                `booking jul 2026 completed\n` +
-                `booking 2026 pending\n\n` +
-                `💸 *Balance Filter:*\n` +
-                `booking bal\n` +
-                `booking bal may / booking bal jul 2026\n` +
-                `booking bal 2026 / booking bal this month\n\n` +
-                `━━━━━━━━━━━━━━━━━━\n` +
-                `⚙️ booking clear — reset session`
+          text: `🚌 *Booking Help*\n\n` +
+                `*Commands For Data Entry:*\n` +
+                `• booking Name [Customer Name]\n` +
+                `• booking Mobile [10-digit Phone]\n` +
+                `• booking Pickup [Location]\n` +
+                `• booking Drop [Location]\n` +
+                `• booking Date [DD/MM/YYYY]\n` +
+                `• booking Date [DD/MM/YYYY] to [DD/MM/YYYY]\n` +
+                `  For multi-day bookings\n` +
+                `• booking Fare [Amount]\n` +
+                `• booking Advance [Amount]\n` +
+                `• booking Advance [Amount] online\n` +
+                `• booking Remarks [Text]\n` +
+                `• booking Yes/Y or No/N to Submit\n\n` +
+                `*Commands After Trip:*\n` +
+                `• booking Received [Amount]\n` +
+                `• booking Received [Amount] online\n` +
+                `• booking Received [Amount] online [DD/MM/YYYY]\n` +
+                `• booking Diesel [Amount]\n` +
+                `• booking Adda [Amount]\n` +
+                `• booking Union [Amount]\n` +
+                `• booking Expense [Name] [Amount]\n` +
+                `• booking Driver [Amount]\n` +
+                `• booking Conductor [Amount]\n` +
+                `• booking Trip Driver [Amount]\n` +
+                `• booking Trip Conductor [Amount]\n\n` +
+                `*Commands for Reports:*\n` +
+                `• booking Today / booking Yesterday\n` +
+                `• booking This Week / booking This Month\n` +
+                `• booking [DD/MM/YYYY]\n` +
+                `• booking Jul / booking Jul 2026\n` +
+                `• booking 2026\n\n` +
+                `*Filter by Status:*\n` +
+                `• booking This Month Pending\n` +
+                `• booking Jul 2026 Completed\n` +
+                `• booking 2026 Pending\n\n` +
+                `*Balance Filter:*\n` +
+                `• booking Bal\n` +
+                `• booking Bal May / booking Bal Jul 2026\n` +
+                `• booking Bal 2026 / booking Bal This Month\n\n` +
+                `*Other:*\n` +
+                `• booking Clear — Clear session`
         });
       }
       return;
