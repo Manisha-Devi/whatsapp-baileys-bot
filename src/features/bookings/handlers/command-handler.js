@@ -27,7 +27,6 @@ import { format, subDays, startOfWeek, startOfMonth, startOfYear, isWithinInterv
  */
 export async function handleClearCommand(sock, sender, text) {
   if (text === "clear" || text === "clear booking") {
-    // Check if user has an active booking session
     if (global.bookingData && global.bookingData[sender]) {
       delete global.bookingData[sender];
       await safeSendMessage(sock, sender, {
@@ -36,6 +35,84 @@ export async function handleClearCommand(sock, sender, text) {
       return true;
     }
   }
+  return false;
+}
+
+/**
+ * Handles delete command: "delete DD/MM/YYYY"
+ * Asks for confirmation, then deletes on Yes.
+ */
+export async function handleDeleteCommand(sock, sender, text, user) {
+  // Step 1: "delete DD/MM/YYYY" — find and confirm
+  const deleteMatch = text.match(/^delete\s+(\d{1,2}\/\d{1,2}\/\d{4})$/i);
+  if (deleteMatch) {
+    const busCode = user?.BusCode;
+    if (!busCode) {
+      await safeSendMessage(sock, sender, { text: "❌ No bus selected." });
+      return true;
+    }
+
+    const [d, m, y] = deleteMatch[1].split('/');
+    const dateStr = `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`;
+    const bookingId = `${busCode}_${dateStr}`;
+
+    await bookingsDb.read();
+    const booking = bookingsDb.data?.[bookingId];
+
+    if (!booking) {
+      await safeSendMessage(sock, sender, {
+        text: `❌ No booking found for *${busCode}* on *${dateStr}*.`
+      });
+      return true;
+    }
+
+    // Save pending delete in session
+    user.pendingDelete = bookingId;
+    user.confirmingDelete = true;
+
+    const dateDisplay = booking.Date?.Start === booking.Date?.End
+      ? booking.Date?.Start
+      : `${booking.Date?.Start} to ${booking.Date?.End}`;
+
+    await safeSendMessage(sock, sender, {
+      text: `🗑️ *Delete Booking?*\n\n` +
+            `📅 Date: ${dateDisplay}\n` +
+            `👤 Customer: ${booking.CustomerName}\n` +
+            `📱 Phone: ${booking.CustomerPhone}\n` +
+            `💵 Fare: ₹${Number(booking.TotalFare?.Amount || booking.TotalFare || 0).toLocaleString('en-IN')}\n` +
+            `📊 Status: ${booking.Status}\n\n` +
+            `⚠️ Yeh action *permanent* hai!\n` +
+            `Type *Yes* to delete or *No* to cancel.`
+    });
+    return true;
+  }
+
+  // Step 2: Confirm delete
+  if (user?.confirmingDelete && user?.pendingDelete) {
+    const resolved = text.toLowerCase().trim();
+    if (resolved === 'yes' || resolved === 'y') {
+      const bookingId = user.pendingDelete;
+      await bookingsDb.read();
+      delete bookingsDb.data[bookingId];
+      await bookingsDb.write();
+
+      user.confirmingDelete = false;
+      user.pendingDelete = null;
+
+      await safeSendMessage(sock, sender, {
+        text: `✅ Booking *${bookingId}* deleted successfully.`
+      });
+      return true;
+    } else if (resolved === 'no' || resolved === 'n') {
+      user.confirmingDelete = false;
+      user.pendingDelete = null;
+      await safeSendMessage(sock, sender, {
+        text: `❌ Delete cancelled.`
+      });
+      return true;
+    }
+  }
+
   return false;
 }
 

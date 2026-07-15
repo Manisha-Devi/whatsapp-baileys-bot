@@ -19,7 +19,7 @@
  */
 
 import { safeSendMessage } from "./utils/helpers.js";
-import { handleClearCommand, handleBookingCommand } from "./handlers/command-handler.js";
+import { handleClearCommand, handleBookingCommand, handleDeleteCommand } from "./handlers/command-handler.js";
 import { handleFieldExtraction } from "./handlers/field-handler.js";
 import { handleFetchConfirmation } from "./handlers/fetch-handler.js";
 import { handleSubmit } from "./handlers/submit-handler.js";
@@ -152,6 +152,7 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
                 `• Bal This Month\n` +
                 `  Shows total balance due\n\n` +
                 `*Other:*\n` +
+                `• Delete [DD/MM/YYYY] — Delete a booking\n` +
                 `• Clear — Clear session\n` +
                 `• Exit — Back to Main Menu`
         });
@@ -199,6 +200,7 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
                 `• booking Bal May / booking Bal Jul 2026\n` +
                 `• booking Bal 2026 / booking Bal This Month\n\n` +
                 `*Other:*\n` +
+                `• booking Delete [DD/MM/YYYY] — Delete a booking\n` +
                 `• booking Clear — Clear session`
         });
       }
@@ -208,6 +210,11 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
     // Try to handle clear command to reset booking session
     const handledClear = await handleClearCommand(sock, sender, text);
     if (handledClear) return;
+
+    // Try to handle delete command
+    const userSession = global.bookingData?.[sender];
+    const handledDelete = await handleDeleteCommand(sock, sender, text, userSession);
+    if (handledDelete) return;
 
     // Check if user is in booking reports mode (feature under development)
     if (menuState.mode === 'booking' && menuState.submode === 'reports') {
