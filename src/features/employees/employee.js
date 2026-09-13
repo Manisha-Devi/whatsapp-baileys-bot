@@ -53,6 +53,19 @@ function paymentMatchesEmployee(payment, employee) {
   );
 }
 
+function getPaymentDateKey(date) {
+  return format(date, "yyyy-MM-dd");
+}
+
+function formatRupees(amount) {
+  return `₹${Math.abs(amount).toLocaleString("en-IN")}`;
+}
+
+function formatSignedRupees(amount) {
+  if (amount === 0) return "₹0";
+  return `${amount > 0 ? "+" : "-"}${formatRupees(amount)}`;
+}
+
 async function collectEmployeePayments(db, busCode, startDate, endDate) {
   await db.read();
   const payments = [];
@@ -73,6 +86,43 @@ async function collectEmployeePayments(db, busCode, startDate, endDate) {
   }
 
   return payments;
+}
+
+function getEmployeePayments(payments, employee) {
+  return payments.filter((payment) => paymentMatchesEmployee(payment, employee));
+}
+
+function getDailyPaymentRows(payments, employee, dailySalary) {
+  const rowsByDate = new Map();
+
+  for (const payment of getEmployeePayments(payments, employee)) {
+    const dateKey = getPaymentDateKey(payment.date);
+    if (!rowsByDate.has(dateKey)) {
+      rowsByDate.set(dateKey, {
+        date: payment.date,
+        cash: 0,
+        online: 0,
+      });
+    }
+
+    const row = rowsByDate.get(dateKey);
+    if (String(payment.mode).toLowerCase() === "online") {
+      row.online += payment.amount;
+    } else {
+      row.cash += payment.amount;
+    }
+  }
+
+  return [...rowsByDate.values()]
+    .sort((a, b) => a.date - b.date)
+    .map((row) => {
+      const total = row.cash + row.online;
+      return {
+        ...row,
+        total,
+        advance: Math.max(total - dailySalary, 0),
+      };
+    });
 }
 
 function getSalaryPeriod(text, now = new Date()) {
@@ -114,7 +164,13 @@ function getSalaryPeriod(text, now = new Date()) {
 
 export async function sendEmployeeSalaryReport(sock, sender, state, command = "salary") {
   const busCode = state.selectedBus;
-  const { startDate, endDate, label } = getSalaryPeriod(command);
+  const currentPeriod = getSalaryPeriod(command);
+  const lastMonthDate = startOfMonth(subMonths(currentPeriod.startDate, 1));
+  const lastPeriod = {
+    startDate: lastMonthDate,
+    endDate: endOfMonth(lastMonthDate),
+  };
+  const { startDate, endDate, label } = currentPeriod;
   const employees = getEmployees().filter(
     (employee) =>
       employee.busCode === busCode &&
@@ -122,10 +178,14 @@ export async function sendEmployeeSalaryReport(sock, sender, state, command = "s
       Number(employee.salary) > 0
   );
 
-  const [dailyPayments, bookingPayments] = await Promise.all([
+  const [dailyPayments, bookingPayments, lastDailyPayments, lastBookingPayments] = await Promise.all([
     collectEmployeePayments(dailyDb, busCode, startDate, endDate),
     collectEmployeePayments(bookingsDb, busCode, startDate, endDate),
+    collectEmployeePayments(dailyDb, busCode, lastPeriod.startDate, lastPeriod.endDate),
+    collectEmployeePayments(bookingsDb, busCode, lastPeriod.startDate, lastPeriod.endDate),
   ]);
+  const currentPayments = [...dailyPayments, ...bookingPayments];
+  const lastMonthPayments = [...lastDailyPayments, ...lastBookingPayments];
 
   const lines = [
     "💰 *Employee Salary Report*",
@@ -141,15 +201,19 @@ export async function sendEmployeeSalaryReport(sock, sender, state, command = "s
     let totalPaid = 0;
 
     for (const employee of employees) {
-      const dailyPaid = dailyPayments
-        .filter((payment) => paymentMatchesEmployee(payment, employee))
-        .reduce((sum, payment) => sum + payment.amount, 0);
-      const bookingPaid = bookingPayments
-        .filter((payment) => paymentMatchesEmployee(payment, employee))
-        .reduce((sum, payment) => sum + payment.amount, 0);
-      const paid = dailyPaid + bookingPaid;
+      const currentEmployeePayments = getEmployeePayments(currentPayments, employee);
+      const lastEmployeePayments = getEmployeePayments(lastMonthPayments, employee);
       const monthlySalary = Number(employee.salary) || 0;
+      const dailySalary = Number(employee.daily) || 0;
+      const dailyRows = getDailyPaymentRows(currentPayments, employee, dailySalary);
+      const paid = currentEmployeePayments.reduce((sum, payment) => sum + payment.amount, 0);
+      const lastMonthPaid = lastEmployeePayments.reduce((sum, payment) => sum + payment.amount, 0);
+      const dailyPaid = dailyRows.reduce((sum, row) => sum + row.cash, 0);
+      const onlinePaid = dailyRows.reduce((sum, row) => sum + row.online, 0);
+      const currentAdvance = dailyRows.reduce((sum, row) => sum + row.advance, 0);
+      const lastMonthAdvance = lastMonthPaid - monthlySalary;
       const remaining = monthlySalary - paid;
+      const nextMonthAdvance = currentAdvance;
 
       totalMonthlySalary += monthlySalary;
       totalPaid += paid;
@@ -157,27 +221,36 @@ export async function sendEmployeeSalaryReport(sock, sender, state, command = "s
       lines.push(
         `👤 *${employeeName(employee)}*`,
         `Role: ${employee.role || "Employee"}`,
-        `Monthly Salary: ₹${monthlySalary.toLocaleString("en-IN")}`,
-        `Daily Salary: ₹${(Number(employee.daily) || 0).toLocaleString("en-IN")}`,
-        `Daily Report Paid: ₹${dailyPaid.toLocaleString("en-IN")}`,
-        `Booking Paid: ₹${bookingPaid.toLocaleString("en-IN")}`,
-        `Total Deducted: ₹${paid.toLocaleString("en-IN")}`,
-        remaining >= 0
-          ? `Remaining Salary: ₹${remaining.toLocaleString("en-IN")}`
-          : `Overpaid: ₹${Math.abs(remaining).toLocaleString("en-IN")}`,
+        `Monthly Salary: ${formatRupees(monthlySalary)}`,
+        `Daily Salary: ${formatRupees(dailySalary)}`,
+        "",
+        "*Daily Payment Report:*",
+        ...(dailyRows.length > 0
+          ? dailyRows.map(
+              (row) =>
+                `${format(row.date, "dd MMM yyyy")} | Cash ${formatRupees(row.cash)} | Online ${formatRupees(row.online)} | Total ${formatRupees(row.total)}`
+            )
+          : ["No Daily or Booking salary payment recorded."]),
+        "",
+        "*Salary Summary:*",
+        `Last Month Advance: ${formatSignedRupees(lastMonthAdvance)}`,
+        `This Month Advance: ${formatRupees(currentAdvance)}`,
+        `This Month Remaining: ${formatSignedRupees(remaining)}`,
+        `Next Month Advance: ${formatRupees(nextMonthAdvance)}`,
         "",
       );
     }
 
     lines.push(
       "📊 *Total*",
-      `Monthly Salary: ₹${totalMonthlySalary.toLocaleString("en-IN")}`,
-      `Total Deducted: ₹${totalPaid.toLocaleString("en-IN")}`,
+      `Monthly Salary: ${formatRupees(totalMonthlySalary)}`,
+      `Total Paid/Deducted: ${formatRupees(totalPaid)}`,
       totalMonthlySalary >= totalPaid
-        ? `Remaining Salary: ₹${(totalMonthlySalary - totalPaid).toLocaleString("en-IN")}`
-        : `Total Overpaid: ₹${(totalPaid - totalMonthlySalary).toLocaleString("en-IN")}`,
+        ? `Remaining Salary: ${formatRupees(totalMonthlySalary - totalPaid)}`
+        : `Total Overpaid: ${formatRupees(totalPaid - totalMonthlySalary)}`,
       "",
-      "ℹ️ All employee daily-salary payments from Daily Reports and Bookings are deducted from monthly salary, including payments above the configured daily rate.",
+      "ℹ️ Only actual payments in Daily Reports and Bookings are counted. A day with no payment is not added automatically.",
+      "ℹ️ This Month Advance is the total amount paid above the configured Daily Salary for each recorded payment day.",
     );
   }
 

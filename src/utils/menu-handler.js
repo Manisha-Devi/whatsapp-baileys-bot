@@ -67,7 +67,8 @@ Select an option:
 3️⃣ *Delete* - Coming soon
 4️⃣ *Salary* - View employee salary report
 
-Reply *Salary* or *4* to view the report.
+Reply *Salary* or *4* to view this month's report.
+You can also reply *Salary Last Month* or *Salary September 2026*.
 Reply *Exit* or *E* to go back to Main Menu.`;
 
   return sock.sendMessage(sender, { text: menuText });
@@ -754,8 +755,19 @@ Type your choice:`;
   } else if (state.mode && !state.submode) {
     // Handle navigation within mode menus (submenu selection)
     if (state.mode === 'employee') {
-      if (resolvedCommand === 'salary' || lowerText === '4') {
-        await sendEmployeeSalaryReport(sock, sender, state);
+      if (
+        resolvedCommand === 'salary' ||
+        lowerText === '4' ||
+        lowerText === 'this month' ||
+        lowerText === 'last month' ||
+        lowerText.startsWith('salary ')
+      ) {
+        await sendEmployeeSalaryReport(
+          sock,
+          sender,
+          state,
+          lowerText === '4' || lowerText === 'this month' ? 'salary' : lowerText
+        );
         return true;
       }
 
