@@ -186,6 +186,11 @@ Update:
 • Today
 • Yesterday
 • Last [Number] Days
+• Entries - Last 5 saved entries
+• Entries [Number] - Last N saved entries
+• Last [Number] Entries
+• This Month / Last Month
+• Jan / January / July 2025
 • [Date]
 • [Date] to [Date]
 • This [X]
@@ -333,6 +338,8 @@ View your daily reports using various formats:
 • *11/10/2025* - View specific date
 • *11/10/2025 to 15/10/2025* - Date range
 • *This Month* - Current month reports
+• *Last Month* - Previous month reports
+• *Jul* or *July* - All entries for that month
 • *This Week* - Current week reports
 • *6 Days Ago* - View report from 6 days ago
 

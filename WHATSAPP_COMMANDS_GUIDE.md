@@ -126,6 +126,9 @@ Fetch existing records by:
 today
 yesterday
 last 7
+entries
+entries 10
+last 10 entries
 15/11/2025
 10/11/2025 to 15/11/2025
 ```
@@ -134,6 +137,11 @@ last 7
 - `today` - Today's record
 - `yesterday` - Yesterday's record
 - `last [N]` - Last N days (e.g., `last 7`, `last 30`)
+- `entries` - Last 5 saved entries, even when some dates are missing
+- `entries [N]` or `last [N] entries` - Last N saved entries
+- `this month` - All current-month entries, newest first
+- `last month` - All previous-month entries, newest first
+- `jul`, `july`, or `july 2025` - All entries for the named month, newest first
 - `DD/MM/YYYY` - Specific date
 - `DD/MM/YYYY to DD/MM/YYYY` - Date range
 

@@ -15,7 +15,7 @@
 
 // Status commands removed - keeping simple data entry with Status: Initiated
 import { safeSendMessage } from "./utils/helpers.js";
-import { handleClearCommand, handleDailyCommand, handleReportsCommand } from "./handlers/command-handler.js";
+import { handleClearCommand, handleDailyCommand, handleEntriesCommand, handleReportsCommand } from "./handlers/command-handler.js";
 import { handleExpenseCommand, handleExpenseDelete, handleEmployeeExpenseCommand, handleEmployeeExpenseDelete } from "./handlers/expense-handler.js";
 import { handleFetchConfirmation, handleCancelChoice } from "./handlers/fetch-handler.js";
 import { handleSubmit, handleUpdateConfirmation } from "./handlers/submit-handler.js";
@@ -153,6 +153,10 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     // Handle "clear" command to reset session
     const handledClear = await handleClearCommand(sock, sender, text);
     if (handledClear) return;
+
+    // Handle latest saved entry queries before date-based report commands.
+    const handledEntries = await handleEntriesCommand(sock, sender, normalizedText);
+    if (handledEntries) return;
 
     // Handle report commands (today, yesterday, last N days, date range)
     const handledReports = await handleReportsCommand(sock, sender, normalizedText, null);
