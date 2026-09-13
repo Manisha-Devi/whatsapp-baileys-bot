@@ -1,4 +1,5 @@
 import { handleIncomingMessageFromReports } from '../features/reports/reports.js';
+import { sendEmployeeSalaryReport } from '../features/employees/employee.js';
 import { 
   getMenuState, 
   setMenuMode, 
@@ -22,7 +23,7 @@ import {
 
 /**
  * Display the main menu to a user
- * Shows options for Daily, Booking, Switch bus, and Exit
+ * Shows options for Daily, Booking, Employee, Switch bus, and Exit
  * 
  * @param {Object} sock - The WhatsApp socket connection
  * @param {string} sender - The WhatsApp sender ID
@@ -39,10 +40,35 @@ Please select an option:
 🚌 Reply *Booking* or *B* - for Booking Management
 💵 Reply *Cash* or *C* - for Cash Management
 📈 Reply *Report* or *R* - for Reports
+👥 Reply *Employee* or *Emp* - for Employee Management
 🔄 Reply *Switch* or *S* - to change bus
 🚪 Reply *Exit* or *E* - to close menu
 
 Type your choice:`;
+
+  return sock.sendMessage(sender, { text: menuText });
+}
+
+/**
+ * Display the Employee submenu.
+ * Add, Update, and Delete are intentionally unavailable until CRUD support
+ * is implemented. Salary is currently the only active option.
+ */
+export function showEmployeeSubmenu(sock, sender) {
+  const state = getMenuState(sender);
+  const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
+
+  const menuText = `👥 *Employee Menu* (*${regNumber}*)
+
+Select an option:
+
+1️⃣ *Add* - Coming soon
+2️⃣ *Update* - Coming soon
+3️⃣ *Delete* - Coming soon
+4️⃣ *Salary* - View employee salary report
+
+Reply *Salary* or *4* to view the report.
+Reply *Exit* or *E* to go back to Main Menu.`;
 
   return sock.sendMessage(sender, { text: menuText });
 }
@@ -440,6 +466,11 @@ const commandAliases = {
   'data': ['data', 'd'],
   'status': ['status', 's'],
   'reports': ['reports', 'r'],
+  'employee': ['employee', 'emp'],
+  'salary': ['salary'],
+  'add': ['add'],
+  'update': ['update'],
+  'delete': ['delete'],
   'help': ['help', 'h'],
   'yes': ['yes', 'y'],
   'no': ['no', 'n'],
@@ -618,6 +649,8 @@ export async function handleMenuNavigation(sock, sender, text) {
       await showDailySubmenu(sock, sender);
     } else if (state.mode === 'booking' && !state.submode) {
       await showBookingSubmenu(sock, sender);
+    } else if (state.mode === 'employee' && !state.submode) {
+      await showEmployeeSubmenu(sock, sender);
     } else if (state.mode === 'daily' && state.submode === 'data') {
       await showDailyDataHelp(sock, sender);
     } else if (state.mode === 'daily' && state.submode === 'status') {
@@ -686,6 +719,11 @@ export async function handleMenuNavigation(sock, sender, text) {
       await showBookingSubmenu(sock, sender);
       return true;
     }
+    if (resolvedCommand === 'employee') {
+      setMenuMode(sender, 'employee');
+      await showEmployeeSubmenu(sock, sender);
+      return true;
+    }
     if (resolvedCommand === 'cash') {
       setMenuMode(sender, 'cash');
       await showCashSubmenu(sock, sender);
@@ -715,6 +753,32 @@ Type your choice:`;
     }
   } else if (state.mode && !state.submode) {
     // Handle navigation within mode menus (submenu selection)
+    if (state.mode === 'employee') {
+      if (resolvedCommand === 'salary' || lowerText === '4') {
+        await sendEmployeeSalaryReport(sock, sender, state);
+        return true;
+      }
+
+      if (
+        resolvedCommand === 'add' ||
+        resolvedCommand === 'update' ||
+        resolvedCommand === 'delete' ||
+        ['1', '2', '3'].includes(lowerText)
+      ) {
+        await sock.sendMessage(sender, {
+          text: "ℹ️ Employee Add, Update, and Delete are not available yet. They will be added later.\n\nReply *Salary* to view the salary report or *Exit* to return to the Main Menu.",
+        });
+        return true;
+      }
+
+      if (resolvedCommand === 'help' || lowerText === 'menu') {
+        await showEmployeeSubmenu(sock, sender);
+        return true;
+      }
+
+      return false;
+    }
+
     if (resolvedCommand === 'help') {
       if (state.mode === 'daily') {
         await showDailyDataHelp(sock, sender);
