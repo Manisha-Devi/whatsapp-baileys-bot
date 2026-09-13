@@ -198,25 +198,28 @@ export async function sendEmployeeSalaryReport(sock, sender, state, command = "s
     lines.push("⚠️ No active employees with a monthly salary were found for this bus.");
   } else {
     let totalMonthlySalary = 0;
-    let totalPaid = 0;
+    let totalLastMonthAdvance = 0;
+    let totalCurrentAdvance = 0;
+    let totalRemaining = 0;
 
     for (const employee of employees) {
-      const currentEmployeePayments = getEmployeePayments(currentPayments, employee);
       const lastEmployeePayments = getEmployeePayments(lastMonthPayments, employee);
       const monthlySalary = Number(employee.salary) || 0;
       const dailySalary = Number(employee.daily) || 0;
       const dailyRows = getDailyPaymentRows(currentPayments, employee, dailySalary);
-      const paid = currentEmployeePayments.reduce((sum, payment) => sum + payment.amount, 0);
       const lastMonthPaid = lastEmployeePayments.reduce((sum, payment) => sum + payment.amount, 0);
-      const dailyPaid = dailyRows.reduce((sum, row) => sum + row.cash, 0);
-      const onlinePaid = dailyRows.reduce((sum, row) => sum + row.online, 0);
       const currentAdvance = dailyRows.reduce((sum, row) => sum + row.advance, 0);
-      const lastMonthAdvance = lastMonthPaid - monthlySalary;
-      const remaining = monthlySalary - paid;
-      const nextMonthAdvance = currentAdvance;
+      // A month with no recorded payments has no advance or deduction.
+      // When records exist, a positive value means advance paid and a
+      // negative value means salary still pending from that month.
+      const lastMonthAdvance =
+        lastEmployeePayments.length > 0 ? lastMonthPaid - monthlySalary : 0;
+      const remaining = monthlySalary - lastMonthAdvance - currentAdvance;
 
       totalMonthlySalary += monthlySalary;
-      totalPaid += paid;
+      totalLastMonthAdvance += lastMonthAdvance;
+      totalCurrentAdvance += currentAdvance;
+      totalRemaining += remaining;
 
       lines.push(
         `👤 *${employeeName(employee)}*`,
@@ -234,9 +237,8 @@ export async function sendEmployeeSalaryReport(sock, sender, state, command = "s
         "",
         "*Salary Summary:*",
         `Last Month Advance: ${formatSignedRupees(lastMonthAdvance)}`,
-        `This Month Advance: ${formatRupees(currentAdvance)}`,
+        `This Month Advance: ${formatSignedRupees(currentAdvance)}`,
         `This Month Remaining: ${formatSignedRupees(remaining)}`,
-        `Next Month Advance: ${formatRupees(nextMonthAdvance)}`,
         "",
       );
     }
@@ -244,13 +246,12 @@ export async function sendEmployeeSalaryReport(sock, sender, state, command = "s
     lines.push(
       "📊 *Total*",
       `Monthly Salary: ${formatRupees(totalMonthlySalary)}`,
-      `Total Paid/Deducted: ${formatRupees(totalPaid)}`,
-      totalMonthlySalary >= totalPaid
-        ? `Remaining Salary: ${formatRupees(totalMonthlySalary - totalPaid)}`
-        : `Total Overpaid: ${formatRupees(totalPaid - totalMonthlySalary)}`,
+      `Last Month Advance: ${formatSignedRupees(totalLastMonthAdvance)}`,
+      `This Month Advance: ${formatSignedRupees(totalCurrentAdvance)}`,
+      `This Month Remaining: ${formatSignedRupees(totalRemaining)}`,
       "",
       "ℹ️ Only actual payments in Daily Reports and Bookings are counted. A day with no payment is not added automatically.",
-      "ℹ️ This Month Advance is the total amount paid above the configured Daily Salary for each recorded payment day.",
+      "ℹ️ This Month Remaining = Monthly Salary − Last Month Advance − This Month Advance.",
     );
   }
 
