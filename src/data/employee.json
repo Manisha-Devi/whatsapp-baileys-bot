@@ -13,7 +13,7 @@
       "resignDate": null,
       "busCode": "BUS102",
       "address": "Chinta",
-      "status": "Active",
+      "status": "Inactive",
       "remarks": ""
     },
     {
@@ -77,6 +77,22 @@
       "resignDate": null,
       "busCode": "BUS102",
       "address": "",
+      "status": "Active",
+      "remarks": ""
+    },
+    {
+      "id": "EMP006",
+      "firstName": "Chotu",
+      "middleName": "",
+      "lastName": "Dranga",
+      "phone": "",
+      "role": "Driver",
+      "daily": 200,
+      "salary": 12000,
+      "joiningDate": "2026-09-13",
+      "resignDate": null,
+      "busCode": "BUS102",
+      "address": "Chinta",
       "status": "Active",
       "remarks": ""
     }
