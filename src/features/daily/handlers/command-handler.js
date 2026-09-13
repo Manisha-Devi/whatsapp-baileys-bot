@@ -97,13 +97,12 @@ export async function handleEntriesCommand(sock, sender, normalizedText) {
     }
 
     for (let index = 0; index < entries.length; index++) {
-      const { record, date } = entries[index];
-      const formattedDate = date.toLocaleDateString("en-GB");
+      const { record } = entries[index];
       await sendFetchedRecord(
         sock,
         sender,
         record,
-        `✅ Entry ${index + 1} of ${entries.length}\n📅 Dated: ${formattedDate}`
+        `✅ Entry ${index + 1} of ${entries.length}`
       );
 
       if (index < entries.length - 1) {
@@ -185,6 +184,19 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
     const online = formatField(record.Online);
     const cashHandover = formatField(record.CashHandover);
 
+    const getNumericValue = (field) => {
+      if (!field) return 0;
+      return Number(field.amount ?? field) || 0;
+    };
+    const totalCollection = getNumericValue(record.TotalCashCollection) + getNumericValue(record.Online);
+    const totalExpenses =
+      getNumericValue(record.Diesel) +
+      getNumericValue(record.Adda) +
+      getNumericValue(record.Union) +
+      (record.ExtraExpenses || []).reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0) +
+      (record.EmployExpenses || []).reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
+    const bachat = totalCollection - totalExpenses;
+
     // Include bus code if available
     const busInfo = record.busCode ? `🚌 Bus: *${record.busCode}*\n` : "";
 
@@ -207,6 +219,8 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
       ``,
       `✨ *Total Hand Over:*`,
       `💵 Cash Hand Over: ₹${cashHandover.amt}`,
+      `📈 Bachat (Profit): ₹${bachat.toLocaleString("en-IN")}`,
+      ...(record.Remarks ? [`📝 *Remarks:* ${record.Remarks}`] : []),
       ``,
       `✅ Data Fetched successfully!`,
     ].filter(line => line !== "").join("\n");
@@ -551,7 +565,7 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
           sock,
           sender,
           record,
-          `✅ ${monthQuery.label} - Entry ${index + 1} of ${monthEntries.length}\n📅 Dated: ${date.toLocaleDateString("en-GB")}`
+          `✅ ${monthQuery.label} - Entry ${index + 1} of ${monthEntries.length}`
         );
 
         if (index < monthEntries.length - 1) {
