@@ -370,6 +370,9 @@ View your booking reports using various formats:
 • *11/10/2025* - View specific date
 • *11/10/2025 to 15/10/2025* - Date range
 • *This Month* - Current month bookings
+• *Last Month* - Previous month bookings
+• *Entries 5* or *Last 5 Entries* - Latest 5 bookings
+• *Jul* or *July* - All bookings for that month
 • *This Week* - Current week bookings
 
 *Other Commands:*

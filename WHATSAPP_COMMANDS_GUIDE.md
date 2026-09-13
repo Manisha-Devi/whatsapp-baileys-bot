@@ -374,9 +374,21 @@ BK001
 
 **Navigation**: `Entry → Booking → Reports`
 
-⚠️ **This feature is currently under development.**
+View booking records one by one, newest first:
 
-You'll see a message with options to exit back to Booking Menu or Main Menu.
+```
+Entries
+Entries 5
+Last 5 Entries
+This Month
+Last Month
+July
+July 2025
+```
+
+`Entries` shows the latest 5 bookings by default. Each booking is sent as a
+separate WhatsApp message with customer, route, travel date, fare, advance,
+balance, status, payment history, expenses, and remarks where available.
 
 ---
 
