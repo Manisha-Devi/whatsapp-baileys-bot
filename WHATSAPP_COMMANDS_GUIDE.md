@@ -69,6 +69,43 @@ Quick Actions:
 
 ---
 
+## 📈 COMBINED REPORT FEATURE
+
+### Navigation
+
+```
+Entry → Bus Selection → Select Bus → Report
+```
+
+The Report section combines Daily and Booking data for the selected bus and
+calculates collections, expenses, net profit, and average profit per day.
+
+### Average Commands
+
+```
+Average Today
+Average This Week
+Average This Month
+Average This Year
+Average July
+Average July 2025
+Average 1 Sept to 15 Sept
+Average 1 Sept 2025 to 15 Sept
+Average 1 Sept 2025 to 15 Sept 2025
+Average 01/09/2025 to 15/09/2025
+```
+
+For a month without a year, the current year is used. For a date range, if
+only one year is provided, it is applied to both dates. If both dates include
+a year, each date uses its specified year.
+
+Each average report includes separate Daily and Booking sections plus an
+Overall section with total collection, total expenses, net profit, working
+days,
+and average profit per day.
+
+---
+
 ## 📊 DAILY FEATURE
 
 ### 1. Submit Daily Report
