@@ -221,19 +221,26 @@ export async function sendEmployeeSalaryReport(sock, sender, state, command = "s
       totalCurrentAdvance += currentAdvance;
       totalRemaining += remaining;
 
+      const vehicleNumber = state.selectedBusInfo?.registrationNumber || busCode;
+      const dailyReportLines = dailyRows.length > 0
+        ? dailyRows.map((row) => {
+            const paymentParts = [`${format(row.date, "dd MMM yyyy")}`];
+            if (row.cash > 0) paymentParts.push(`Cash ${formatRupees(row.cash)}`);
+            if (row.online > 0) paymentParts.push(`Online ${formatRupees(row.online)}`);
+            paymentParts.push(`Total ${formatRupees(row.total)}`);
+            return paymentParts.join(" | ");
+          })
+        : ["No Daily or Booking salary payment recorded."];
+
       lines.push(
+        `🚌 *Vehicle Number: ${vehicleNumber}*`,
         `👤 *${employeeName(employee)}*`,
         `Role: ${employee.role || "Employee"}`,
         `Monthly Salary: ${formatRupees(monthlySalary)}`,
         `Daily Salary: ${formatRupees(dailySalary)}`,
         "",
         "*Daily Payment Report:*",
-        ...(dailyRows.length > 0
-          ? dailyRows.map(
-              (row) =>
-                `${format(row.date, "dd MMM yyyy")} | Cash ${formatRupees(row.cash)} | Online ${formatRupees(row.online)} | Total ${formatRupees(row.total)}`
-            )
-          : ["No Daily or Booking salary payment recorded."]),
+        ...dailyReportLines,
         "",
         "*Salary Summary:*",
         `Last Month Advance: ${formatSignedRupees(lastMonthAdvance)}`,
