@@ -17,7 +17,6 @@ import { capitalize } from "../utils/formatters.js";
 import { recalculateCashHandover, getCompletionMessage } from "../utils/calculations.js";
 import { sendSummary } from "../utils/messages.js";
 import { getMenuState } from "../../../utils/menu-state.js";
-import { parseDate } from "./date-handler.js";
 
 /**
  * Handles the 'clear' command to reset user's local session data.
@@ -161,43 +160,6 @@ function getRecordForBusAndDate(busCode, date) {
 }
 
 /**
- * Gets daily records for a bus from the database, using the date in each
- * record key. The key date is the source of truth for report queries.
- */
-function getDailyEntriesForBus(busCode) {
-  return Object.entries(db.data || {})
-    .filter(([key]) => key.startsWith(`${busCode}_`))
-    .map(([key, record]) => {
-      const dateText = key.substring(`${busCode}_`.length);
-      const date = parseDate(dateText);
-      return date ? { key, record, date } : null;
-    })
-    .filter(Boolean);
-}
-
-function formatReportDate(date) {
-  return date.toLocaleDateString("en-US", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-async function sendReportTypingDelay(sock, sender) {
-  try {
-    if (sock.presenceSubscribe) await sock.presenceSubscribe(sender);
-    if (sock.sendPresenceUpdate) {
-      await sock.sendPresenceUpdate("composing", sender);
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      await sock.sendPresenceUpdate("paused", sender);
-    }
-  } catch (err) {
-    // Presence updates are optional and should not block report delivery.
-  }
-}
-
-/**
  * Handles various report commands for fetching daily records.
  * Supports multiple query formats:
  * - "today" / "yesterday" - Fetch single day records
@@ -257,87 +219,6 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
       }
 
       await sendFetchedRecord(sock, sender, record, "✅ Yesterday's Data");
-      return true;
-    }
-
-    // Handle "last N entries" - fetch the latest N saved records.
-    // Unlike "last N days", this counts records, so missing calendar dates
-    // do not reduce the number of returned entries.
-    const lastEntriesMatch = lowerText.match(/^last\s+(\d+)\s+entries?$/i);
-    if (lastEntriesMatch) {
-      const entriesCount = parseInt(lastEntriesMatch[1], 10);
-      const entries = getDailyEntriesForBus(selectedBus)
-        .sort((a, b) => b.date - a.date)
-        .slice(0, entriesCount);
-
-      for (let i = 0; i < entries.length; i++) {
-        const { record, date } = entries[i];
-        await sendFetchedRecord(
-          sock,
-          sender,
-          record,
-          `✅ Daily Entry ${i + 1} of ${entries.length}\n📅 Dated: ${formatReportDate(date)}`
-        );
-        if (i < entries.length - 1) {
-          await sendReportTypingDelay(sock, sender);
-        }
-      }
-
-      if (entries.length === 0) {
-        await safeSendMessage(sock, sender, {
-          text: `⚠️ No daily entries found for *${selectedBus}*.`,
-        });
-      }
-      return true;
-    }
-
-    // Handle "from [date] to [date]" using all date formats supported by
-    // parseDate (today/yesterday/tomorrow, DD/MM/YYYY, DD-MM-YYYY, and
-    // text dates such as "15 December 2025").
-    const fromToMatch = lowerText.match(/^from\s+(.+?)\s+to\s+(.+)$/i);
-    if (fromToMatch) {
-      const startDate = parseDate(fromToMatch[1]);
-      const endDate = parseDate(fromToMatch[2]);
-
-      if (!startDate || !endDate) {
-        await safeSendMessage(sock, sender, {
-          text: "⚠️ Invalid date range. Supported formats include DD/MM/YYYY, DD-MM-YYYY, today, yesterday, and 15 December 2025.",
-        });
-        return true;
-      }
-
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setHours(23, 59, 59, 999);
-
-      if (startDate > endDate) {
-        await safeSendMessage(sock, sender, {
-          text: "⚠️ Start date cannot be after end date.",
-        });
-        return true;
-      }
-
-      const entries = getDailyEntriesForBus(selectedBus)
-        .filter(({ date }) => date >= startDate && date <= endDate)
-        .sort((a, b) => a.date - b.date);
-
-      for (let i = 0; i < entries.length; i++) {
-        const { record, date } = entries[i];
-        await sendFetchedRecord(
-          sock,
-          sender,
-          record,
-          `✅ Daily Entry ${i + 1} of ${entries.length}\n📅 Dated: ${formatReportDate(date)}`
-        );
-        if (i < entries.length - 1) {
-          await sendReportTypingDelay(sock, sender);
-        }
-      }
-
-      if (entries.length === 0) {
-        await safeSendMessage(sock, sender, {
-          text: `⚠️ No daily entries found for *${selectedBus}* from ${fromToMatch[1]} to ${fromToMatch[2]}.`,
-        });
-      }
       return true;
     }
 

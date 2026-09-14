@@ -157,35 +157,6 @@ Last 10 Days
 Last 30 Days
 ```
 
-#### Last N Entries
-```
-Last 5 Entries
-Last 10 Entries
-Last 30 Entries
-```
-
-This returns the latest saved entries, even when some calendar dates have no record.
-
-#### Date Range
-```
-From 15/11/2025 to 20/11/2025
-From 15-11-2025 to 20-11-2025
-From today to yesterday
-From 15 December 2025 to 20 December 2025
-```
-
-The same date formats are supported for Daily and Booking reports.
-
-### Average Report Date Range
-```
-Average From 15/11/2025 To 20/11/2025
-Average From 15-11-2025 To 20-11-2025
-Average From today To yesterday
-Average From 15 December 2025 To 20 December 2025
-```
-
-This calculates the Daily, Booking, and Overall average profit for the selected date range.
-
 #### N Days Ago
 ```
 5 Days Ago

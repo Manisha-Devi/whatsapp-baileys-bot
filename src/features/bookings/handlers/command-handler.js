@@ -11,7 +11,6 @@
 import { safeSendMessage } from "../utils/helpers.js";
 import { bookingsDb } from "../../../utils/db.js";
 import { format, subDays, startOfWeek, startOfMonth, startOfYear, isWithinInterval, parse, endOfMonth } from "date-fns";
-import { parseDate } from "../../daily/handlers/date-handler.js";
 
 /**
  * Handles the 'clear' command to reset the user's booking session.
@@ -145,119 +144,6 @@ export async function handleBookingCommand(sock, sender, normalizedText, user) {
   const now = new Date();
   const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
   const validStatuses = ["pending", "completed", "deposited"];
-
-  // Handle "last N entries" by returning the latest N saved bookings.
-  const lastEntriesMatch = text.match(/^last\s+(\d+)\s+entries?$/i);
-  if (lastEntriesMatch) {
-    const entriesCount = parseInt(lastEntriesMatch[1], 10);
-    await bookingsDb.read();
-
-    const entries = Object.entries(bookingsDb.data || {})
-      .filter(([key]) => key.startsWith(`${busCode}_`))
-      .map(([key, record]) => {
-        const dateText = key.substring(`${busCode}_`.length);
-        const date = parseDate(dateText);
-        return date ? { key, record, date } : null;
-      })
-      .filter(Boolean)
-      .sort((a, b) => b.date - a.date)
-      .slice(0, entriesCount);
-
-    if (entries.length === 0) {
-      await safeSendMessage(sock, sender, {
-        text: `⚠️ No booking entries found for *${busCode}*.`,
-      });
-      return true;
-    }
-
-    let listMsg = `📋 *Last ${entries.length} Booking Entries* (${busCode})\n\n`;
-    entries.forEach(({ record }, index) => {
-      const dateDisplay = record.Date?.Start === record.Date?.End
-        ? record.Date?.Start
-        : `${record.Date?.Start} to ${record.Date?.End}`;
-      const totalFare = Number(record.TotalFare?.Amount || record.TotalFare || 0);
-      const balance = Number(record.BalanceAmount?.Amount || record.BalanceAmount || 0);
-      const pickup = record.Location?.Pickup || record.PickupLocation || "";
-      const drop = record.Location?.Drop || record.DropLocation || "";
-
-      listMsg += `${index + 1}. 📅 ${dateDisplay}\n`;
-      listMsg += `👤 ${record.CustomerName || "N/A"} | 📱 ${record.CustomerPhone || "N/A"}\n`;
-      if (pickup && drop) listMsg += `🚏 ${pickup} → ${drop}\n`;
-      listMsg += `💵 Fare: ₹${totalFare.toLocaleString("en-IN")} | 💸 Balance: ₹${balance.toLocaleString("en-IN")}\n`;
-      listMsg += `📊 Status: ${record.Status || "N/A"}\n`;
-      listMsg += `------------------\n`;
-    });
-    listMsg += `\nType the *Date* to open a booking.`;
-
-    await safeSendMessage(sock, sender, { text: listMsg });
-    return true;
-  }
-
-  // Handle "from [date] to [date]" with the date formats supported by
-  // parseDate: keywords, numeric dates, and text dates.
-  const fromToMatch = text.match(/^from\s+(.+?)\s+to\s+(.+)$/i);
-  if (fromToMatch) {
-    const startDate = parseDate(fromToMatch[1]);
-    const endDate = parseDate(fromToMatch[2]);
-
-    if (!startDate || !endDate) {
-      await safeSendMessage(sock, sender, {
-        text: "⚠️ Invalid date range. Supported formats include DD/MM/YYYY, DD-MM-YYYY, today, yesterday, and 15 December 2025.",
-      });
-      return true;
-    }
-
-    startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(23, 59, 59, 999);
-
-    if (startDate > endDate) {
-      await safeSendMessage(sock, sender, {
-        text: "⚠️ Start date cannot be after end date.",
-      });
-      return true;
-    }
-
-    await bookingsDb.read();
-    const entries = Object.entries(bookingsDb.data || {})
-      .filter(([key]) => key.startsWith(`${busCode}_`))
-      .map(([key, record]) => {
-        const dateText = key.substring(`${busCode}_`.length);
-        const date = parseDate(dateText);
-        return date ? { key, record, date } : null;
-      })
-      .filter(Boolean)
-      .filter(({ date }) => date >= startDate && date <= endDate)
-      .sort((a, b) => a.date - b.date);
-
-    if (entries.length === 0) {
-      await safeSendMessage(sock, sender, {
-        text: `⚠️ No booking entries found for *${busCode}* from ${fromToMatch[1]} to ${fromToMatch[2]}.`,
-      });
-      return true;
-    }
-
-    let listMsg = `📋 *Bookings from ${fromToMatch[1]} to ${fromToMatch[2]}* (${busCode})\n\n`;
-    entries.forEach(({ record }, index) => {
-      const dateDisplay = record.Date?.Start === record.Date?.End
-        ? record.Date?.Start
-        : `${record.Date?.Start} to ${record.Date?.End}`;
-      const totalFare = Number(record.TotalFare?.Amount || record.TotalFare || 0);
-      const balance = Number(record.BalanceAmount?.Amount || record.BalanceAmount || 0);
-      const pickup = record.Location?.Pickup || record.PickupLocation || "";
-      const drop = record.Location?.Drop || record.DropLocation || "";
-
-      listMsg += `${index + 1}. 📅 ${dateDisplay}\n`;
-      listMsg += `👤 ${record.CustomerName || "N/A"} | 📱 ${record.CustomerPhone || "N/A"}\n`;
-      if (pickup && drop) listMsg += `🚏 ${pickup} → ${drop}\n`;
-      listMsg += `💵 Fare: ₹${totalFare.toLocaleString("en-IN")} | 💸 Balance: ₹${balance.toLocaleString("en-IN")}\n`;
-      listMsg += `📊 Status: ${record.Status || "N/A"}\n`;
-      listMsg += `------------------\n`;
-    });
-    listMsg += `\nType the *Date* to open a booking.`;
-
-    await safeSendMessage(sock, sender, { text: listMsg });
-    return true;
-  }
 
   // Check for "bal" or "balance" prefix
   const balMatch = text.match(/^(?:bal|balance)\s*(.*)$/i);
