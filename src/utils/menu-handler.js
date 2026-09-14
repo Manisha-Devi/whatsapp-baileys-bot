@@ -158,12 +158,19 @@ export function showSelectedEmployeeMenu(sock, sender) {
   }
 
   state.employeeView = "employee-months";
+  const busInfo = state.selectedBusInfo || {};
 
   const lines = [
     "👤 *Employee Selected*",
     `Name: *${getEmployeeDisplayName(employee)}*`,
     `Role: ${employee.role || "Employee"}`,
     `Status: ${employee.status || "Unknown"}`,
+    "",
+    "🚌 *Bus Details*",
+    `Bus Code: ${state.selectedBus || "Not set"}`,
+    `Vehicle Number: ${busInfo.registrationNumber || state.selectedBus || "Not set"}`,
+    `Bus Type: ${busInfo.type || "Not set"}`,
+    `Capacity: ${busInfo.capacity || "Not set"}`,
     "",
     "Enter a month command to view that month's calculation.",
     "Reply *Exit* to return to Main Menu.",
