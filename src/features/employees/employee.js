@@ -319,3 +319,84 @@ export async function sendEmployeeSalaryReport(
 
   await sock.sendMessage(sender, { text: lines.join("\n") });
 }
+
+/**
+ * Send a self-contained salary example.
+ *
+ * This intentionally uses in-memory dummy data instead of writing to the
+ * daily or booking databases. It gives a new user a working example of the
+ * salary calculation before they use real records.
+ */
+export async function sendEmployeeSalaryDemo(sock, sender, state) {
+  const demoEmployee = {
+    id: "DEMO001",
+    firstName: "Demo",
+    lastName: "Employee",
+    role: "Driver",
+    daily: 200,
+    salary: 12000,
+  };
+  const demoPayments = [
+    {
+      name: "Demo Employee",
+      role: "Driver",
+      amount: 500,
+      mode: "cash",
+      date: parse("02/09/2026", "dd/MM/yyyy", new Date()),
+    },
+    {
+      name: "Demo Employee",
+      role: "Driver",
+      amount: 350,
+      mode: "online",
+      date: parse("08/09/2026", "dd/MM/yyyy", new Date()),
+    },
+  ];
+  const dailyRows = getDailyPaymentRows(
+    demoPayments,
+    demoEmployee,
+    demoEmployee.daily
+  );
+  const currentAdvance = dailyRows.reduce((sum, row) => sum + row.advance, 0);
+  const lastMonthAdvance = 1500;
+  const remaining = demoEmployee.salary - lastMonthAdvance - currentAdvance;
+  const vehicleNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || "Demo Bus";
+  const busNumber = getBusNumber(state.selectedBus || "BUS102");
+
+  const dailyReportLines = dailyRows.map((row) => {
+    const paymentParts = [`${format(row.date, "dd MMM yyyy")}`];
+    if (row.cash > 0) paymentParts.push(`Cash ${formatRupees(row.cash)}`);
+    if (row.online > 0) paymentParts.push(`Online ${formatRupees(row.online)}`);
+    paymentParts.push(`Total ${formatRupees(row.total)}`);
+    paymentParts.push(`Advance ${formatRupees(row.advance)}`);
+    return paymentParts.join(" | ");
+  });
+
+  const lines = [
+    "🧪 *Employee Salary Demo*",
+    "This is dummy data. No database record was created.",
+    `🚌 Vehicle Number: ${vehicleNumber}`,
+    `🔢 Bus No: ${busNumber}`,
+    "",
+    `👤 *${employeeName(demoEmployee)}*`,
+    `Role: ${demoEmployee.role}`,
+    `Monthly Salary: ${formatRupees(demoEmployee.salary)}`,
+    `Daily Salary: ${formatRupees(demoEmployee.daily)}`,
+    "",
+    "*Dummy Daily Payments:*",
+    ...dailyReportLines,
+    "",
+    "*Salary Summary:*",
+    "Cut-Off Month: August 2026",
+    `Last Month Advance: ${formatSignedRupees(lastMonthAdvance)}`,
+    `This Month Advance: ${formatSignedRupees(currentAdvance)}`,
+    `This Month Remaining: ${formatSignedRupees(remaining)}`,
+    "",
+    "Formula: Monthly Salary − Last Month Advance − This Month Advance",
+    "₹12,000 − ₹1,500 − ₹450 = ₹10,050 remaining",
+    "",
+    "Use *September 2026* or *This Month* for real salary records.",
+  ];
+
+  await sock.sendMessage(sender, { text: lines.join("\n") });
+}

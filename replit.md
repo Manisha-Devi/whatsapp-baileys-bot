@@ -100,6 +100,12 @@ Incoming WhatsApp messages are routed by orchestrators to specific handlers. Han
 ## API Security
 - Bearer token authentication for all REST endpoints using environment variables.
 
+## Employee Salary Feature
+- **Menu Path**: `Entry → Employee → Salary → employee number`.
+- **Real Reports**: Use `This Month`, `Last Month`, `September 2026`, or `09/2026`.
+- **Demo**: Use `Demo` at the salary list or after selecting an employee to view a calculated report with dummy data. The demo is in-memory and does not write to runtime databases.
+- **Calculation**: Remaining salary = Monthly Salary − Last Month Advance − This Month Advance. Real payments are read from daily and booking `EmployExpenses` records with `type: "dailySalary"`.
+
 ## Error Handling
 - Try-catch wrappers, safe database operations, graceful degradation, and comprehensive logging.
 
@@ -137,3 +143,7 @@ Incoming WhatsApp messages are routed by orchestrators to specific handlers. Han
 ## Authentication
 - **WhatsApp**: Multi-file authentication state stored in `./auth_info`.
 - **API Security**: Bearer token authentication via `API_KEY` environment variable.
+
+## Running on Replit
+- The configured workflow is `whatsapp-bot` and runs `npm start`.
+- The server listens on port 3000. After startup, pair WhatsApp through the existing `/login-qr` or `/pairing-code` flow.

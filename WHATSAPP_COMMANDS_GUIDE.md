@@ -491,6 +491,54 @@ clear
 
 ---
 
+## 👥 EMPLOYEE SALARY FEATURE
+
+### Navigation
+
+```
+Entry → Employee → Salary → select employee
+```
+
+After sending the employee serial number, use one of these commands:
+
+```
+Demo
+Employee Details
+This Month
+September 2026
+09/2026
+Last Month
+```
+
+`Demo` shows a complete salary calculation using dummy data. It does not write
+anything to the daily or booking databases.
+
+### Working Demo Example
+
+The demo uses:
+
+- Monthly salary: ₹12,000
+- Daily salary: ₹200
+- 02 September 2026 payment: ₹500 cash
+- 08 September 2026 payment: ₹350 online
+- Cut-off month: August 2026
+- Last month advance: ₹1,500
+
+The bot calculates each day's advance above the daily salary:
+
+```
+02 Sep: ₹500 - ₹200 = ₹300 advance
+08 Sep: ₹350 - ₹200 = ₹150 advance
+This Month Advance: ₹450
+Remaining: ₹12,000 - ₹1,500 - ₹450 = ₹10,050
+```
+
+Real salary reports read `dailySalary` employee payments from daily and booking
+records for the selected bus. A cut-off entry is required for the salary
+summary.
+
+---
+
 ## 🔄 Common Patterns
 
 ### Status Flow - Daily
