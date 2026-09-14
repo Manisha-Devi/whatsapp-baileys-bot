@@ -1,6 +1,5 @@
 import { handleIncomingMessageFromReports } from '../features/reports/reports.js';
 import { sendEmployeeSalaryReport } from '../features/employees/employee.js';
-import { getEmployees } from './employees.js';
 import { 
   getMenuState, 
   setMenuMode, 
@@ -68,130 +67,11 @@ Select an option:
 3️⃣ *Delete* - Coming soon
 4️⃣ *Salary* - View employee salary report
 
-Reply *Salary* or *4* to select an employee and view salary.
+Reply *Salary* or *4* to view this month's report.
+You can also reply *Salary Last Month* or *Salary September 2026*.
 Reply *Exit* or *E* to go back to Main Menu.`;
 
   return sock.sendMessage(sender, { text: menuText });
-}
-
-function getEmployeeDisplayName(employee) {
-  return [employee.firstName, employee.middleName, employee.lastName]
-    .filter(Boolean)
-    .join(" ")
-    .trim() || employee.role || employee.id;
-}
-
-function getSelectedEmployee(state) {
-  return getEmployees().find(
-    (employee) =>
-      employee.id === state.selectedEmployeeId &&
-      employee.busCode === state.selectedBus
-  );
-}
-
-function isEmployeeMonthCommand(text) {
-  const normalized = text.replace(/^salary\s+/, "").trim();
-  if (normalized === "this month" || normalized === "last month") return true;
-  if (/^\d{1,2}[/-]\d{4}$/.test(normalized)) return true;
-
-  const match = normalized.match(/^([a-z]{3,9})(?:\s+\d{4})?$/);
-  if (!match) return false;
-
-  return [
-    "january", "february", "march", "april", "may", "june",
-    "july", "august", "september", "october", "november", "december",
-  ].some((month) => month.startsWith(match[1].slice(0, 3)));
-}
-
-export function showEmployeeSalaryList(sock, sender) {
-  const state = getMenuState(sender);
-  const employees = getEmployees().filter(
-    (employee) => employee.busCode === state.selectedBus
-  );
-  const activeEmployees = employees.filter((employee) => employee.status === "Active");
-  const inactiveEmployees = employees.filter((employee) => employee.status !== "Active");
-  const orderedEmployees = [...activeEmployees, ...inactiveEmployees];
-
-  state.employeeView = "salary-list";
-  state.employeeOptions = orderedEmployees.map((employee) => employee.id);
-
-  const lines = [
-    "💰 *Employee Salary Menu*",
-    `🚌 Vehicle Number: *${state.selectedBusInfo?.registrationNumber || state.selectedBus}*`,
-    `🔢 Bus No: *${String(state.selectedBus || "").replace(/^BUS/i, "")}*`,
-    "",
-  ];
-
-  let serial = 1;
-  if (activeEmployees.length > 0) {
-    lines.push("*Active Employees:*");
-    activeEmployees.forEach((employee) => {
-      lines.push(`${serial++}️⃣ ${getEmployeeDisplayName(employee)} (${employee.role || "Employee"})`);
-    });
-    lines.push("");
-  }
-
-  if (inactiveEmployees.length > 0) {
-    lines.push("*Inactive Employees:*");
-    inactiveEmployees.forEach((employee) => {
-      lines.push(`${serial++}️⃣ ${getEmployeeDisplayName(employee)} (${employee.role || "Employee"})`);
-    });
-    lines.push("");
-  }
-
-  if (orderedEmployees.length === 0) {
-    lines.push("⚠️ No employees are linked to this bus.");
-  } else {
-    lines.push("Reply with the employee serial number to continue.");
-  }
-  lines.push("Reply *Exit* to return to Main Menu.");
-
-  return sock.sendMessage(sender, { text: lines.join("\n") });
-}
-
-export function showSelectedEmployeeMenu(sock, sender) {
-  const state = getMenuState(sender);
-  const employee = getSelectedEmployee(state);
-  if (!employee) {
-    state.employeeView = "salary-list";
-    return showEmployeeSalaryList(sock, sender);
-  }
-
-  state.employeeView = "employee-months";
-
-  const lines = [
-    "👤 *Employee Selected*",
-    `Name: *${getEmployeeDisplayName(employee)}*`,
-    `Role: ${employee.role || "Employee"}`,
-    `Status: ${employee.status || "Unknown"}`,
-    "",
-    "Enter a month command to view that month's calculation.",
-    "Reply *Exit* to return to Main Menu.",
-  ];
-
-  return sock.sendMessage(sender, { text: lines.join("\n") });
-}
-
-async function sendEmployeeDetails(sock, sender, employee) {
-  const state = getMenuState(sender);
-  const phone = employee.phone || "Not set";
-  const vehicleNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus;
-  const details = [
-    "📄 *Employee Details*",
-    `Employee Code: ${employee.id}`,
-    `Name: ${getEmployeeDisplayName(employee)}`,
-    `Role: ${employee.role || "Employee"}`,
-    `Status: ${employee.status || "Unknown"}`,
-    `Phone: ${phone}`,
-    `Vehicle Number: ${vehicleNumber}`,
-    `Bus No: ${String(state.selectedBus || "").replace(/^BUS/i, "")}`,
-    `Joining Date: ${employee.joiningDate || "Not set"}`,
-    `Resign Date: ${employee.resignDate || "Not set"}`,
-    `Monthly Salary: ₹${(Number(employee.salary) || 0).toLocaleString("en-IN")}`,
-    `Daily Salary: ₹${(Number(employee.daily) || 0).toLocaleString("en-IN")}`,
-  ];
-  await sock.sendMessage(sender, { text: details.join("\n") });
-  await showSelectedEmployeeMenu(sock, sender);
 }
 
 /**
@@ -771,13 +651,7 @@ export async function handleMenuNavigation(sock, sender, text) {
     } else if (state.mode === 'booking' && !state.submode) {
       await showBookingSubmenu(sock, sender);
     } else if (state.mode === 'employee' && !state.submode) {
-      if (state.employeeView === "salary-list") {
-        await showEmployeeSalaryList(sock, sender);
-      } else if (state.employeeView === "employee-months") {
-        await showSelectedEmployeeMenu(sock, sender);
-      } else {
-        await showEmployeeSubmenu(sock, sender);
-      }
+      await showEmployeeSubmenu(sock, sender);
     } else if (state.mode === 'daily' && state.submode === 'data') {
       await showDailyDataHelp(sock, sender);
     } else if (state.mode === 'daily' && state.submode === 'status') {
@@ -848,10 +722,6 @@ export async function handleMenuNavigation(sock, sender, text) {
     }
     if (resolvedCommand === 'employee') {
       setMenuMode(sender, 'employee');
-      state.employeeView = null;
-      state.selectedEmployeeId = null;
-      state.employeeOptions = [];
-      state.employeeMonthOptions = [];
       await showEmployeeSubmenu(sock, sender);
       return true;
     }
@@ -885,53 +755,19 @@ Type your choice:`;
   } else if (state.mode && !state.submode) {
     // Handle navigation within mode menus (submenu selection)
     if (state.mode === 'employee') {
-      if (state.employeeView === "salary-list") {
-        const selectedIndex = Number.parseInt(lowerText, 10) - 1;
-        if (
-          Number.isInteger(selectedIndex) &&
-          selectedIndex >= 0 &&
-          selectedIndex < state.employeeOptions.length
-        ) {
-          state.selectedEmployeeId = state.employeeOptions[selectedIndex];
-          await showSelectedEmployeeMenu(sock, sender);
-        } else {
-          await sock.sendMessage(sender, {
-            text: "⚠️ Invalid employee number. Please reply with one of the serial numbers shown.",
-          });
-        }
-        return true;
-      }
-
-      if (state.employeeView === "employee-months") {
-        if (lowerText === "employee details") {
-          const employee = getSelectedEmployee(state);
-          if (employee) {
-            await sendEmployeeDetails(sock, sender, employee);
-          } else {
-            await showEmployeeSalaryList(sock, sender);
-          }
-          return true;
-        }
-
-        if (isEmployeeMonthCommand(lowerText)) {
-          await sendEmployeeSalaryReport(
-            sock,
-            sender,
-            state,
-            lowerText.startsWith("salary ") ? lowerText : `salary ${lowerText}`,
-            state.selectedEmployeeId
-          );
-          return true;
-        }
-
-        await sock.sendMessage(sender, {
-          text: "⚠️ Invalid command. Reply *Employee Details*, *Sep*, *September 2026*, or another month command.",
-        });
-        return true;
-      }
-
-      if (resolvedCommand === 'salary' || lowerText === '4') {
-        await showEmployeeSalaryList(sock, sender);
+      if (
+        resolvedCommand === 'salary' ||
+        lowerText === '4' ||
+        lowerText === 'this month' ||
+        lowerText === 'last month' ||
+        lowerText.startsWith('salary ')
+      ) {
+        await sendEmployeeSalaryReport(
+          sock,
+          sender,
+          state,
+          lowerText === '4' || lowerText === 'this month' ? 'salary' : lowerText
+        );
         return true;
       }
 
@@ -942,7 +778,7 @@ Type your choice:`;
         ['1', '2', '3'].includes(lowerText)
       ) {
         await sock.sendMessage(sender, {
-          text: "ℹ️ Employee Add, Update, and Delete are not available yet. They will be added later.\n\nReply *Salary* to select an employee or *Exit* to return to the Main Menu.",
+          text: "ℹ️ Employee Add, Update, and Delete are not available yet. They will be added later.\n\nReply *Salary* to view the salary report or *Exit* to return to the Main Menu.",
         });
         return true;
       }

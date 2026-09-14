@@ -167,7 +167,7 @@ function getSalaryPeriod(text, now = new Date()) {
       /(?:salary\s+)?(?:this month|month)?\s*(\d{1,2})[/-](\d{4})$/
     );
     const namedMonthMatch = normalized.match(
-      /(?:salary\s+)?(?:this month|month)?\s*([a-z]{3,9})(?:\s+(\d{4}))?$/
+      /(?:salary\s+)?(?:this month|month)?\s*([a-z]{3,9})\s+(\d{4})$/
     );
 
     if (monthMatch) {
@@ -181,11 +181,7 @@ function getSalaryPeriod(text, now = new Date()) {
       ].findIndex((month) => month.startsWith(namedMonthMatch[1].slice(0, 3)));
 
       if (monthIndex !== -1) {
-        monthDate = new Date(
-          Number(namedMonthMatch[2] || now.getFullYear()),
-          monthIndex,
-          1
-        );
+        monthDate = new Date(Number(namedMonthMatch[2]), monthIndex, 1);
       }
     }
   }
@@ -197,37 +193,29 @@ function getSalaryPeriod(text, now = new Date()) {
   };
 }
 
-export async function sendEmployeeSalaryReport(
-  sock,
-  sender,
-  state,
-  command = "salary",
-  selectedEmployeeId = null
-) {
+export async function sendEmployeeSalaryReport(sock, sender, state, command = "salary") {
   const busCode = state.selectedBus;
   const currentPeriod = getSalaryPeriod(command);
   const { startDate, endDate, label } = currentPeriod;
   const employees = getEmployees().filter(
     (employee) =>
       employee.busCode === busCode &&
-      (selectedEmployeeId
-        ? employee.id === selectedEmployeeId
-        : employee.status === "Active")
+      employee.status === "Active"
   );
 
-  const [dailyPayments, bookingPayments] = await Promise.all([
+  const [dailyPayments, bookingPayments, lastDailyPayments, lastBookingPayments] = await Promise.all([
     collectEmployeePayments(dailyDb, busCode, startDate, endDate),
     collectEmployeePayments(bookingsDb, busCode, startDate, endDate),
+    collectEmployeePayments(dailyDb, busCode, lastPeriod.startDate, lastPeriod.endDate),
+    collectEmployeePayments(bookingsDb, busCode, lastPeriod.startDate, lastPeriod.endDate),
   ]);
   const currentPayments = [...dailyPayments, ...bookingPayments];
-  const vehicleNumber = state.selectedBusInfo?.registrationNumber || busCode;
-  const busNumber = getBusNumber(busCode);
+  const lastMonthPayments = [...lastDailyPayments, ...lastBookingPayments];
 
   const lines = [
     "💰 *Employee Salary Report*",
     `📅 Period: *${label}*`,
-    `🚌 *Vehicle Number: ${vehicleNumber}*`,
-    `🔢 *Bus No: ${busNumber}*`,
+    `🚌 Bus: *${state.selectedBusInfo?.registrationNumber || busCode}*`,
     "",
   ];
 
@@ -238,42 +226,19 @@ export async function sendEmployeeSalaryReport(
     let totalLastMonthAdvance = 0;
     let totalCurrentAdvance = 0;
     let totalRemaining = 0;
-    let hasMissingCutOff = false;
 
     for (const employee of employees) {
+      const lastEmployeePayments = getEmployeePayments(lastMonthPayments, employee);
       const monthlySalary = Number(employee.salary) || 0;
       const dailySalary = Number(employee.daily) || 0;
-
-      lines.push(
-        `👤 *${employeeName(employee)}*`,
-        `Role: ${employee.role || "Employee"}`,
-        `Monthly Salary: ${formatRupees(monthlySalary)}`,
-        `Daily Salary: ${formatRupees(dailySalary)}`,
-        "",
-        "*Daily Payment Report:*",
-      );
-
-      const cutOff = getCutOffForEmployee(employee);
-      if (!cutOff) {
-        hasMissingCutOff = true;
-        lines.push("⚠️ *Employee Cut-off Not Found*", "");
-        continue;
-      }
-
-      const cutOffDate = parseCutOffMonth(cutOff.cutOffMonth);
-      if (!cutOffDate) {
-        hasMissingCutOff = true;
-        lines.push("⚠️ *Employee Cut-off Not Found*", "");
-        continue;
-      }
-
-      const calculationStartDate = startOfMonth(addMonths(cutOffDate, 1));
-      const calculationPayments = currentPayments.filter(
-        (payment) => payment.date >= calculationStartDate
-      );
-      const dailyRows = getDailyPaymentRows(calculationPayments, employee, dailySalary);
+      const dailyRows = getDailyPaymentRows(currentPayments, employee, dailySalary);
+      const lastMonthPaid = lastEmployeePayments.reduce((sum, payment) => sum + payment.amount, 0);
       const currentAdvance = dailyRows.reduce((sum, row) => sum + row.advance, 0);
-      const lastMonthAdvance = Number(cutOff.lastMonthAdvance) || 0;
+      // A month with no recorded payments has no advance or deduction.
+      // When records exist, a positive value means advance paid and a
+      // negative value means salary still pending from that month.
+      const lastMonthAdvance =
+        lastEmployeePayments.length > 0 ? lastMonthPaid - monthlySalary : 0;
       const remaining = monthlySalary - lastMonthAdvance - currentAdvance;
 
       totalMonthlySalary += monthlySalary;
@@ -281,6 +246,7 @@ export async function sendEmployeeSalaryReport(
       totalCurrentAdvance += currentAdvance;
       totalRemaining += remaining;
 
+      const vehicleNumber = state.selectedBusInfo?.registrationNumber || busCode;
       const dailyReportLines = dailyRows.length > 0
         ? dailyRows.map((row) => {
             const paymentParts = [`${format(row.date, "dd MMM yyyy")}`];
@@ -292,10 +258,16 @@ export async function sendEmployeeSalaryReport(
         : ["No Daily or Booking salary payment recorded."];
 
       lines.push(
+        `🚌 *Vehicle Number: ${vehicleNumber}*`,
+        `👤 *${employeeName(employee)}*`,
+        `Role: ${employee.role || "Employee"}`,
+        `Monthly Salary: ${formatRupees(monthlySalary)}`,
+        `Daily Salary: ${formatRupees(dailySalary)}`,
+        "",
+        "*Daily Payment Report:*",
         ...dailyReportLines,
         "",
         "*Salary Summary:*",
-        `Cut-Off Month: ${format(cutOffDate, "MMMM yyyy")}`,
         `Last Month Advance: ${formatSignedRupees(lastMonthAdvance)}`,
         `This Month Advance: ${formatSignedRupees(currentAdvance)}`,
         `This Month Remaining: ${formatSignedRupees(remaining)}`,
@@ -303,18 +275,16 @@ export async function sendEmployeeSalaryReport(
       );
     }
 
-    if (!hasMissingCutOff) {
-      lines.push(
-        "📊 *Total*",
-        `Monthly Salary: ${formatRupees(totalMonthlySalary)}`,
-        `Last Month Advance: ${formatSignedRupees(totalLastMonthAdvance)}`,
-        `This Month Advance: ${formatSignedRupees(totalCurrentAdvance)}`,
-        `This Month Remaining: ${formatSignedRupees(totalRemaining)}`,
-        "",
-        "ℹ️ Only actual payments after the employee cut-off month are counted. A day with no payment is not added automatically.",
-        "ℹ️ This Month Remaining = Monthly Salary − Last Month Advance − This Month Advance.",
-      );
-    }
+    lines.push(
+      "📊 *Total*",
+      `Monthly Salary: ${formatRupees(totalMonthlySalary)}`,
+      `Last Month Advance: ${formatSignedRupees(totalLastMonthAdvance)}`,
+      `This Month Advance: ${formatSignedRupees(totalCurrentAdvance)}`,
+      `This Month Remaining: ${formatSignedRupees(totalRemaining)}`,
+      "",
+      "ℹ️ Only actual payments in Daily Reports and Bookings are counted. A day with no payment is not added automatically.",
+      "ℹ️ This Month Remaining = Monthly Salary − Last Month Advance − This Month Advance.",
+    );
   }
 
   await sock.sendMessage(sender, { text: lines.join("\n") });
