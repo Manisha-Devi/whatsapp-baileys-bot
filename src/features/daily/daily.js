@@ -110,6 +110,8 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
                 `🔍 *Fetch Records:*\n` +
                 `• today\n` +
                 `• yesterday\n` +
+                `• last [N] entries\n` +
+                `• from [date] to [date]\n` +
                 `• [DD/MM/YYYY]\n\n` +
                 `⚙️ *Other:*\n` +
                 `• clear - clear session\n` +
@@ -133,7 +135,8 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
                 `2️⃣ *Fetch Records*\n` +
                 `• daily today\n` +
                 `• daily yesterday\n` +
-                `• daily last [N]\n` +
+                `• daily last [N] entries\n` +
+                `• daily from [date] to [date]\n` +
                 `• daily [DD/MM/YYYY]\n\n` +
                 `4️⃣ *Employee (Manual Entry)*\n` +
                 `• daily driver [amount]\n` +

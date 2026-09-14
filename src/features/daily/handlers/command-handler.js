@@ -17,6 +17,7 @@ import { capitalize } from "../utils/formatters.js";
 import { recalculateCashHandover, getCompletionMessage } from "../utils/calculations.js";
 import { sendSummary } from "../utils/messages.js";
 import { getMenuState } from "../../../utils/menu-state.js";
+import { parseDate } from "./date-handler.js";
 
 /**
  * Handles the 'clear' command to reset user's local session data.
@@ -159,6 +160,38 @@ function getRecordForBusAndDate(busCode, date) {
   return db.data[key];
 }
 
+function getDailyEntriesForBus(busCode) {
+  return Object.entries(db.data || {})
+    .filter(([key]) => key.startsWith(`${busCode}_`))
+    .map(([key, record]) => {
+      const date = parseDate(key.substring(`${busCode}_`.length));
+      return date ? { record, date } : null;
+    })
+    .filter(Boolean);
+}
+
+function formatReportDate(date) {
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+async function sendReportTypingDelay(sock, sender) {
+  try {
+    if (sock.presenceSubscribe) await sock.presenceSubscribe(sender);
+    if (sock.sendPresenceUpdate) {
+      await sock.sendPresenceUpdate("composing", sender);
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      await sock.sendPresenceUpdate("paused", sender);
+    }
+  } catch (err) {
+    // Presence updates are optional and must not block report delivery.
+  }
+}
+
 /**
  * Handles various report commands for fetching daily records.
  * Supports multiple query formats:
@@ -219,6 +252,74 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
       }
 
       await sendFetchedRecord(sock, sender, record, "✅ Yesterday's Data");
+      return true;
+    }
+
+    // Fetch the latest N saved records. This counts entries, not calendar days.
+    const lastEntriesMatch = lowerText.match(/^last\s+(\d+)\s+entries?$/i);
+    if (lastEntriesMatch) {
+      const entriesCount = parseInt(lastEntriesMatch[1], 10);
+      const entries = getDailyEntriesForBus(selectedBus)
+        .sort((a, b) => b.date - a.date)
+        .slice(0, entriesCount);
+
+      for (let i = 0; i < entries.length; i++) {
+        await sendFetchedRecord(
+          sock,
+          sender,
+          entries[i].record,
+          `✅ Daily Entry ${i + 1} of ${entries.length}\n📅 Dated: ${formatReportDate(entries[i].date)}`
+        );
+        if (i < entries.length - 1) await sendReportTypingDelay(sock, sender);
+      }
+
+      if (entries.length === 0) {
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ No daily entries found for *${selectedBus}*.`,
+        });
+      }
+      return true;
+    }
+
+    // Fetch records between two dates using the existing date parser.
+    const fromToMatch = lowerText.match(/^from\s+(.+?)\s+to\s+(.+)$/i);
+    if (fromToMatch) {
+      const startDate = parseDate(fromToMatch[1]);
+      const endDate = parseDate(fromToMatch[2]);
+
+      if (!startDate || !endDate) {
+        await safeSendMessage(sock, sender, {
+          text: "⚠️ Invalid date range. Use DD/MM/YYYY, DD-MM-YYYY, today, yesterday, or 15 December 2025.",
+        });
+        return true;
+      }
+
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+      if (startDate > endDate) {
+        await safeSendMessage(sock, sender, { text: "⚠️ Start date cannot be after end date." });
+        return true;
+      }
+
+      const entries = getDailyEntriesForBus(selectedBus)
+        .filter(({ date }) => date >= startDate && date <= endDate)
+        .sort((a, b) => a.date - b.date);
+
+      for (let i = 0; i < entries.length; i++) {
+        await sendFetchedRecord(
+          sock,
+          sender,
+          entries[i].record,
+          `✅ Daily Entry ${i + 1} of ${entries.length}\n📅 Dated: ${formatReportDate(entries[i].date)}`
+        );
+        if (i < entries.length - 1) await sendReportTypingDelay(sock, sender);
+      }
+
+      if (entries.length === 0) {
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ No daily entries found for *${selectedBus}* from ${fromToMatch[1]} to ${fromToMatch[2]}.`,
+        });
+      }
       return true;
     }
 
