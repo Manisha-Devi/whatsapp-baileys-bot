@@ -1,5 +1,7 @@
 import { handleIncomingMessageFromReports } from '../features/reports/reports.js';
 import { sendEmployeeSalaryReport } from '../features/employees/employee.js';
+import { getEmployees } from './employees.js';
+import { format, subMonths } from 'date-fns';
 import { 
   getMenuState, 
   setMenuMode, 
@@ -67,11 +69,126 @@ Select an option:
 3️⃣ *Delete* - Coming soon
 4️⃣ *Salary* - View employee salary report
 
-Reply *Salary* or *4* to view this month's report.
-You can also reply *Salary Last Month* or *Salary September 2026*.
+Reply *Salary* or *4* to select an employee and view salary.
 Reply *Exit* or *E* to go back to Main Menu.`;
 
   return sock.sendMessage(sender, { text: menuText });
+}
+
+function getEmployeeDisplayName(employee) {
+  return [employee.firstName, employee.middleName, employee.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim() || employee.role || employee.id;
+}
+
+function getSelectedEmployee(state) {
+  return getEmployees().find(
+    (employee) =>
+      employee.id === state.selectedEmployeeId &&
+      employee.busCode === state.selectedBus
+  );
+}
+
+export function showEmployeeSalaryList(sock, sender) {
+  const state = getMenuState(sender);
+  const employees = getEmployees().filter(
+    (employee) => employee.busCode === state.selectedBus
+  );
+  const activeEmployees = employees.filter((employee) => employee.status === "Active");
+  const inactiveEmployees = employees.filter((employee) => employee.status !== "Active");
+  const orderedEmployees = [...activeEmployees, ...inactiveEmployees];
+
+  state.employeeView = "salary-list";
+  state.employeeOptions = orderedEmployees.map((employee) => employee.id);
+
+  const lines = [
+    "💰 *Employee Salary Menu*",
+    `🚌 Vehicle Number: *${state.selectedBusInfo?.registrationNumber || state.selectedBus}*`,
+    `🔢 Bus No: *${String(state.selectedBus || "").replace(/^BUS/i, "")}*`,
+    "",
+  ];
+
+  let serial = 1;
+  if (activeEmployees.length > 0) {
+    lines.push("*Active Employees:*");
+    activeEmployees.forEach((employee) => {
+      lines.push(`${serial++}️⃣ ${getEmployeeDisplayName(employee)} (${employee.role || "Employee"})`);
+    });
+    lines.push("");
+  }
+
+  if (inactiveEmployees.length > 0) {
+    lines.push("*Inactive Employees:*");
+    inactiveEmployees.forEach((employee) => {
+      lines.push(`${serial++}️⃣ ${getEmployeeDisplayName(employee)} (${employee.role || "Employee"})`);
+    });
+    lines.push("");
+  }
+
+  if (orderedEmployees.length === 0) {
+    lines.push("⚠️ No employees are linked to this bus.");
+  } else {
+    lines.push("Reply with the employee serial number to continue.");
+  }
+  lines.push("Reply *Exit* to return to Main Menu.");
+
+  return sock.sendMessage(sender, { text: lines.join("\n") });
+}
+
+export function showSelectedEmployeeMenu(sock, sender) {
+  const state = getMenuState(sender);
+  const employee = getSelectedEmployee(state);
+  if (!employee) {
+    state.employeeView = "salary-list";
+    return showEmployeeSalaryList(sock, sender);
+  }
+
+  const monthOptions = Array.from({ length: 13 }, (_, index) => {
+    const month = subMonths(new Date(), index);
+    const label = format(month, "MMMM yyyy");
+    return { label, command: `salary ${label}` };
+  });
+  state.employeeMonthOptions = monthOptions;
+  state.employeeView = "employee-months";
+
+  const lines = [
+    "👤 *Employee Selected*",
+    `Name: *${getEmployeeDisplayName(employee)}*`,
+    `Role: ${employee.role || "Employee"}`,
+    `Status: ${employee.status || "Unknown"}`,
+    "",
+    "Select an option:",
+    "1️⃣ Employee Details",
+    ...monthOptions.map((option, index) => `${index + 2}️⃣ ${option.label}`),
+    "",
+    "Reply with a number.",
+    "Reply *Exit* to return to Main Menu.",
+  ];
+
+  return sock.sendMessage(sender, { text: lines.join("\n") });
+}
+
+async function sendEmployeeDetails(sock, sender, employee) {
+  const state = getMenuState(sender);
+  const phone = employee.phone || "Not set";
+  const vehicleNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus;
+  const details = [
+    "📄 *Employee Details*",
+    `Employee Code: ${employee.id}`,
+    `Name: ${getEmployeeDisplayName(employee)}`,
+    `Role: ${employee.role || "Employee"}`,
+    `Status: ${employee.status || "Unknown"}`,
+    `Phone: ${phone}`,
+    `Vehicle Number: ${vehicleNumber}`,
+    `Bus No: ${String(state.selectedBus || "").replace(/^BUS/i, "")}`,
+    `Joining Date: ${employee.joiningDate || "Not set"}`,
+    `Resign Date: ${employee.resignDate || "Not set"}`,
+    `Monthly Salary: ₹${(Number(employee.salary) || 0).toLocaleString("en-IN")}`,
+    `Daily Salary: ₹${(Number(employee.daily) || 0).toLocaleString("en-IN")}`,
+  ];
+  await sock.sendMessage(sender, { text: details.join("\n") });
+  await showSelectedEmployeeMenu(sock, sender);
 }
 
 /**
@@ -651,7 +768,13 @@ export async function handleMenuNavigation(sock, sender, text) {
     } else if (state.mode === 'booking' && !state.submode) {
       await showBookingSubmenu(sock, sender);
     } else if (state.mode === 'employee' && !state.submode) {
-      await showEmployeeSubmenu(sock, sender);
+      if (state.employeeView === "salary-list") {
+        await showEmployeeSalaryList(sock, sender);
+      } else if (state.employeeView === "employee-months") {
+        await showSelectedEmployeeMenu(sock, sender);
+      } else {
+        await showEmployeeSubmenu(sock, sender);
+      }
     } else if (state.mode === 'daily' && state.submode === 'data') {
       await showDailyDataHelp(sock, sender);
     } else if (state.mode === 'daily' && state.submode === 'status') {
@@ -722,6 +845,10 @@ export async function handleMenuNavigation(sock, sender, text) {
     }
     if (resolvedCommand === 'employee') {
       setMenuMode(sender, 'employee');
+      state.employeeView = null;
+      state.selectedEmployeeId = null;
+      state.employeeOptions = [];
+      state.employeeMonthOptions = [];
       await showEmployeeSubmenu(sock, sender);
       return true;
     }
@@ -755,19 +882,68 @@ Type your choice:`;
   } else if (state.mode && !state.submode) {
     // Handle navigation within mode menus (submenu selection)
     if (state.mode === 'employee') {
-      if (
-        resolvedCommand === 'salary' ||
-        lowerText === '4' ||
-        lowerText === 'this month' ||
-        lowerText === 'last month' ||
-        lowerText.startsWith('salary ')
-      ) {
-        await sendEmployeeSalaryReport(
-          sock,
-          sender,
-          state,
-          lowerText === '4' || lowerText === 'this month' ? 'salary' : lowerText
-        );
+      if (state.employeeView === "salary-list") {
+        const selectedIndex = Number.parseInt(lowerText, 10) - 1;
+        if (
+          Number.isInteger(selectedIndex) &&
+          selectedIndex >= 0 &&
+          selectedIndex < state.employeeOptions.length
+        ) {
+          state.selectedEmployeeId = state.employeeOptions[selectedIndex];
+          await showSelectedEmployeeMenu(sock, sender);
+        } else {
+          await sock.sendMessage(sender, {
+            text: "⚠️ Invalid employee number. Please reply with one of the serial numbers shown.",
+          });
+        }
+        return true;
+      }
+
+      if (state.employeeView === "employee-months") {
+        if (lowerText === "1" || lowerText === "employee details") {
+          const employee = getSelectedEmployee(state);
+          if (employee) {
+            await sendEmployeeDetails(sock, sender, employee);
+          } else {
+            await showEmployeeSalaryList(sock, sender);
+          }
+          return true;
+        }
+
+        const monthIndex = Number.parseInt(lowerText, 10) - 2;
+        let monthCommand = null;
+        if (
+          Number.isInteger(monthIndex) &&
+          monthIndex >= 0 &&
+          monthIndex < state.employeeMonthOptions.length
+        ) {
+          monthCommand = state.employeeMonthOptions[monthIndex].command;
+        } else {
+          const monthOption = state.employeeMonthOptions.find(
+            (option) => option.label.toLowerCase() === lowerText
+          );
+          if (monthOption) monthCommand = monthOption.command;
+        }
+
+        if (monthCommand) {
+          await sendEmployeeSalaryReport(
+            sock,
+            sender,
+            state,
+            monthCommand,
+            state.selectedEmployeeId
+          );
+          return true;
+        }
+
+        await sock.sendMessage(sender, {
+          text: "⚠️ Invalid selection. Reply *1* for Employee Details or choose one of the displayed months.",
+        });
+        return true;
+      }
+
+      if (resolvedCommand === 'salary' || lowerText === '4') {
+        await showEmployeeSalaryList(sock, sender);
         return true;
       }
 
@@ -778,7 +954,7 @@ Type your choice:`;
         ['1', '2', '3'].includes(lowerText)
       ) {
         await sock.sendMessage(sender, {
-          text: "ℹ️ Employee Add, Update, and Delete are not available yet. They will be added later.\n\nReply *Salary* to view the salary report or *Exit* to return to the Main Menu.",
+          text: "ℹ️ Employee Add, Update, and Delete are not available yet. They will be added later.\n\nReply *Salary* to select an employee or *Exit* to return to the Main Menu.",
         });
         return true;
       }

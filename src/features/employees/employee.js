@@ -193,14 +193,22 @@ function getSalaryPeriod(text, now = new Date()) {
   };
 }
 
-export async function sendEmployeeSalaryReport(sock, sender, state, command = "salary") {
+export async function sendEmployeeSalaryReport(
+  sock,
+  sender,
+  state,
+  command = "salary",
+  selectedEmployeeId = null
+) {
   const busCode = state.selectedBus;
   const currentPeriod = getSalaryPeriod(command);
   const { startDate, endDate, label } = currentPeriod;
   const employees = getEmployees().filter(
     (employee) =>
       employee.busCode === busCode &&
-      employee.status === "Active"
+      (selectedEmployeeId
+        ? employee.id === selectedEmployeeId
+        : employee.status === "Active")
   );
 
   const [dailyPayments, bookingPayments] = await Promise.all([
