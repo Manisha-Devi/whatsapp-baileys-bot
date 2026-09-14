@@ -3,6 +3,7 @@
  */
 import dailyDb, { bookingsDb } from "../../utils/db.js";
 import { format, subDays, startOfWeek, startOfMonth, startOfYear, isWithinInterval, parse, endOfMonth, differenceInDays } from "date-fns";
+import { parseDate } from "../daily/handlers/date-handler.js";
 
 export async function handleIncomingMessageFromReports(sock, msg) {
   const sender = msg.key.remoteJid;
@@ -33,7 +34,30 @@ async function handleAverageReport(sock, sender, text, state) {
 
   const now = new Date();
 
-  if (text === 'average today') {
+  const rangeMatch = text.match(/^average\s+from\s+(.+?)\s+to\s+(.+)$/i);
+  if (rangeMatch) {
+    startDate = parseDate(rangeMatch[1]);
+    endDate = parseDate(rangeMatch[2]);
+
+    if (!startDate || !endDate) {
+      await sock.sendMessage(sender, {
+        text: "⚠️ Invalid date range. Supported formats include DD/MM/YYYY, DD-MM-YYYY, today, yesterday, and 15 December 2025.",
+      });
+      return;
+    }
+
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+
+    if (startDate > endDate) {
+      await sock.sendMessage(sender, {
+        text: "⚠️ Start date cannot be after end date.",
+      });
+      return;
+    }
+
+    periodName = `From ${format(startDate, 'dd/MM/yyyy')} to ${format(endDate, 'dd/MM/yyyy')}`;
+  } else if (text === 'average today') {
     startDate = new Date(now);
     startDate.setHours(0, 0, 0, 0);
     endDate = new Date(now);
