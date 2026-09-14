@@ -165,13 +165,6 @@ export function showSelectedEmployeeMenu(sock, sender) {
     `Role: ${employee.role || "Employee"}`,
     `Status: ${employee.status || "Unknown"}`,
     "",
-    "Next Commands:",
-    "• Employee Details",
-    "• Sep / Sept",
-    "• September 2026",
-    "• Sep 2025",
-    "• June 2026",
-    "",
     "Enter a month command to view that month's calculation.",
     "Reply *Exit* to return to Main Menu.",
   ];
