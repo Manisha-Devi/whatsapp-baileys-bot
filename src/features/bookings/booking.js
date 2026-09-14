@@ -19,7 +19,7 @@
  */
 
 import { safeSendMessage } from "./utils/helpers.js";
-import { handleClearCommand, handleBookingCommand, handleBookingEntriesCommand, handleDeleteCommand } from "./handlers/command-handler.js";
+import { handleClearCommand, handleBookingCommand, handleDeleteCommand } from "./handlers/command-handler.js";
 import { handleFieldExtraction } from "./handlers/field-handler.js";
 import { handleFetchConfirmation } from "./handlers/fetch-handler.js";
 import { handleSubmit } from "./handlers/submit-handler.js";
@@ -134,8 +134,6 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
                 `*Commands for Reports:*\n` +
                 `• Today / Yesterday\n` +
                 `• This Week / This Month\n` +
-                `• Entries / Entries 5 / Last 5 Entries\n` +
-                `• Last Month\n` +
                 `• [DD/MM/YYYY]\n` +
                 `• [Month] e.g. Jul\n` +
                 `• [Month Year] e.g. Jul 2026\n` +
@@ -190,8 +188,6 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
                 `*Commands for Reports:*\n` +
                 `• booking Today / booking Yesterday\n` +
                 `• booking This Week / booking This Month\n` +
-                `• booking Entries / booking Entries 5 / booking Last 5 Entries\n` +
-                `• booking Last Month\n` +
                 `• booking [DD/MM/YYYY]\n` +
                 `• booking Jul / booking Jul 2026\n` +
                 `• booking 2026\n\n` +
@@ -219,10 +215,6 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
     const userSession = global.bookingData?.[sender];
     const handledDelete = await handleDeleteCommand(sock, sender, text, userSession);
     if (handledDelete) return;
-
-    // Handle latest booking entries and month reports before the legacy list view.
-    const handledBookingEntries = await handleBookingEntriesCommand(sock, sender, normalizedText, user);
-    if (handledBookingEntries) return;
 
     // Check if user is in booking reports mode (feature under development)
     if (menuState.mode === 'booking' && menuState.submode === 'reports') {

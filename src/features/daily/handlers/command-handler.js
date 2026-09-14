@@ -43,93 +43,6 @@ export async function handleClearCommand(sock, sender, text) {
 }
 
 /**
- * Handles "entries" queries by returning the most recent saved entries.
- * Unlike "last N days", this counts actual records, so missing dates do
- * not reduce the number of entries returned.
- *
- * Supported formats:
- * - "entries" - latest 5 entries
- * - "entries N" - latest N entries
- * - "last N entries" - latest N entries
- *
- * @param {Object} sock - WhatsApp socket connection instance
- * @param {string} sender - WhatsApp sender ID
- * @param {string} normalizedText - Normalized user input
- * @returns {Promise<boolean>} True when the command was handled
- */
-export async function handleEntriesCommand(sock, sender, normalizedText) {
-  const lowerText = normalizedText.toLowerCase().trim();
-  const countMatch = lowerText.match(/^(?:entries?\s+(\d+)|last\s+(\d+)\s+entries?)$/i);
-  const isDefaultQuery = lowerText === "entry" || lowerText === "entries";
-
-  if (!isDefaultQuery && !countMatch) return false;
-
-  const entriesCount = isDefaultQuery
-    ? 5
-    : parseInt(countMatch[1] || countMatch[2], 10);
-
-  if (!Number.isInteger(entriesCount) || entriesCount < 1) {
-    await safeSendMessage(sock, sender, {
-      text: "⚠️ Please enter a valid number of entries, for example: *Entries 5*.",
-    });
-    return true;
-  }
-
-  try {
-    await safeDbRead();
-
-    const menuState = getMenuState(sender);
-    const selectedBus = menuState.selectedBus;
-    if (!selectedBus) {
-      await safeSendMessage(sock, sender, {
-        text: "⚠️ No bus selected. Please type *Entry* to select a bus first.",
-      });
-      return true;
-    }
-
-    const entries = getStoredEntriesForBus(selectedBus).slice(0, entriesCount);
-
-    if (entries.length === 0) {
-      await safeSendMessage(sock, sender, {
-        text: `⚠️ No entries found for *${selectedBus}*.`,
-      });
-      return true;
-    }
-
-    for (let index = 0; index < entries.length; index++) {
-      const { record } = entries[index];
-      await sendFetchedRecord(
-        sock,
-        sender,
-        record,
-        `✅ Entry ${index + 1} of ${entries.length}`
-      );
-
-      if (index < entries.length - 1) {
-        try {
-          if (sock.presenceSubscribe) await sock.presenceSubscribe(sender);
-          if (sock.sendPresenceUpdate) {
-            await sock.sendPresenceUpdate("composing", sender);
-            await new Promise((resolve) => setTimeout(resolve, 1200));
-            await sock.sendPresenceUpdate("paused", sender);
-          }
-        } catch (err) {
-          // Presence updates are optional and should not block report delivery.
-        }
-      }
-    }
-
-    return true;
-  } catch (err) {
-    console.error("❌ Error handling entries command for", sender, ":", err);
-    await safeSendMessage(sock, sender, {
-      text: "❌ Failed to fetch entries. Please try again.",
-    });
-    return true;
-  }
-}
-
-/**
  * Sends a formatted message displaying a fetched record's details.
  * Includes all expense categories, collections, and cash handover information.
  * 
@@ -184,19 +97,6 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
     const online = formatField(record.Online);
     const cashHandover = formatField(record.CashHandover);
 
-    const getNumericValue = (field) => {
-      if (!field) return 0;
-      return Number(field.amount ?? field) || 0;
-    };
-    const totalCollection = getNumericValue(record.TotalCashCollection) + getNumericValue(record.Online);
-    const totalExpenses =
-      getNumericValue(record.Diesel) +
-      getNumericValue(record.Adda) +
-      getNumericValue(record.Union) +
-      (record.ExtraExpenses || []).reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0) +
-      (record.EmployExpenses || []).reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
-    const bachat = totalCollection - totalExpenses;
-
     // Include bus code if available
     const busInfo = record.busCode ? `🚌 Bus: *${record.busCode}*\n` : "";
 
@@ -219,8 +119,6 @@ async function sendFetchedRecord(sock, sender, record, title = "✅ Data Fetched
       ``,
       `✨ *Total Hand Over:*`,
       `💵 Cash Hand Over: ₹${cashHandover.amt}`,
-      `📈 Bachat (Profit): ₹${bachat.toLocaleString("en-IN")}`,
-      ...(record.Remarks ? [`📝 *Remarks:* ${record.Remarks}`] : []),
       ``,
       `✅ Data Fetched successfully!`,
     ].filter(line => line !== "").join("\n");
@@ -259,89 +157,6 @@ function getKeyForBusAndDate(busCode, date) {
 function getRecordForBusAndDate(busCode, date) {
   const key = getKeyForBusAndDate(busCode, date);
   return db.data[key];
-}
-
-/**
- * Returns all valid saved entries for a bus, newest first.
- *
- * @param {string} busCode - The bus identifier code
- * @returns {Array<{record: Object, date: Date}>} Saved entries with dates
- */
-function getStoredEntriesForBus(busCode) {
-  const busPrefix = `${busCode}_`;
-
-  return Object.entries(db.data)
-    .map(([key, record]) => {
-      if (!key.startsWith(busPrefix) || !record || typeof record !== "object") {
-        return null;
-      }
-
-      const dateMatch = key
-        .slice(busPrefix.length)
-        .match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-      if (!dateMatch) return null;
-
-      const [, day, month, year] = dateMatch;
-      const date = new Date(Number(year), Number(month) - 1, Number(day));
-      if (
-        date.getFullYear() !== Number(year) ||
-        date.getMonth() !== Number(month) - 1 ||
-        date.getDate() !== Number(day)
-      ) {
-        return null;
-      }
-
-      return { record, date };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.date - a.date);
-}
-
-/**
- * Parses month report commands.
- * Supports "this month", "last month", "Jul", "July", and "July 2025".
- *
- * @param {string} lowerText - Lowercase command text
- * @param {Date} now - Reference date
- * @returns {{year: number, month: number, label: string}|null}
- */
-function parseMonthQuery(lowerText, now = new Date()) {
-  const monthNames = [
-    "january", "february", "march", "april", "may", "june",
-    "july", "august", "september", "october", "november", "december",
-  ];
-
-  if (lowerText === "this month") {
-    return {
-      year: now.getFullYear(),
-      month: now.getMonth(),
-      label: "This Month",
-    };
-  }
-
-  if (lowerText === "last month") {
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    return {
-      year: lastMonth.getFullYear(),
-      month: lastMonth.getMonth(),
-      label: "Last Month",
-    };
-  }
-
-  const monthMatch = lowerText.match(/^([a-z]{3,9})(?:\s+(\d{4}))?$/i);
-  if (!monthMatch) return null;
-
-  const monthToken = monthMatch[1].toLowerCase();
-  const monthIndex = monthNames.findIndex((name) => name.startsWith(monthToken));
-  if (monthIndex === -1) return null;
-
-  const year = monthMatch[2] ? Number(monthMatch[2]) : now.getFullYear();
-  const monthLabel = monthNames[monthIndex];
-  return {
-    year,
-    month: monthIndex,
-    label: `${monthLabel[0].toUpperCase()}${monthLabel.slice(1)} ${year}`,
-  };
 }
 
 /**
@@ -543,43 +358,36 @@ export async function handleReportsCommand(sock, sender, normalizedText, user) {
       return true;
     }
 
-    // Handle month commands - fetch all saved records newest first.
-    const monthQuery = parseMonthQuery(lowerText);
-    if (monthQuery) {
-      const monthEntries = getStoredEntriesForBus(selectedBus).filter(
-        ({ date }) =>
-          date.getFullYear() === monthQuery.year &&
-          date.getMonth() === monthQuery.month
-      );
+    // Handle "this month" command - fetch all records for current month
+    if (lowerText === "this month") {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
 
-      if (monthEntries.length === 0) {
-        await safeSendMessage(sock, sender, {
-          text: `⚠️ No records found for *${selectedBus}* in *${monthQuery.label}*.`,
-        });
-        return true;
-      }
+      let foundCount = 0;
 
-      for (let index = 0; index < monthEntries.length; index++) {
-        const { record, date } = monthEntries[index];
-        await sendFetchedRecord(
-          sock,
-          sender,
-          record,
-          `✅ ${monthQuery.label} - Entry ${index + 1} of ${monthEntries.length}`
-        );
+      for (let d = new Date(firstDay); d <= lastDay; d.setDate(d.getDate() + 1)) {
+        const record = getRecordForBusAndDate(selectedBus, d);
 
-        if (index < monthEntries.length - 1) {
-          try {
-            if (sock.presenceSubscribe) await sock.presenceSubscribe(sender);
-            if (sock.sendPresenceUpdate) {
-              await sock.sendPresenceUpdate("composing", sender);
-              await new Promise((resolve) => setTimeout(resolve, 1200));
-              await sock.sendPresenceUpdate("paused", sender);
-            }
-          } catch (err) {
-            // Presence updates are optional and should not block report delivery.
+        if (record) {
+          foundCount++;
+          await sendFetchedRecord(sock, sender, record);
+          
+          if (sock.presenceSubscribe) await sock.presenceSubscribe(sender);
+          if (sock.sendPresenceUpdate) {
+            await sock.sendPresenceUpdate("composing", sender);
+            await new Promise((r) => setTimeout(r, 1200));
+            await sock.sendPresenceUpdate("paused", sender);
           }
         }
+      }
+
+      if (foundCount === 0) {
+        await safeSendMessage(sock, sender, {
+          text: `⚠️ No records found for *${selectedBus}* this month.`,
+        });
       }
 
       return true;

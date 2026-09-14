@@ -1,1 +1,0 @@
-- [Baileys package firewall](baileys-package-firewall.md) — the imported pinned release may be blocked; use the package manager's latest-safe-version recovery path.

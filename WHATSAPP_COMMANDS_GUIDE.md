@@ -69,43 +69,6 @@ Quick Actions:
 
 ---
 
-## 📈 COMBINED REPORT FEATURE
-
-### Navigation
-
-```
-Entry → Bus Selection → Select Bus → Report
-```
-
-The Report section combines Daily and Booking data for the selected bus and
-calculates collections, expenses, net profit, and average profit per day.
-
-### Average Commands
-
-```
-Average Today
-Average This Week
-Average This Month
-Average This Year
-Average July
-Average July 2025
-Average 1 Sept to 15 Sept
-Average 1 Sept 2025 to 15 Sept
-Average 1 Sept 2025 to 15 Sept 2025
-Average 01/09/2025 to 15/09/2025
-```
-
-For a month without a year, the current year is used. For a date range, if
-only one year is provided, it is applied to both dates. If both dates include
-a year, each date uses its specified year.
-
-Each average report includes separate Daily and Booking sections plus an
-Overall section with total collection, total expenses, net profit, working
-days,
-and average profit per day.
-
----
-
 ## 📊 DAILY FEATURE
 
 ### 1. Submit Daily Report
@@ -163,9 +126,6 @@ Fetch existing records by:
 today
 yesterday
 last 7
-entries
-entries 10
-last 10 entries
 15/11/2025
 10/11/2025 to 15/11/2025
 ```
@@ -174,11 +134,6 @@ last 10 entries
 - `today` - Today's record
 - `yesterday` - Yesterday's record
 - `last [N]` - Last N days (e.g., `last 7`, `last 30`)
-- `entries` - Last 5 saved entries, even when some dates are missing
-- `entries [N]` or `last [N] entries` - Last N saved entries
-- `this month` - All current-month entries, newest first
-- `last month` - All previous-month entries, newest first
-- `jul`, `july`, or `july 2025` - All entries for the named month, newest first
 - `DD/MM/YYYY` - Specific date
 - `DD/MM/YYYY to DD/MM/YYYY` - Date range
 
@@ -411,21 +366,9 @@ BK001
 
 **Navigation**: `Entry → Booking → Reports`
 
-View booking records one by one, newest first:
+⚠️ **This feature is currently under development.**
 
-```
-Entries
-Entries 5
-Last 5 Entries
-This Month
-Last Month
-July
-July 2025
-```
-
-`Entries` shows the latest 5 bookings by default. Each booking is sent as a
-separate WhatsApp message with customer, route, travel date, fare, advance,
-balance, status, payment history, expenses, and remarks where available.
+You'll see a message with options to exit back to Booking Menu or Main Menu.
 
 ---
 

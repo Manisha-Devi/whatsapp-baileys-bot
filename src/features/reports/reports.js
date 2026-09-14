@@ -12,26 +12,6 @@ export async function handleIncomingMessageFromReports(sock, msg) {
   const text = messageContent.trim().toLowerCase();
   
   if (text === 'help' || text === 'h') {
-    await sock.sendMessage(sender, {
-      text: `📈 *Report Commands*
-
-*Average Reports:*
-• Average Today
-• Average This Week
-• Average This Month
-• Average This Year
-• Average July
-• Average July 2025
-• Average 1 Sept to 15 Sept
-• Average 1 Sept 2025 to 15 Sept
-• Average 1 Sept 2025 to 15 Sept 2025
-• Average 01/09/2025 to 15/09/2025
-
-Year rule:
-• No year = current year
-• One year provided = applies to both dates
-• Two years provided = uses each date's year`
-    });
     return true; 
   }
 
@@ -45,76 +25,6 @@ Year rule:
   return false;
 }
 
-function getMonthIndex(monthToken) {
-  const monthNames = [
-    "january", "february", "march", "april", "may", "june",
-    "july", "august", "september", "october", "november", "december",
-  ];
-  const normalized = monthToken.toLowerCase();
-  return monthNames.findIndex((month) => month.startsWith(normalized.slice(0, 3)));
-}
-
-function createReportDate(day, monthIndex, year, endOfDay = false) {
-  const date = new Date(year, monthIndex, Number(day));
-  if (
-    date.getFullYear() !== Number(year) ||
-    date.getMonth() !== monthIndex ||
-    date.getDate() !== Number(day)
-  ) {
-    return null;
-  }
-
-  if (endOfDay) {
-    date.setHours(23, 59, 59, 999);
-  } else {
-    date.setHours(0, 0, 0, 0);
-  }
-  return date;
-}
-
-function parseAverageDateRange(text, now = new Date()) {
-  const numericMatch = text.match(
-    /^average\s+(\d{1,2})[/-](\d{1,2})[/-](\d{4})\s+to\s+(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/i
-  );
-
-  if (numericMatch) {
-    const [, startDay, startMonth, startYear, endDay, endMonth, endYear] = numericMatch;
-    const startDate = createReportDate(startDay, Number(startMonth) - 1, Number(startYear));
-    const endDate = createReportDate(endDay, Number(endMonth) - 1, Number(endYear), true);
-    if (!startDate || !endDate) return { error: "Please enter valid dates in DD/MM/YYYY format." };
-    if (startDate > endDate) return { error: "Start date cannot be after the end date." };
-    return { startDate, endDate };
-  }
-
-  const namedMatch = text.match(
-    /^average\s+(\d{1,2})\s+([a-z]{3,9})(?:\s+(\d{4}))?\s+to\s+(\d{1,2})\s+([a-z]{3,9})(?:\s+(\d{4}))?$/i
-  );
-  if (!namedMatch) return null;
-
-  const [, startDay, startMonthToken, startYearToken, endDay, endMonthToken, endYearToken] = namedMatch;
-  const startMonth = getMonthIndex(startMonthToken);
-  const endMonth = getMonthIndex(endMonthToken);
-  if (startMonth === -1 || endMonth === -1) {
-    return { error: "Please enter a valid month name, for example: *Average 1 Sept to 15 Sept*." };
-  }
-
-  const fallbackYear = now.getFullYear();
-  const sharedYear = startYearToken || endYearToken || fallbackYear;
-  const startYear = Number(startYearToken || sharedYear);
-  const endYear = Number(endYearToken || sharedYear);
-  const startDate = createReportDate(startDay, startMonth, startYear);
-  const endDate = createReportDate(endDay, endMonth, endYear, true);
-
-  if (!startDate || !endDate) {
-    return { error: "Please enter valid calendar dates in the range." };
-  }
-  if (startDate > endDate) {
-    return { error: "Start date cannot be after the end date." };
-  }
-
-  return { startDate, endDate };
-}
-
 async function handleAverageReport(sock, sender, text, state) {
   const busCode = state.selectedBus;
   let startDate = new Date(0);
@@ -122,18 +32,8 @@ async function handleAverageReport(sock, sender, text, state) {
   let periodName = "All Time";
 
   const now = new Date();
-  const dateRange = parseAverageDateRange(text, now);
 
-  if (dateRange?.error) {
-    await sock.sendMessage(sender, { text: `⚠️ ${dateRange.error}` });
-    return;
-  }
-
-  if (dateRange) {
-    startDate = dateRange.startDate;
-    endDate = dateRange.endDate;
-    periodName = `${format(startDate, 'd MMMM yyyy')} to ${format(endDate, 'd MMMM yyyy')}`;
-  } else if (text === 'average today') {
+  if (text === 'average today') {
     startDate = new Date(now);
     startDate.setHours(0, 0, 0, 0);
     endDate = new Date(now);

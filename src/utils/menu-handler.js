@@ -186,11 +186,6 @@ Update:
 • Today
 • Yesterday
 • Last [Number] Days
-• Entries - Last 5 saved entries
-• Entries [Number] - Last N saved entries
-• Last [Number] Entries
-• This Month / Last Month
-• Jan / January / July 2025
 • [Date]
 • [Date] to [Date]
 • This [X]
@@ -338,8 +333,6 @@ View your daily reports using various formats:
 • *11/10/2025* - View specific date
 • *11/10/2025 to 15/10/2025* - Date range
 • *This Month* - Current month reports
-• *Last Month* - Previous month reports
-• *Jul* or *July* - All entries for that month
 • *This Week* - Current week reports
 • *6 Days Ago* - View report from 6 days ago
 
@@ -370,9 +363,6 @@ View your booking reports using various formats:
 • *11/10/2025* - View specific date
 • *11/10/2025 to 15/10/2025* - Date range
 • *This Month* - Current month bookings
-• *Last Month* - Previous month bookings
-• *Entries 5* or *Last 5 Entries* - Latest 5 bookings
-• *Jul* or *July* - All bookings for that month
 • *This Week* - Current week bookings
 
 *Other Commands:*
@@ -697,15 +687,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
       const menuText = `📈 *Reports* (*${regNumber}*)
 
-Enter Average Command:
-
-• Average Today
-• Average This Month
-• Average July 2025
-• Average 1 Sept to 15 Sept
-• Average 1 Sept 2025 to 15 Sept
-• Average 1 Sept 2025 to 15 Sept 2025
-• Type *Help* for all commands
+Enter Average Command (e.g., Average Today, Average Nov):
 
 🔙 Reply *Exit* or *E* - to go back to Main Menu
 
