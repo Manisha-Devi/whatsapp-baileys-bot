@@ -132,6 +132,8 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
                 `• Trip Driver [Amount]\n` +
                 `• Trip Conductor [Amount]\n\n` +
                 `*Commands for Reports:*\n` +
+                 `• Last [N] entries\n` +
+                 `• From [date] to [date]\n` +
                 `• Today / Yesterday\n` +
                 `• This Week / This Month\n` +
                 `• [DD/MM/YYYY]\n` +
@@ -186,6 +188,8 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
                 `• booking Trip Driver [Amount]\n` +
                 `• booking Trip Conductor [Amount]\n\n` +
                 `*Commands for Reports:*\n` +
+                 `• booking Last [N] entries\n` +
+                 `• booking From [date] to [date]\n` +
                 `• booking Today / booking Yesterday\n` +
                 `• booking This Week / booking This Month\n` +
                 `• booking [DD/MM/YYYY]\n` +
@@ -215,14 +219,6 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
     const userSession = global.bookingData?.[sender];
     const handledDelete = await handleDeleteCommand(sock, sender, text, userSession);
     if (handledDelete) return;
-
-    // Check if user is in booking reports mode (feature under development)
-    if (menuState.mode === 'booking' && menuState.submode === 'reports') {
-      await safeSendMessage(sock, sender, {
-        text: "📊 *Booking Reports*\n\n⚠️ This feature is currently under development.\n\nPlease use the following options for now:\n• Reply *Exit* to go back to Booking Menu\n• Reply *Entry* to go to Main Menu"
-      });
-      return;
-    }
 
     // Initialize global booking data storage if not exists
     if (!global.bookingData) global.bookingData = {};
