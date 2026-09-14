@@ -5,11 +5,13 @@
  * those operations are implemented. Salary reporting is read-only and uses
  * employee.json plus daily/booking employee salary expenses.
  */
-import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parse } from "date-fns";
+import fs from "fs";
+import { format, startOfMonth, endOfMonth, addMonths, isWithinInterval, parse } from "date-fns";
 import dailyDb, { bookingsDb } from "../../utils/db.js";
 import { getEmployees } from "../../utils/employees.js";
 
 const DAILY_SALARY_TYPE = "dailySalary";
+const CUT_OFF_FILE = "./src/data/cutt-off.json";
 
 function getAmount(value) {
   return Number(value?.amount ?? value) || 0;
@@ -64,6 +66,35 @@ function formatRupees(amount) {
 function formatSignedRupees(amount) {
   if (amount === 0) return "₹0";
   return `${amount > 0 ? "+" : "-"}${formatRupees(amount)}`;
+}
+
+function loadCutOffData() {
+  try {
+    if (!fs.existsSync(CUT_OFF_FILE)) return { cutOffs: [] };
+    return JSON.parse(fs.readFileSync(CUT_OFF_FILE, "utf-8"));
+  } catch (error) {
+    console.error("❌ Error loading employee cut-off data:", error);
+    return { cutOffs: [] };
+  }
+}
+
+function getCutOffForEmployee(employee) {
+  const cutOffData = loadCutOffData();
+  return (cutOffData.cutOffs || []).find(
+    (cutOff) => cutOff.employeeCode === employee.id
+  ) || null;
+}
+
+function parseCutOffMonth(cutOffMonth) {
+  if (!/^\d{4}-\d{2}$/.test(cutOffMonth || "")) return null;
+  const [year, month] = cutOffMonth.split("-").map(Number);
+  if (month < 1 || month > 12) return null;
+  return new Date(year, month - 1, 1);
+}
+
+function getBusNumber(busCode) {
+  const match = String(busCode || "").match(/(\d+)$/);
+  return match ? match[1] : busCode || "N/A";
 }
 
 async function collectEmployeePayments(db, busCode, startDate, endDate) {
@@ -130,7 +161,7 @@ function getSalaryPeriod(text, now = new Date()) {
   let monthDate = startOfMonth(now);
 
   if (normalized.includes("last month")) {
-    monthDate = startOfMonth(subMonths(now, 1));
+    monthDate = startOfMonth(addMonths(now, -1));
   } else {
     const monthMatch = normalized.match(
       /(?:salary\s+)?(?:this month|month)?\s*(\d{1,2})[/-](\d{4})$/
@@ -165,17 +196,11 @@ function getSalaryPeriod(text, now = new Date()) {
 export async function sendEmployeeSalaryReport(sock, sender, state, command = "salary") {
   const busCode = state.selectedBus;
   const currentPeriod = getSalaryPeriod(command);
-  const lastMonthDate = startOfMonth(subMonths(currentPeriod.startDate, 1));
-  const lastPeriod = {
-    startDate: lastMonthDate,
-    endDate: endOfMonth(lastMonthDate),
-  };
   const { startDate, endDate, label } = currentPeriod;
   const employees = getEmployees().filter(
     (employee) =>
       employee.busCode === busCode &&
-      employee.status === "Active" &&
-      Number(employee.salary) > 0
+      employee.status === "Active"
   );
 
   const [dailyPayments, bookingPayments, lastDailyPayments, lastBookingPayments] = await Promise.all([
