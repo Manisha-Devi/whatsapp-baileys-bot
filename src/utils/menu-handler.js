@@ -1,8 +1,5 @@
 import { handleIncomingMessageFromReports } from '../features/reports/reports.js';
-import {
-  sendEmployeeSalaryReport,
-  sendEmployeeSalaryDemo,
-} from '../features/employees/employee.js';
+import { sendEmployeeSalaryReport } from '../features/employees/employee.js';
 import { getEmployees } from './employees.js';
 import { 
   getMenuState, 
@@ -56,7 +53,7 @@ Type your choice:`;
 /**
  * Display the Employee submenu.
  * Add, Update, and Delete are intentionally unavailable until CRUD support
- * is implemented. Salary and its safe demo are the active options.
+ * is implemented. Salary is currently the only active option.
  */
 export function showEmployeeSubmenu(sock, sender) {
   const state = getMenuState(sender);
@@ -72,7 +69,6 @@ Select an option:
 4️⃣ *Salary* - View employee salary report
 
 Reply *Salary* or *4* to select an employee and view salary.
-Reply *Demo* to see a calculated example with dummy data.
 Reply *Exit* or *E* to go back to Main Menu.`;
 
   return sock.sendMessage(sender, { text: menuText });
@@ -170,8 +166,6 @@ export function showSelectedEmployeeMenu(sock, sender) {
     `Status: ${employee.status || "Unknown"}`,
     "",
     "Enter a month command to view that month's calculation.",
-    "Reply *Demo* to see a working calculation with dummy data.",
-    "Reply *Employee Details* to view the employee profile.",
     "Reply *Exit* to return to Main Menu.",
   ];
 
@@ -892,11 +886,6 @@ Type your choice:`;
     // Handle navigation within mode menus (submenu selection)
     if (state.mode === 'employee') {
       if (state.employeeView === "salary-list") {
-        if (lowerText === "demo" || lowerText === "example") {
-          await sendEmployeeSalaryDemo(sock, sender, state);
-          return true;
-        }
-
         const selectedIndex = Number.parseInt(lowerText, 10) - 1;
         if (
           Number.isInteger(selectedIndex) &&
@@ -914,11 +903,6 @@ Type your choice:`;
       }
 
       if (state.employeeView === "employee-months") {
-        if (lowerText === "demo" || lowerText === "example") {
-          await sendEmployeeSalaryDemo(sock, sender, state);
-          return true;
-        }
-
         if (lowerText === "employee details") {
           const employee = getSelectedEmployee(state);
           if (employee) {
