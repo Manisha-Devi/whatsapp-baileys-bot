@@ -1,7 +1,6 @@
 import { handleIncomingMessageFromReports } from '../features/reports/reports.js';
 import { sendEmployeeSalaryReport } from '../features/employees/employee.js';
 import { getEmployees } from './employees.js';
-import { format, subMonths } from 'date-fns';
 import { 
   getMenuState, 
   setMenuMode, 
@@ -90,6 +89,20 @@ function getSelectedEmployee(state) {
   );
 }
 
+function isEmployeeMonthCommand(text) {
+  const normalized = text.replace(/^salary\s+/, "").trim();
+  if (normalized === "this month" || normalized === "last month") return true;
+  if (/^\d{1,2}[/-]\d{4}$/.test(normalized)) return true;
+
+  const match = normalized.match(/^([a-z]{3,9})(?:\s+\d{4})?$/);
+  if (!match) return false;
+
+  return [
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december",
+  ].some((month) => month.startsWith(match[1].slice(0, 3)));
+}
+
 export function showEmployeeSalaryList(sock, sender) {
   const state = getMenuState(sender);
   const employees = getEmployees().filter(
@@ -144,12 +157,6 @@ export function showSelectedEmployeeMenu(sock, sender) {
     return showEmployeeSalaryList(sock, sender);
   }
 
-  const monthOptions = Array.from({ length: 13 }, (_, index) => {
-    const month = subMonths(new Date(), index);
-    const label = format(month, "MMMM yyyy");
-    return { label, command: `salary ${label}` };
-  });
-  state.employeeMonthOptions = monthOptions;
   state.employeeView = "employee-months";
 
   const lines = [
@@ -158,11 +165,14 @@ export function showSelectedEmployeeMenu(sock, sender) {
     `Role: ${employee.role || "Employee"}`,
     `Status: ${employee.status || "Unknown"}`,
     "",
-    "Select an option:",
-    "1️⃣ Employee Details",
-    ...monthOptions.map((option, index) => `${index + 2}️⃣ ${option.label}`),
+    "Next Commands:",
+    "• Employee Details",
+    "• Sep / Sept",
+    "• September 2026",
+    "• Sep 2025",
+    "• June 2026",
     "",
-    "Reply with a number.",
+    "Enter a month command to view that month's calculation.",
     "Reply *Exit* to return to Main Menu.",
   ];
 
@@ -900,7 +910,7 @@ Type your choice:`;
       }
 
       if (state.employeeView === "employee-months") {
-        if (lowerText === "1" || lowerText === "employee details") {
+        if (lowerText === "employee details") {
           const employee = getSelectedEmployee(state);
           if (employee) {
             await sendEmployeeDetails(sock, sender, employee);
@@ -910,34 +920,19 @@ Type your choice:`;
           return true;
         }
 
-        const monthIndex = Number.parseInt(lowerText, 10) - 2;
-        let monthCommand = null;
-        if (
-          Number.isInteger(monthIndex) &&
-          monthIndex >= 0 &&
-          monthIndex < state.employeeMonthOptions.length
-        ) {
-          monthCommand = state.employeeMonthOptions[monthIndex].command;
-        } else {
-          const monthOption = state.employeeMonthOptions.find(
-            (option) => option.label.toLowerCase() === lowerText
-          );
-          if (monthOption) monthCommand = monthOption.command;
-        }
-
-        if (monthCommand) {
+        if (isEmployeeMonthCommand(lowerText)) {
           await sendEmployeeSalaryReport(
             sock,
             sender,
             state,
-            monthCommand,
+            lowerText.startsWith("salary ") ? lowerText : `salary ${lowerText}`,
             state.selectedEmployeeId
           );
           return true;
         }
 
         await sock.sendMessage(sender, {
-          text: "⚠️ Invalid selection. Reply *1* for Employee Details or choose one of the displayed months.",
+          text: "⚠️ Invalid command. Reply *Employee Details*, *Sep*, *September 2026*, or another month command.",
         });
         return true;
       }

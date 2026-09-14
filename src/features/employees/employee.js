@@ -167,7 +167,7 @@ function getSalaryPeriod(text, now = new Date()) {
       /(?:salary\s+)?(?:this month|month)?\s*(\d{1,2})[/-](\d{4})$/
     );
     const namedMonthMatch = normalized.match(
-      /(?:salary\s+)?(?:this month|month)?\s*([a-z]{3,9})\s+(\d{4})$/
+      /(?:salary\s+)?(?:this month|month)?\s*([a-z]{3,9})(?:\s+(\d{4}))?$/
     );
 
     if (monthMatch) {
@@ -181,7 +181,11 @@ function getSalaryPeriod(text, now = new Date()) {
       ].findIndex((month) => month.startsWith(namedMonthMatch[1].slice(0, 3)));
 
       if (monthIndex !== -1) {
-        monthDate = new Date(Number(namedMonthMatch[2]), monthIndex, 1);
+        monthDate = new Date(
+          Number(namedMonthMatch[2] || now.getFullYear()),
+          monthIndex,
+          1
+        );
       }
     }
   }
