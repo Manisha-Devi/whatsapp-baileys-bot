@@ -72,6 +72,10 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
       }
     }
 
+    // Ignore extra periods and colons in daily data-entry commands.
+    // Keep the original text for report/date commands that may use punctuation.
+    const fieldInput = normalizedText.replace(/[.:]/g, "");
+
     // Get the currently selected bus from menu state
     const menuState = getMenuState(sender);
     const selectedBus = menuState.selectedBus;
@@ -226,15 +230,15 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     if (handledEmployeeDelete) return;
 
     // Handle remarks entry (remarks [text])
-    const handledRemarks = await handleRemarksCommand(sock, sender, normalizedText, user);
+    const handledRemarks = await handleRemarksCommand(sock, sender, fieldInput, user);
     if (handledRemarks) return;
 
     // Handle employee expense entry (driver 250, conductor 150)
-    const handledEmployeeExpense = await handleEmployeeExpenseCommand(sock, sender, normalizedText, user);
+    const handledEmployeeExpense = await handleEmployeeExpenseCommand(sock, sender, fieldInput, user);
     if (handledEmployeeExpense) return;
 
     // Handle generic expense commands (diesel, adda, union)
-    const handledExpenseCmd = await handleExpenseCommand(sock, sender, normalizedText, user);
+    const handledExpenseCmd = await handleExpenseCommand(sock, sender, fieldInput, user);
     if (handledExpenseCmd) return;
 
     // Handle field update confirmation (must come BEFORE submit to prevent submit from catching Yes/No)
@@ -243,7 +247,7 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
 
     // Handle field extraction from multi-line input
     // Extracts fields like "Dated 15/11/2025", "Diesel 5000", etc.
-    const fieldResult = await handleFieldExtraction(sock, sender, normalizedText, user);
+    const fieldResult = await handleFieldExtraction(sock, sender, fieldInput, user);
     if (fieldResult.handled) return;
 
     // Handle submit command
