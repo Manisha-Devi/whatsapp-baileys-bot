@@ -111,6 +111,14 @@ async function sendLabInteractive(sock, sender, text, interactiveButtons, title 
     additionalNodes.push({ tag: "bot", attrs: { biz_bot: "1" } });
   }
 
+  // Match the document-with-caption compatibility wrapper used by the
+  // Baileys native-flow relay helper for linked-device chats.
+  message.message = {
+    documentWithCaptionMessage: {
+      message: { ...message.message }
+    }
+  };
+
   await sock.relayMessage(sender, message.message, {
     messageId: message.key.id,
     additionalNodes
