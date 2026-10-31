@@ -27,6 +27,47 @@ import {
  * @param {Object} sock - The WhatsApp socket connection
  * @param {string} sender - The WhatsApp sender ID
  */
+/**
+ * Interactive messaging demo shown only from the Test menu.
+ * Uses native WhatsApp quick replies and a single-select list.
+ */
+async function showInteractiveTestMenu(sock, sender) {
+  return sock.sendMessage(sender, {
+    interactiveMessage: {
+      header: { title: "WhatsApp Interactive Test", hasMediaAttachment: false },
+      body: { text: "Choose an option below to test native interactive messaging." },
+      footer: { text: "Sukoon Bot • Test Menu" },
+      nativeFlowMessage: {
+        buttons: [
+          {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({ display_text: "Quick Reply 1", id: "test_quick_1" })
+          },
+          {
+            name: "quick_reply",
+            buttonParamsJson: JSON.stringify({ display_text: "Quick Reply 2", id: "test_quick_2" })
+          },
+          {
+            name: "single_select",
+            buttonParamsJson: JSON.stringify({
+              title: "More Test Options",
+              sections: [{
+                title: "Interactive List",
+                rows: [
+                  { title: "List Option 1", description: "Test first list response", id: "test_list_1" },
+                  { title: "List Option 2", description: "Test second list response", id: "test_list_2" },
+                  { title: "Back to Main Menu", description: "Return to the bot menu", id: "test_back" }
+                ]
+              }]
+            })
+          }
+        ],
+        messageParamsJson: ""
+      }
+    }
+  });
+}
+
 export function showMainMenu(sock, sender) {
   const state = getMenuState(sender);
   const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
@@ -684,9 +725,24 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
     if (resolvedCommand === 'test') {
+      await showInteractiveTestMenu(sock, sender);
+      return true;
+    }
+    if (lowerText.startsWith('test_')) {
+      const testReplies = {
+        test_quick_1: "✅ Quick Reply 1 received successfully.",
+        test_quick_2: "✅ Quick Reply 2 received successfully.",
+        test_list_1: "✅ Interactive List Option 1 received successfully.",
+        test_list_2: "✅ Interactive List Option 2 received successfully."
+      };
+      if (lowerText === 'test_back') {
+        await showMainMenu(sock, sender);
+        return true;
+      }
       await sock.sendMessage(sender, {
-        text: "🧪 *Test Menu*\n\n✅ Test option is working correctly.\n\nType *Menu* to return to the Main Menu."
+        text: testReplies[lowerText] || "⚠️ Unknown test selection."
       });
+      await showInteractiveTestMenu(sock, sender);
       return true;
     }
     if (resolvedCommand === 'reports') {
