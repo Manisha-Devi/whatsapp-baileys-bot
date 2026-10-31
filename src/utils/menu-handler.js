@@ -28,39 +28,85 @@ import {
  * @param {string} sender - The WhatsApp sender ID
  */
 /**
- * Interactive messaging demo shown only from the Test menu.
- * Uses native WhatsApp quick replies and a single-select list.
+ * Interactive messaging lab. Each native-flow control is isolated so its
+ * WhatsApp rendering and response can be tested independently.
  */
 async function showInteractiveTestMenu(sock, sender) {
   return sock.sendMessage(sender, {
     interactiveMessage: {
-      header: { title: "WhatsApp Interactive Test", hasMediaAttachment: false },
-      body: { text: "Choose an option below to test native interactive messaging." },
-      footer: { text: "Sukoon Bot • Test Menu" },
+      header: { title: "Interactive Messaging Lab", hasMediaAttachment: false },
+      body: { text: "Test quick replies, single-select lists and CTA buttons. Select a test below." },
+      footer: { text: "Sukoon Bot • Interactive Lab" },
       nativeFlowMessage: {
         buttons: [
-          {
-            name: "quick_reply",
-            buttonParamsJson: JSON.stringify({ display_text: "Quick Reply 1", id: "test_quick_1" })
-          },
-          {
-            name: "quick_reply",
-            buttonParamsJson: JSON.stringify({ display_text: "Quick Reply 2", id: "test_quick_2" })
-          },
+          { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Quick Reply A", id: "test_quick_a" }) },
+          { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Quick Reply B", id: "test_quick_b" }) },
           {
             name: "single_select",
             buttonParamsJson: JSON.stringify({
-              title: "More Test Options",
-              sections: [{
-                title: "Interactive List",
-                rows: [
-                  { title: "List Option 1", description: "Test first list response", id: "test_list_1" },
-                  { title: "List Option 2", description: "Test second list response", id: "test_list_2" },
-                  { title: "Back to Main Menu", description: "Return to the bot menu", id: "test_back" }
-                ]
-              }]
+              title: "All Interactive Tests",
+              sections: [
+                {
+                  title: "Reply Controls",
+                  rows: [
+                    { title: "Single-select list", description: "List with multiple sections and rows", id: "test_list_demo" },
+                    { title: "Quick reply tests", description: "Return to the quick reply screen", id: "test_quick_demo" }
+                  ]
+                },
+                {
+                  title: "Call-to-action Controls",
+                  rows: [
+                    { title: "Open URL button", description: "Test cta_url", id: "test_cta_url" },
+                    { title: "Copy code button", description: "Test cta_copy", id: "test_cta_copy" },
+                    { title: "Call phone button", description: "Test cta_call", id: "test_cta_call" }
+                  ]
+                },
+                {
+                  title: "Navigation",
+                  rows: [
+                    { title: "Back to Main Menu", description: "Exit interactive lab", id: "test_back" }
+                  ]
+                }
+              ]
             })
           }
+        ],
+        messageParamsJson: ""
+      }
+    }
+  });
+}
+
+async function showInteractiveCtaTest(sock, sender, type) {
+  const tests = {
+    test_cta_url: {
+      title: "CTA URL Test",
+      body: "Tap the button to open the sample Sukoon website. This action opens a link; it does not send a reply to the bot.",
+      button: { name: "cta_url", params: { display_text: "Open Example Website", url: "https://example.com", merchant_url: "https://example.com" } }
+    },
+    test_cta_copy: {
+      title: "CTA Copy Test",
+      body: "Tap the button to copy this sample test code to your clipboard.",
+      button: { name: "cta_copy", params: { display_text: "Copy Test Code", copy_code: "SUKOON-TEST-123" } }
+    },
+    test_cta_call: {
+      title: "CTA Call Test",
+      body: "Tap the button to start a call to the sample number. Check the displayed number before confirming the call.",
+      button: { name: "cta_call", params: { display_text: "Call Test Number", phone_number: "+911234567890" } }
+    }
+  };
+  const test = tests[type];
+  if (!test) return showInteractiveTestMenu(sock, sender);
+
+  return sock.sendMessage(sender, {
+    interactiveMessage: {
+      header: { title: test.title, hasMediaAttachment: false },
+      body: { text: test.body },
+      footer: { text: "CTA test • Use Back to Lab to continue" },
+      nativeFlowMessage: {
+        buttons: [
+          { name: test.button.name, buttonParamsJson: JSON.stringify(test.button.params) },
+          { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Back to Lab", id: "test_quick_demo" }) }
         ],
         messageParamsJson: ""
       }
@@ -730,18 +776,25 @@ export async function handleMenuNavigation(sock, sender, text) {
     }
     if (lowerText.startsWith('test_')) {
       const testReplies = {
-        test_quick_1: "✅ Quick Reply 1 received successfully.",
-        test_quick_2: "✅ Quick Reply 2 received successfully.",
-        test_list_1: "✅ Interactive List Option 1 received successfully.",
-        test_list_2: "✅ Interactive List Option 2 received successfully."
+        test_quick_a: "✅ Quick Reply A received successfully. Incoming quick-reply ID parsing works.",
+        test_quick_b: "✅ Quick Reply B received successfully. Incoming quick-reply ID parsing works.",
+        test_list_demo: "✅ Single-select list selection received successfully.",
+        test_list_1: "✅ List row 1 received successfully.",
+        test_list_2: "✅ List row 2 received successfully.",
+        test_quick_demo: "✅ Quick reply navigation received successfully."
       };
+
       if (lowerText === 'test_back') {
         await showMainMenu(sock, sender);
         return true;
       }
-      await sock.sendMessage(sender, {
-        text: testReplies[lowerText] || "⚠️ Unknown test selection."
-      });
+
+      if (['test_cta_url', 'test_cta_copy', 'test_cta_call'].includes(lowerText)) {
+        await showInteractiveCtaTest(sock, sender, lowerText);
+        return true;
+      }
+
+      await sock.sendMessage(sender, { text: testReplies[lowerText] || "⚠️ Unknown test selection." });
       await showInteractiveTestMenu(sock, sender);
       return true;
     }
