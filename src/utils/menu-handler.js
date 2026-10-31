@@ -925,7 +925,16 @@ export async function handleMenuNavigation(sock, sender, text) {
           { title: "Option One", id: "test_list_1" }, { title: "Option Two", id: "test_list_2" }
         ]}]}) }
       ]); return true; }
-      if (lowerText === "5") { await showInteractiveCtaTest(sock, sender, "test_cta_url"); return true; }
+      if (lowerText === "5") {
+        await sendLabInteractive(sock, sender, "Choose a CTA button to test.", [
+          { name: "single_select", buttonParamsJson: JSON.stringify({ title: "CTA Button Tests", sections: [{ title: "Call to Action", rows: [
+            { title: "Open URL", id: "test_cta_url" },
+            { title: "Copy Code", id: "test_cta_copy" },
+            { title: "Call Phone", id: "test_cta_call" }
+          ]}]}) }
+        ]);
+        return true;
+      }
       if (lowerText === "6") { interactiveLabSessions.delete(sender); locationTestSessions.delete(sender); await showMainMenu(sock, sender); return true; }
     }
 
