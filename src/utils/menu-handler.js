@@ -1,4 +1,5 @@
 import baileysInteractive from 'zqbaileys_helper';
+import { generateWAMessageFromContent } from '@whiskeysockets/baileys';
 const { sendInteractiveMessage } = baileysInteractive;
 
 import { handleIncomingMessageFromReports } from '../features/reports/reports.js';
@@ -161,13 +162,28 @@ async function sendLocationExample(sock, sender, live = false) {
   };
 
   if (live) {
-    await sock.sendMessage(sender, {
-      location: coordinates,
-      live: true,
-      caption: "🟢 Live Location example. This uses sample coordinates; it does not track or update a real device's movement."
+    // Baileys' live-location wire type is liveLocationMessage, not a normal
+    // locationMessage with an undocumented "live" flag.
+    const liveMessage = generateWAMessageFromContent(
+      sender,
+      {
+        liveLocationMessage: {
+          degreesLatitude: coordinates.degreesLatitude,
+          degreesLongitude: coordinates.degreesLongitude,
+          accuracyInMeters: coordinates.accuracyInMeters,
+          speedInMps: 0,
+          sequenceNumber: 1,
+          timeOffset: 0,
+          caption: "Sukoon Interactive Lab • Sample Live Location"
+        }
+      },
+      { userJid: sock.user?.id }
+    );
+    await sock.relayMessage(sender, liveMessage.message, {
+      messageId: liveMessage.key.id
     });
     await sock.sendMessage(sender, {
-      text: "✅ Live Location sample payload sent. Note: this test uses fixed sample coordinates, not a continuous GPS feed."
+      text: "✅ Live Location message sent using Baileys' liveLocationMessage payload. These are fixed sample coordinates; continuous GPS movement updates are not simulated."
     });
   } else {
     await sock.sendMessage(sender, {
