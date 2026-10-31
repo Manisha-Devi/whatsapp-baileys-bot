@@ -1,3 +1,6 @@
+import baileysInteractive from 'zqbaileys_helper';
+const { sendInteractiveMessage } = baileysInteractive;
+
 import { handleIncomingMessageFromReports } from '../features/reports/reports.js';
 import { 
   getMenuState, 
@@ -28,89 +31,176 @@ import {
  * @param {string} sender - The WhatsApp sender ID
  */
 /**
- * Interactive messaging lab. Each native-flow control is isolated so its
- * WhatsApp rendering and response can be tested independently.
+ * Interactive Messaging Lab session tracking.
+ * Location messages are only interpreted as lab test replies while the user is in the lab.
+ */
+const interactiveLabSessions = new Set();
+
+export function isInteractiveLabActive(sender) {
+  return interactiveLabSessions.has(sender);
+}
+
+async function sendLabInteractive(sock, sender, text, interactiveButtons, title = "Interactive Messaging Lab") {
+  return sendInteractiveMessage(sock, sender, {
+    title,
+    text,
+    footer: "Sukoon Bot • Interactive Messaging Lab",
+    interactiveButtons
+  });
+}
+
+/**
+ * Send the complete interactive lab menu using the Baileys native-flow relay helper.
  */
 async function showInteractiveTestMenu(sock, sender) {
-  return sock.sendMessage(sender, {
-    interactiveMessage: {
-      header: { title: "Interactive Messaging Lab", hasMediaAttachment: false },
-      body: { text: "Test quick replies, single-select lists and CTA buttons. Select a test below." },
-      footer: { text: "Sukoon Bot • Interactive Lab" },
-      nativeFlowMessage: {
-        buttons: [
-          { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Quick Reply A", id: "test_quick_a" }) },
-          { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Quick Reply B", id: "test_quick_b" }) },
+  const interactiveButtons = [
+    { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Quick Reply A", id: "test_quick_a" }) },
+    { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Quick Reply B", id: "test_quick_b" }) },
+    {
+      name: "single_select",
+      buttonParamsJson: JSON.stringify({
+        title: "Choose an Interactive Test",
+        sections: [
           {
-            name: "single_select",
-            buttonParamsJson: JSON.stringify({
-              title: "All Interactive Tests",
-              sections: [
-                {
-                  title: "Reply Controls",
-                  rows: [
-                    { title: "Single-select list", description: "List with multiple sections and rows", id: "test_list_demo" },
-                    { title: "Quick reply tests", description: "Return to the quick reply screen", id: "test_quick_demo" }
-                  ]
-                },
-                {
-                  title: "Call-to-action Controls",
-                  rows: [
-                    { title: "Open URL button", description: "Test cta_url", id: "test_cta_url" },
-                    { title: "Copy code button", description: "Test cta_copy", id: "test_cta_copy" },
-                    { title: "Call phone button", description: "Test cta_call", id: "test_cta_call" }
-                  ]
-                },
-                {
-                  title: "Navigation",
-                  rows: [
-                    { title: "Back to Main Menu", description: "Exit interactive lab", id: "test_back" }
-                  ]
-                }
-              ]
-            })
+            title: "Reply Controls",
+            rows: [
+              { title: "Single Select List", description: "Test list selection and response parsing", id: "test_list_demo" },
+              { title: "Quick Reply Demo", description: "Return to the quick reply menu", id: "test_quick_demo" }
+            ]
+          },
+          {
+            title: "Location Examples",
+            rows: [
+              { title: "Normal Location", description: "Send one fixed map pin", id: "test_location_normal" },
+              { title: "Live Location", description: "Send a live-location-style sample payload", id: "test_location_live" },
+              { title: "Request Location", description: "Experimental WhatsApp location request button", id: "test_location_request" }
+            ]
+          },
+          {
+            title: "Call-to-action Buttons",
+            rows: [
+              { title: "Open URL", description: "Test cta_url", id: "test_cta_url" },
+              { title: "Copy Code", description: "Test cta_copy", id: "test_cta_copy" },
+              { title: "Call Phone", description: "Test cta_call (sample number)", id: "test_cta_call" }
+            ]
+          },
+          {
+            title: "Navigation",
+            rows: [
+              { title: "Back to Main Menu", description: "Exit the interactive lab", id: "test_back" }
+            ]
           }
-        ],
-        messageParamsJson: ""
-      }
+        ]
+      })
     }
-  });
+  ];
+
+  return sendLabInteractive(
+    sock,
+    sender,
+    "🧪 Interactive Messaging Lab is ready. Use the quick replies or open the list to test reply controls, location messages and CTA buttons.",
+    interactiveButtons
+  );
+}
+
+async function showInteractiveLocationRequest(sock, sender) {
+  return sendLabInteractive(
+    sock,
+    sender,
+    "📍 Location Request Test. Tap Share Location if your WhatsApp client supports this experimental native-flow control. You can also share your location manually using the attachment menu.",
+    [
+      { name: "send_location", buttonParamsJson: JSON.stringify({ display_text: "Share Location" }) },
+      { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Back to Lab", id: "test_quick_demo" }) }
+    ],
+    "Location Request Test"
+  );
 }
 
 async function showInteractiveCtaTest(sock, sender, type) {
   const tests = {
     test_cta_url: {
       title: "CTA URL Test",
-      body: "Tap the button to open the sample Sukoon website. This action opens a link; it does not send a reply to the bot.",
+      body: "Tap the button to open the sample website. Opening the link does not send a reply to the bot.",
       button: { name: "cta_url", params: { display_text: "Open Example Website", url: "https://example.com", merchant_url: "https://example.com" } }
     },
     test_cta_copy: {
       title: "CTA Copy Test",
-      body: "Tap the button to copy this sample test code to your clipboard.",
+      body: "Tap the button to copy the sample test code to your clipboard.",
       button: { name: "cta_copy", params: { display_text: "Copy Test Code", copy_code: "SUKOON-TEST-123" } }
     },
     test_cta_call: {
       title: "CTA Call Test",
-      body: "Tap the button to start a call to the sample number. Check the displayed number before confirming the call.",
+      body: "Tap the button to open the phone dialler with this sample number. Review it before calling.",
       button: { name: "cta_call", params: { display_text: "Call Test Number", phone_number: "+911234567890" } }
     }
   };
+
   const test = tests[type];
   if (!test) return showInteractiveTestMenu(sock, sender);
 
-  return sock.sendMessage(sender, {
-    interactiveMessage: {
-      header: { title: test.title, hasMediaAttachment: false },
-      body: { text: test.body },
-      footer: { text: "CTA test • Use Back to Lab to continue" },
-      nativeFlowMessage: {
-        buttons: [
-          { name: test.button.name, buttonParamsJson: JSON.stringify(test.button.params) },
-          { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Back to Lab", id: "test_quick_demo" }) }
-        ],
-        messageParamsJson: ""
-      }
-    }
+  return sendLabInteractive(
+    sock,
+    sender,
+    test.body,
+    [
+      { name: test.button.name, buttonParamsJson: JSON.stringify(test.button.params) },
+      { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Back to Lab", id: "test_quick_demo" }) }
+    ],
+    test.title
+  );
+}
+
+async function sendLocationExample(sock, sender, live = false) {
+  // Demonstration coordinates only; this does not read the sender's GPS position.
+  const coordinates = {
+    degreesLatitude: 32.9790,
+    degreesLongitude: 75.7170,
+    name: live ? "Bhaderwah Live Location Test (sample)" : "Bhaderwah Location Test (sample)",
+    address: "Bhaderwah, Jammu and Kashmir",
+    accuracyInMeters: 10
+  };
+
+  if (live) {
+    await sock.sendMessage(sender, {
+      location: coordinates,
+      live: true,
+      caption: "🟢 Live Location example. This uses sample coordinates; it does not track or update a real device's movement."
+    });
+    await sock.sendMessage(sender, {
+      text: "✅ Live Location sample payload sent. Note: this test uses fixed sample coordinates, not a continuous GPS feed."
+    });
+  } else {
+    await sock.sendMessage(sender, {
+      location: coordinates
+    });
+    await sock.sendMessage(sender, {
+      text: "✅ Normal Location sent. This is one fixed map pin using sample Bhaderwah coordinates."
+    });
+  }
+
+  await showInteractiveTestMenu(sock, sender);
+}
+
+async function sendInteractiveLabFallback(sock, sender, error) {
+  console.error("Interactive Messaging Lab native-flow send failed:", error?.stack || error);
+  await sock.sendMessage(sender, {
+    text: [
+      "🧪 *Interactive Messaging Lab opened*",
+      "",
+      "WhatsApp interactive controls could not be delivered by this connection, so use these text commands:",
+      "• test_quick_a",
+      "• test_quick_b",
+      "• test_list_demo",
+      "• test_location_normal",
+      "• test_location_live",
+      "• test_location_request",
+      "• test_cta_url",
+      "• test_cta_copy",
+      "• test_cta_call",
+      "• test_back",
+      "",
+      "The text menu is available even if native-flow buttons are not supported."
+    ].join("\n")
   });
 }
 
@@ -521,7 +611,8 @@ const commandAliases = {
   'help': ['help', 'h'],
   'yes': ['yes', 'y'],
   'no': ['no', 'n'],
-  'switch': ['switch', 'sw']
+  'switch': ['switch', 'sw'],
+  'test': ['test', 't']
 };
 
 /**
@@ -771,31 +862,101 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
     if (resolvedCommand === 'test') {
-      await showInteractiveTestMenu(sock, sender);
+      interactiveLabSessions.add(sender);
+      await sock.sendMessage(sender, {
+        text: "🧪 *Interactive Messaging Lab opened successfully.*\n\nI am loading the interactive test menu now. You can test Quick Replies, Single Select Lists, CTA buttons, Normal Location and Live Location."
+      });
+      try {
+        await showInteractiveTestMenu(sock, sender);
+      } catch (error) {
+        await sendInteractiveLabFallback(sock, sender, error);
+      }
       return true;
     }
+
     if (lowerText.startsWith('test_')) {
       const testReplies = {
-        test_quick_a: "✅ Quick Reply A received successfully. Incoming quick-reply ID parsing works.",
-        test_quick_b: "✅ Quick Reply B received successfully. Incoming quick-reply ID parsing works.",
-        test_list_demo: "✅ Single-select list selection received successfully.",
+        test_quick_a: "✅ Quick Reply A received. Native-flow response parsing is working.",
+        test_quick_b: "✅ Quick Reply B received. Native-flow response parsing is working.",
+        test_list_demo: "✅ Single Select List selection received successfully.",
+        test_quick_demo: "✅ Quick Reply navigation received successfully.",
         test_list_1: "✅ List row 1 received successfully.",
-        test_list_2: "✅ List row 2 received successfully.",
-        test_quick_demo: "✅ Quick reply navigation received successfully."
+        test_list_2: "✅ List row 2 received successfully."
       };
 
       if (lowerText === 'test_back') {
+        interactiveLabSessions.delete(sender);
         await showMainMenu(sock, sender);
         return true;
       }
 
-      if (['test_cta_url', 'test_cta_copy', 'test_cta_call'].includes(lowerText)) {
-        await showInteractiveCtaTest(sock, sender, lowerText);
+      if (lowerText === 'test_location_normal') {
+        try {
+          await sendLocationExample(sock, sender, false);
+        } catch (error) {
+          console.error("Normal location test failed:", error);
+          await sock.sendMessage(sender, { text: "❌ Normal Location test failed: " + (error?.message || "Unknown error") });
+        }
         return true;
       }
 
-      await sock.sendMessage(sender, { text: testReplies[lowerText] || "⚠️ Unknown test selection." });
-      await showInteractiveTestMenu(sock, sender);
+      if (lowerText === 'test_location_live') {
+        try {
+          await sendLocationExample(sock, sender, true);
+        } catch (error) {
+          console.error("Live location test failed:", error);
+          await sock.sendMessage(sender, { text: "❌ Live Location test failed: " + (error?.message || "Unknown error") });
+        }
+        return true;
+      }
+
+      if (lowerText === 'test_location_request') {
+        try {
+          await showInteractiveLocationRequest(sock, sender);
+        } catch (error) {
+          await sock.sendMessage(sender, { text: "⚠️ Location request button is experimental or unsupported in this client. Share your location manually using 📎 > Location.\n\nError: " + (error?.message || "Unknown error") });
+        }
+        return true;
+      }
+
+      if (['test_cta_url', 'test_cta_copy', 'test_cta_call'].includes(lowerText)) {
+        try {
+          await showInteractiveCtaTest(sock, sender, lowerText);
+        } catch (error) {
+          await sock.sendMessage(sender, { text: "⚠️ CTA interactive test could not be delivered.\n\n" + (error?.message || "Unknown error") + "\n\nReply *test_quick_demo* to return to the lab." });
+        }
+        return true;
+      }
+
+      if (testReplies[lowerText]) {
+        await sock.sendMessage(sender, { text: testReplies[lowerText] });
+        try {
+          await showInteractiveTestMenu(sock, sender);
+        } catch (error) {
+          await sendInteractiveLabFallback(sock, sender, error);
+        }
+        return true;
+      }
+
+      await sock.sendMessage(sender, { text: "⚠️ Unknown test selection. Reply *test_quick_demo* to reopen the lab menu." });
+      return true;
+    }
+
+    if (lowerText.startsWith('test_location_received|') && interactiveLabSessions.has(sender)) {
+      const [, locationType, latitude, longitude, accuracy, speed] = text.split('|');
+      const live = locationType === 'live';
+      await sock.sendMessage(sender, {
+        text: [
+          live ? "📍 *Live Location update received*" : "📍 *Normal Location received*",
+          "",
+          "Latitude: " + (latitude || "Unavailable"),
+          "Longitude: " + (longitude || "Unavailable"),
+          "Accuracy: " + (accuracy || "Unavailable") + (accuracy ? " m" : ""),
+          live && speed ? "Speed: " + speed + " m/s" : "",
+          "",
+          "✅ Incoming location parser is working."
+        ].filter(Boolean).join("\n")
+      });
       return true;
     }
     if (resolvedCommand === 'reports') {
