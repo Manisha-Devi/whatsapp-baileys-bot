@@ -685,7 +685,7 @@ export async function handleMenuNavigation(sock, sender, text) {
     }
     if (resolvedCommand === 'test') {
       await sock.sendMessage(sender, {
-        text: "🧪 *Test Menu*\\n\\n✅ Test option is working correctly.\\n\\nType *Menu* to return to the Main Menu."
+        text: "🧪 *Test Menu*\n\n✅ Test option is working correctly.\n\nType *Menu* to return to the Main Menu."
       });
       return true;
     }
