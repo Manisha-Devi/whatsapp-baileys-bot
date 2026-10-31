@@ -874,6 +874,24 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
 
+    if (lowerText.startsWith('test_location_received|') && interactiveLabSessions.has(sender)) {
+      const [, locationType, latitude, longitude, accuracy, speed] = text.split('|');
+      const live = locationType === 'live';
+      await sock.sendMessage(sender, {
+        text: [
+          live ? "📍 *Live Location update received*" : "📍 *Normal Location received*",
+          "",
+          "Latitude: " + (latitude || "Unavailable"),
+          "Longitude: " + (longitude || "Unavailable"),
+          "Accuracy: " + (accuracy || "Unavailable") + (accuracy ? " m" : ""),
+          live && speed ? "Speed: " + speed + " m/s" : "",
+          "",
+          "✅ Incoming location parser is working."
+        ].filter(Boolean).join("\n")
+      });
+      return true;
+    }
+
     if (lowerText.startsWith('test_')) {
       const testReplies = {
         test_quick_a: "✅ Quick Reply A received. Native-flow response parsing is working.",
@@ -896,6 +914,7 @@ export async function handleMenuNavigation(sock, sender, text) {
         } catch (error) {
           console.error("Normal location test failed:", error);
           await sock.sendMessage(sender, { text: "❌ Normal Location test failed: " + (error?.message || "Unknown error") });
+          try { await showInteractiveTestMenu(sock, sender); } catch (menuError) { await sendInteractiveLabFallback(sock, sender, menuError); }
         }
         return true;
       }
@@ -906,6 +925,7 @@ export async function handleMenuNavigation(sock, sender, text) {
         } catch (error) {
           console.error("Live location test failed:", error);
           await sock.sendMessage(sender, { text: "❌ Live Location test failed: " + (error?.message || "Unknown error") });
+          try { await showInteractiveTestMenu(sock, sender); } catch (menuError) { await sendInteractiveLabFallback(sock, sender, menuError); }
         }
         return true;
       }
@@ -942,23 +962,6 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
 
-    if (lowerText.startsWith('test_location_received|') && interactiveLabSessions.has(sender)) {
-      const [, locationType, latitude, longitude, accuracy, speed] = text.split('|');
-      const live = locationType === 'live';
-      await sock.sendMessage(sender, {
-        text: [
-          live ? "📍 *Live Location update received*" : "📍 *Normal Location received*",
-          "",
-          "Latitude: " + (latitude || "Unavailable"),
-          "Longitude: " + (longitude || "Unavailable"),
-          "Accuracy: " + (accuracy || "Unavailable") + (accuracy ? " m" : ""),
-          live && speed ? "Speed: " + speed + " m/s" : "",
-          "",
-          "✅ Incoming location parser is working."
-        ].filter(Boolean).join("\n")
-      });
-      return true;
-    }
     if (resolvedCommand === 'reports') {
       const { setMenuMode } = await import('./menu-state.js');
       setMenuMode(sender, 'report');
