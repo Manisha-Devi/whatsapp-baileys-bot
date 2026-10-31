@@ -131,54 +131,12 @@ async function sendLabInteractive(sock, sender, text, interactiveButtons, title 
  * Send the complete interactive lab menu using the Baileys native-flow relay helper.
  */
 async function showInteractiveTestMenu(sock, sender) {
-  const interactiveButtons = [
-    { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Quick Reply A", id: "test_quick_a" }) },
-    { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Quick Reply B", id: "test_quick_b" }) },
-    {
-      name: "single_select",
-      buttonParamsJson: JSON.stringify({
-        title: "Choose an Interactive Test",
-        sections: [
-          {
-            title: "Reply Controls",
-            rows: [
-              { title: "Single Select List", description: "Test list selection and response parsing", id: "test_list_demo" },
-              { title: "Quick Reply Demo", description: "Return to the quick reply menu", id: "test_quick_demo" }
-            ]
-          },
-          {
-            title: "Location Examples",
-            rows: [
-              { title: "Normal Location", description: "Send one fixed map pin", id: "test_location_normal" },
-              { title: "Live Location", description: "Send a live-location-style sample payload", id: "test_location_live" },
-              { title: "Request Location", description: "Experimental WhatsApp location request button", id: "test_location_request" }
-            ]
-          },
-          {
-            title: "Call-to-action Buttons",
-            rows: [
-              { title: "Open URL", description: "Test cta_url", id: "test_cta_url" },
-              { title: "Copy Code", description: "Test cta_copy", id: "test_cta_copy" },
-              { title: "Call Phone", description: "Test cta_call (sample number)", id: "test_cta_call" }
-            ]
-          },
-          {
-            title: "Navigation",
-            rows: [
-              { title: "Back to Main Menu", description: "Exit the interactive lab", id: "test_back" }
-            ]
-          }
-        ]
-      })
-    }
-  ];
-
-  return sendLabInteractive(
-    sock,
-    sender,
-    "🧪 Interactive Messaging Lab is ready. Use the quick replies or open the list to test reply controls, location messages and CTA buttons.",
-    interactiveButtons
-  );
+  return sock.sendMessage(sender, { text: [
+    "🧪 *INTERACTIVE MESSAGING LAB*", "",
+    "1️⃣ Location", "2️⃣ Live Location", "3️⃣ Quick Reply",
+    "4️⃣ Single Select List", "5️⃣ CTA Buttons", "6️⃣ Back to Main Menu", "",
+    "Reply with a number (1–6)."
+  ].join("\n") });
 }
 
 async function showInteractiveLocationRequest(sock, sender) {
@@ -228,50 +186,31 @@ async function showInteractiveCtaTest(sock, sender, type) {
   );
 }
 
-async function sendLocationExample(sock, sender, live = false) {
-  // Demonstration coordinates only; this does not read the sender's GPS position.
-  const coordinates = {
-    degreesLatitude: 32.9790,
-    degreesLongitude: 75.7170,
-    name: live ? "Bhaderwah Live Location Test (sample)" : "Bhaderwah Location Test (sample)",
-    address: "Bhaderwah, Jammu and Kashmir",
-    accuracyInMeters: 10
-  };
+const locationTestSessions = new Map();
 
-  if (live) {
-    // Baileys' live-location wire type is liveLocationMessage, not a normal
-    // locationMessage with an undocumented "live" flag.
-    const liveMessage = generateWAMessageFromContent(
-      sender,
-      {
-        liveLocationMessage: {
-          degreesLatitude: coordinates.degreesLatitude,
-          degreesLongitude: coordinates.degreesLongitude,
-          accuracyInMeters: coordinates.accuracyInMeters,
-          speedInMps: 0,
-          sequenceNumber: 1,
-          timeOffset: 0,
-          caption: "Sukoon Interactive Lab • Sample Live Location"
-        }
-      },
-      { userJid: sock.user?.id }
-    );
-    await sock.relayMessage(sender, liveMessage.message, {
-      messageId: liveMessage.key.id
-    });
-    await sock.sendMessage(sender, {
-      text: "✅ Live Location message sent using Baileys' liveLocationMessage payload. These are fixed sample coordinates; continuous GPS movement updates are not simulated."
-    });
-  } else {
-    await sock.sendMessage(sender, {
-      location: coordinates
-    });
-    await sock.sendMessage(sender, {
-      text: "✅ Normal Location sent. This is one fixed map pin using sample Bhaderwah coordinates."
-    });
-  }
+async function requestUserLocation(sock, sender, live = false) {
+  locationTestSessions.set(sender, live ? "live" : "normal");
+  await sock.sendMessage(sender, { text: live
+    ? "📍 *Live Location Test*\n\nWhatsApp mein 📎 > Location > Share Live Location select karke apni location share karein. Har naya update milne par main Latitude aur Longitude reply karunga.\n\nBand karne ke liye *Stop Live Location* bhejein."
+    : "📍 *Location Test*\n\nWhatsApp mein 📎 > Location > Send Your Current Location select karke apni location bhejein. Main received Latitude aur Longitude aapko wapas message karunga."
+  });
+}
 
-  await showInteractiveTestMenu(sock, sender);
+export async function handleInteractiveLabLocation(sock, sender, payload, live = false) {
+  const mode = locationTestSessions.get(sender);
+  if (!mode || !payload) return false;
+  if (mode === "normal" && live) return false;
+  const latitude = payload.degreesLatitude;
+  const longitude = payload.degreesLongitude;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+  await sock.sendMessage(sender, { text: [
+    live ? "📍 *Live Location Update Received*" : "📍 *Your Location Received*", "",
+    "Latitude: " + latitude, "Longitude: " + longitude,
+    "Google Maps: https://maps.google.com/?q=" + latitude + "," + longitude, "",
+    live ? "Send *Stop Live Location* to end this test." : "✅ Location test completed."
+  ].join("\n") });
+  if (!live) locationTestSessions.delete(sender);
+  return true;
 }
 
 async function sendInteractiveLabFallback(sock, sender, error) {
@@ -790,6 +729,13 @@ export async function handleMenuNavigation(sock, sender, text) {
 
   const state = getMenuState(sender);
   const lowerText = text.toLowerCase().trim();
+
+  if (interactiveLabSessions.has(sender) && /^(stop live location|stop live|stop)$/i.test(lowerText)) {
+    locationTestSessions.delete(sender);
+    await sock.sendMessage(sender, { text: "🛑 Live Location test stopped." });
+    await showInteractiveTestMenu(sock, sender);
+    return true;
+  }
   const resolvedCommand = resolveCommand(text, state);
 
   // Handle 'entry' command - initial authentication
@@ -967,22 +913,27 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
 
+    if (interactiveLabSessions.has(sender) && ["1","2","3","4","5","6"].includes(lowerText)) {
+      if (lowerText === "1") { await requestUserLocation(sock, sender, false); return true; }
+      if (lowerText === "2") { await requestUserLocation(sock, sender, true); return true; }
+      if (lowerText === "3") { await sendLabInteractive(sock, sender, "Tap a quick reply to test the response parser.", [
+        { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Quick Reply A", id: "test_quick_a" }) },
+        { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Quick Reply B", id: "test_quick_b" }) }
+      ]); return true; }
+      if (lowerText === "4") { await sendLabInteractive(sock, sender, "Choose one row from this list.", [
+        { name: "single_select", buttonParamsJson: JSON.stringify({ title: "Select an option", sections: [{ title: "List Demo", rows: [
+          { title: "Option One", id: "test_list_1" }, { title: "Option Two", id: "test_list_2" }
+        ]}]}) }
+      ]); return true; }
+      if (lowerText === "5") { await showInteractiveCtaTest(sock, sender, "test_cta_url"); return true; }
+      if (lowerText === "6") { interactiveLabSessions.delete(sender); locationTestSessions.delete(sender); await showMainMenu(sock, sender); return true; }
+    }
+
     if (lowerText.startsWith('test_location_received|') && interactiveLabSessions.has(sender)) {
-      const [, locationType, latitude, longitude, accuracy, speed] = text.split('|');
-      const live = locationType === 'live';
-      await sock.sendMessage(sender, {
-        text: [
-          live ? "📍 *Live Location update received*" : "📍 *Normal Location received*",
-          "",
-          "Latitude: " + (latitude || "Unavailable"),
-          "Longitude: " + (longitude || "Unavailable"),
-          "Accuracy: " + (accuracy || "Unavailable") + (accuracy ? " m" : ""),
-          live && speed ? "Speed: " + speed + " m/s" : "",
-          "",
-          "✅ Incoming location parser is working."
-        ].filter(Boolean).join("\n")
-      });
-      return true;
+      const [, locationType, latitude, longitude] = text.split('|');
+      return handleInteractiveLabLocation(sock, sender, {
+        degreesLatitude: Number(latitude), degreesLongitude: Number(longitude)
+      }, locationType === "live");
     }
 
     if (lowerText.startsWith('test_')) {
@@ -998,28 +949,6 @@ export async function handleMenuNavigation(sock, sender, text) {
       if (lowerText === 'test_back') {
         interactiveLabSessions.delete(sender);
         await showMainMenu(sock, sender);
-        return true;
-      }
-
-      if (lowerText === 'test_location_normal') {
-        try {
-          await sendLocationExample(sock, sender, false);
-        } catch (error) {
-          console.error("Normal location test failed:", error);
-          await sock.sendMessage(sender, { text: "❌ Normal Location test failed: " + (error?.message || "Unknown error") });
-          try { await showInteractiveTestMenu(sock, sender); } catch (menuError) { await sendInteractiveLabFallback(sock, sender, menuError); }
-        }
-        return true;
-      }
-
-      if (lowerText === 'test_location_live') {
-        try {
-          await sendLocationExample(sock, sender, true);
-        } catch (error) {
-          console.error("Live location test failed:", error);
-          await sock.sendMessage(sender, { text: "❌ Live Location test failed: " + (error?.message || "Unknown error") });
-          try { await showInteractiveTestMenu(sock, sender); } catch (menuError) { await sendInteractiveLabFallback(sock, sender, menuError); }
-        }
         return true;
       }
 
