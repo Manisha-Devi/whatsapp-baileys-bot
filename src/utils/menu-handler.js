@@ -39,6 +39,7 @@ Please select an option:
 🚌 Reply *Booking* or *B* - for Booking Management
 💵 Reply *Cash* or *C* - for Cash Management
 📈 Reply *Report* or *R* - for Reports
+🧪 Reply *Test* or *T* - for Test
 🔄 Reply *Switch* or *S* - to change bus
 🚪 Reply *Exit* or *E* - to close menu
 
@@ -457,6 +458,7 @@ export function resolveCommand(input, menuState = null) {
       'd': 'daily',
       'b': 'booking',
       'c': 'cash',
+      't': 'test',
       's': 'switch'
     };
     if (mainMenuAliases[lower]) {
@@ -679,6 +681,12 @@ export async function handleMenuNavigation(sock, sender, text) {
     if (resolvedCommand === 'cash') {
       setMenuMode(sender, 'cash');
       await showCashSubmenu(sock, sender);
+      return true;
+    }
+    if (resolvedCommand === 'test') {
+      await sock.sendMessage(sender, {
+        text: "🧪 *Test Menu*\\n\\n✅ Test option is working correctly.\\n\\nType *Menu* to return to the Main Menu."
+      });
       return true;
     }
     if (resolvedCommand === 'reports') {
