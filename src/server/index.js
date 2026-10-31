@@ -392,13 +392,48 @@ async function connectToWhatsApp() {
         const msg = m.messages[0];
         if (!msg || !msg.key) return; // Invalid message
         
-        // Extract message text
-        // (normal message or extended text message)
-        const messageContent = msg.message?.conversation || 
-                               msg.message?.extendedTextMessage?.text;
-        
-        if (!messageContent) return;  // No text = ignore
         if (msg.key.fromMe) return;   // Own message = ignore
+
+        // Unwrap WhatsApp ephemeral/view-once wrappers before reading responses.
+        let incomingMessage = msg.message;
+        while (incomingMessage) {
+          const wrapped = incomingMessage.ephemeralMessage?.message ||
+            incomingMessage.viewOnceMessage?.message ||
+            incomingMessage.viewOnceMessageV2?.message ||
+            incomingMessage.documentWithCaptionMessage?.message;
+          if (!wrapped) break;
+          incomingMessage = wrapped;
+        }
+
+        // Read normal text, quick-reply buttons, and native list selections.
+        let messageContent =
+          incomingMessage?.conversation ||
+          incomingMessage?.extendedTextMessage?.text;
+
+        const interactiveResponse = incomingMessage?.interactiveResponseMessage;
+        if (interactiveResponse) {
+          try {
+            const params = JSON.parse(
+              interactiveResponse.nativeFlowResponseMessage?.paramsJson || "{}"
+            );
+            messageContent = params.id || params.display_text ||
+              interactiveResponse.body?.text || messageContent;
+          } catch (error) {
+            console.warn("Could not parse interactive response:", error.message);
+          }
+        }
+
+        const buttonResponse = incomingMessage?.buttonsResponseMessage;
+        if (buttonResponse) {
+          messageContent = buttonResponse.selectedButtonId || buttonResponse.selectedDisplayText || messageContent;
+        }
+
+        const listResponse = incomingMessage?.listResponseMessage;
+        if (listResponse) {
+          messageContent = listResponse.singleSelectReply?.selectedRowId || listResponse.title || messageContent;
+        }
+
+        if (!messageContent) return;  // No supported text/interactive response
         
         // Sender's WhatsApp ID
         const sender = msg.key.remoteJid;
