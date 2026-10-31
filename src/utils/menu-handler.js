@@ -1,6 +1,4 @@
-import baileysInteractive from 'zqbaileys_helper';
 import { generateWAMessageFromContent } from '@whiskeysockets/baileys';
-const { sendInteractiveMessage } = baileysInteractive;
 
 import { handleIncomingMessageFromReports } from '../features/reports/reports.js';
 import { 
@@ -42,12 +40,83 @@ export function isInteractiveLabActive(sender) {
 }
 
 async function sendLabInteractive(sock, sender, text, interactiveButtons, title = "Interactive Messaging Lab") {
-  return sendInteractiveMessage(sock, sender, {
-    title,
-    text,
-    footer: "Sukoon Bot • Interactive Messaging Lab",
-    interactiveButtons
+  const userJid = sock.authState?.creds?.me?.id || sock.user?.id;
+  if (!userJid) throw new Error("WhatsApp socket user is not ready for interactive messaging.");
+
+  const content = {
+    interactiveMessage: {
+      header: { title, hasMediaAttachment: false },
+      body: { text },
+      footer: { text: "Sukoon Bot • Interactive Messaging Lab" },
+      nativeFlowMessage: {
+        buttons: interactiveButtons,
+        messageParamsJson: ""
+      }
+    }
+  };
+
+  const message = generateWAMessageFromContent(sender, content, {
+    userJid,
+    logger: sock.logger
   });
+
+  const firstButtonName = interactiveButtons[0]?.name;
+  const specialNativeFlows = [
+    "mpm",
+    "cta_catalog",
+    "send_location",
+    "call_permission_request",
+    "wa_payment_transaction_details",
+    "automated_greeting_message_view_catalog"
+  ];
+
+  let bizNode;
+  if (firstButtonName === "review_and_pay" || firstButtonName === "payment_info") {
+    bizNode = {
+      tag: "biz",
+      attrs: {
+        native_flow_name: firstButtonName === "review_and_pay" ? "order_details" : firstButtonName
+      }
+    };
+  } else if (specialNativeFlows.includes(firstButtonName)) {
+    bizNode = {
+      tag: "biz",
+      attrs: {},
+      content: [{
+        tag: "interactive",
+        attrs: { type: "native_flow", v: "1" },
+        content: [{
+          tag: "native_flow",
+          attrs: { v: "2", name: firstButtonName }
+        }]
+      }]
+    };
+  } else {
+    bizNode = {
+      tag: "biz",
+      attrs: {},
+      content: [{
+        tag: "interactive",
+        attrs: { type: "native_flow", v: "1" },
+        content: [{
+          tag: "native_flow",
+          attrs: { v: "9", name: "mixed" }
+        }]
+      }]
+    };
+  }
+
+  const additionalNodes = [bizNode];
+  if (!sender.endsWith("@g.us")) {
+    additionalNodes.push({ tag: "bot", attrs: { biz_bot: "1" } });
+  }
+
+  await sock.relayMessage(sender, message.message, {
+    messageId: message.key.id,
+    additionalNodes
+  });
+
+  return message;
 }
 
 /**
