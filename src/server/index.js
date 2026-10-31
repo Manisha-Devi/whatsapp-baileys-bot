@@ -47,7 +47,7 @@ import { handleIncomingMessageFromDaily } from "../features/daily/daily.js";    
 import { handleIncomingMessageFromBooking } from "../features/bookings/booking.js"; // Booking handling
 import { handleIncomingMessageFromCash } from "../features/cash/cash.js";          // Cash management handling
 import { handleIncomingMessageFromReports } from "../features/reports/reports.js";    // Reports feature
-import { handleMenuNavigation } from "../utils/menu-handler.js";                    // Menu navigation
+import { handleMenuNavigation, isInteractiveLabActive } from "../utils/menu-handler.js"; // Menu navigation and lab location tests
 import { getMenuState } from "../utils/menu-state.js";                              // User's current menu state
 
 // ========================================
@@ -405,10 +405,26 @@ async function connectToWhatsApp() {
           incomingMessage = wrapped;
         }
 
+        // Sender's WhatsApp ID (needed for interactive-lab location test routing).
+        const sender = msg.key.remoteJid;
+
         // Read normal text, quick-reply buttons, and native list selections.
         let messageContent =
           incomingMessage?.conversation ||
           incomingMessage?.extendedTextMessage?.text;
+
+        // During the Interactive Messaging Lab, convert incoming normal/live
+        // location payloads into a test command so the lab can acknowledge them.
+        const liveLocationPayload = incomingMessage?.liveLocationMessage;
+        const locationPayload = liveLocationPayload || incomingMessage?.locationMessage;
+        if (locationPayload && isInteractiveLabActive(sender)) {
+          const locationType = liveLocationPayload || locationPayload.isLive ? "live" : "normal";
+          const latitude = locationPayload.degreesLatitude ?? "";
+          const longitude = locationPayload.degreesLongitude ?? "";
+          const accuracy = locationPayload.accuracyInMeters ?? "";
+          const speed = locationPayload.speedInMps ?? "";
+          messageContent = `test_location_received|${locationType}|${latitude}|${longitude}|${accuracy}|${speed}`;
+        }
 
         const interactiveResponse = incomingMessage?.interactiveResponseMessage;
         if (interactiveResponse) {
@@ -434,9 +450,6 @@ async function connectToWhatsApp() {
         }
 
         if (!messageContent) return;  // No supported text/interactive response
-        
-        // Sender's WhatsApp ID
-        const sender = msg.key.remoteJid;
         
         // Ignore group messages (only handle personal chats)
         if (sender && sender.endsWith("@g.us")) return;
