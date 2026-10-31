@@ -21,6 +21,7 @@
     "lowdb": "^7.0.1",
     "pino": "^10.1.0",
     "qrcode": "^1.5.4",
-    "qrcode-terminal": "^0.12.0"
+    "qrcode-terminal": "^0.12.0",
+    "zqbaileys_helper": "^1.0.6"
   }
 }
