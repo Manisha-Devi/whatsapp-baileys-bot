@@ -18,7 +18,6 @@ import {
 import {
   getUserByPhone,
   getBusesForUser,
-  formatBusSelectionMenu,
   getBusBySelection
 } from './bus-selection.js';
 
@@ -127,6 +126,50 @@ async function sendLabInteractive(sock, sender, text, interactiveButtons, title 
   return message;
 }
 
+async function sendNativeSelectList(sock, sender, { title, body, sectionTitle, rows, footer = "Sukoon Bot" }) {
+  const userJid = sock.authState?.creds?.me?.id || sock.user?.id;
+  if (!userJid) throw new Error("WhatsApp socket user is not ready for interactive messaging.");
+
+  const message = generateWAMessageFromContent(sender, {
+    interactiveMessage: {
+      header: { title, hasMediaAttachment: false },
+      body: { text: body },
+      footer: { text: footer },
+      nativeFlowMessage: {
+        buttons: [{
+          name: "single_select",
+          buttonParamsJson: JSON.stringify({
+            title,
+            sections: [{ title: sectionTitle, rows }]
+          })
+        }],
+        messageParamsJson: ""
+      }
+    }
+  }, { userJid, logger: sock.logger });
+
+  const bizNode = {
+    tag: "biz",
+    attrs: {},
+    content: [{
+      tag: "interactive",
+      attrs: { type: "native_flow", v: "1" },
+      content: [{ tag: "native_flow", attrs: { v: "9", name: "mixed" } }]
+    }]
+  };
+  const additionalNodes = [bizNode];
+  if (!sender.endsWith("@g.us")) additionalNodes.push({ tag: "bot", attrs: { biz_bot: "1" } });
+
+  message.message = {
+    documentWithCaptionMessage: { message: { ...message.message } }
+  };
+  await sock.relayMessage(sender, message.message, {
+    messageId: message.key.id,
+    additionalNodes
+  });
+  return message;
+}
+
 /**
  * Send the complete interactive lab menu using the Baileys native-flow relay helper.
  */
@@ -230,25 +273,23 @@ async function sendInteractiveLabFallback(sock, sender, error) {
   });
 }
 
-export function showMainMenu(sock, sender) {
+export async function showMainMenu(sock, sender) {
   const state = getMenuState(sender);
   const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
-  
-  const menuText = `🏠 *Main Menu* (*${regNumber}*)
-
-Please select an option:
-
-📊 Reply *Daily* or *D* - for Daily Reports
-🚌 Reply *Booking* or *B* - for Booking Management
-💵 Reply *Cash* or *C* - for Cash Management
-📈 Reply *Report* or *R* - for Reports
-🧪 Reply *Test* or *T* - for Test
-🔄 Reply *Switch* or *S* - to change bus
-🚪 Reply *Exit* or *E* - to close menu
-
-Type your choice:`;
-
-  return sock.sendMessage(sender, { text: menuText });
+  return sendNativeSelectList(sock, sender, {
+    title: "Main Menu",
+    body: `Select an option for ${regNumber}.`,
+    sectionTitle: "Sukoon Menu",
+    rows: [
+      { title: "Daily", description: "Daily entries and reports", id: "main:daily" },
+      { title: "Booking", description: "Booking management", id: "main:booking" },
+      { title: "Cash", description: "Cash management", id: "main:cash" },
+      { title: "Reports", description: "View reports and averages", id: "main:reports" },
+      { title: "Switch Bus", description: "Select another assigned bus", id: "main:switch" },
+      { title: "Test", description: "Open Interactive Messaging Lab", id: "main:test" },
+      { title: "Exit", description: "Close menu and log out", id: "main:exit" }
+    ]
+  });
 }
 
 /**
@@ -258,21 +299,25 @@ Type your choice:`;
  * @param {Object} sock - The WhatsApp socket connection
  * @param {string} sender - The WhatsApp sender ID
  */
-export function showBusSelectionMenu(sock, sender) {
+export async function showBusSelectionMenu(sock, sender) {
   const state = getMenuState(sender);
-  const buses = state.availableBuses;
+  const buses = state.availableBuses || [];
   const user = state.user;
-  
-  // Handle case where no buses are available
-  if (!buses || buses.length === 0) {
-    return sock.sendMessage(sender, {
-      text: "⚠️ No buses available. Please contact admin."
-    });
+  if (!buses.length) {
+    return sock.sendMessage(sender, { text: "⚠️ No buses available. Please contact admin." });
   }
-  
-  // Format and send the bus selection menu
-  const menuText = formatBusSelectionMenu(buses, user?.role === 'Admin');
-  return sock.sendMessage(sender, { text: menuText });
+  return sendNativeSelectList(sock, sender, {
+    title: "Select Bus",
+    body: user?.role === "Admin"
+      ? "You have access to all active buses. Select one to continue."
+      : "Select one of your assigned buses to continue.",
+    sectionTitle: "Available Buses",
+    rows: buses.map(bus => ({
+      title: bus.registrationNumber || bus.busCode,
+      description: bus.busCode,
+      id: `bus_select:${bus.busCode}`
+    }))
+  });
 }
 
 /**
@@ -730,43 +775,37 @@ export async function handleMenuNavigation(sock, sender, text) {
     await showInteractiveTestMenu(sock, sender);
     return true;
   }
-  const resolvedCommand = resolveCommand(text, state);
+  const nativeMenuCommands = {
+    "main:daily": "daily",
+    "main:booking": "booking",
+    "main:cash": "cash",
+    "main:reports": "reports",
+    "main:switch": "switch",
+    "main:test": "test",
+    "main:exit": "exit"
+  };
+  const resolvedCommand = nativeMenuCommands[text] || resolveCommand(text, state);
 
-  // Handle 'entry' command - initial authentication
-  if (resolvedCommand === 'entry') {
+  // Authenticate on the first incoming private message from any registered number.
+  // Unknown numbers are silently ignored (no Access Denied / Entry prompt).
+  if (!state.isAuthenticated || !state.selectedBus || resolvedCommand === "entry") {
     const phoneNumber = extractPhoneFromSender(sender);
     const user = getUserByPhone(phoneNumber);
-    
-    // Check if user is registered
-    if (!user) {
-      await sock.sendMessage(sender, {
-        text: "❌ *Access Denied*\n\nYour number is not registered in the system.\nPlease contact admin for access."
-      });
-      return true;
-    }
-    
-    // Get available buses for this user
+    if (!user) return true;
+
     const buses = getBusesForUser(user);
-    
-    if (buses.length === 0) {
+    if (!buses.length) {
       await sock.sendMessage(sender, {
         text: "⚠️ No buses assigned to you. Please contact admin."
       });
       return true;
     }
-    
-    // Mark user as authenticated
+
     setUserAuthenticated(sender, user, buses);
-    
-    // If only one bus, auto-select it
     if (buses.length === 1) {
       setSelectedBus(sender, buses[0].busCode, buses[0]);
-      await sock.sendMessage(sender, {
-        text: `✅ Auto-selected bus: *${buses[0].busCode}* (${buses[0].registrationNumber})`
-      });
       await showMainMenu(sock, sender);
     } else {
-      // Multiple buses - show selection menu
       setAwaitingBusSelection(sender, true);
       await showBusSelectionMenu(sock, sender);
     }
@@ -775,23 +814,19 @@ export async function handleMenuNavigation(sock, sender, text) {
 
   // Handle bus selection when awaiting
   if (state.awaitingBusSelection) {
-    const buses = state.availableBuses;
-    const selectedBus = getBusBySelection(buses, text);
-    
+    const buses = state.availableBuses || [];
+    const selectedCode = text.startsWith("bus_select:") ? text.slice("bus_select:".length) : null;
+    const selectedBus = selectedCode
+      ? buses.find(bus => bus.busCode === selectedCode)
+      : getBusBySelection(buses, text);
+
     if (selectedBus) {
       setSelectedBus(sender, selectedBus.busCode, selectedBus);
-      await sock.sendMessage(sender, {
-        text: `✅ Selected bus: *${selectedBus.busCode}* (${selectedBus.registrationNumber})`
-      });
       await showMainMenu(sock, sender);
       return true;
-    } else {
-      // Invalid selection
-      await sock.sendMessage(sender, {
-        text: `❌ Invalid selection. Please enter a number between 1 and ${buses.length}.`
-      });
-      return true;
     }
+    await showBusSelectionMenu(sock, sender);
+    return true;
   }
 
   // Require authentication before proceeding
