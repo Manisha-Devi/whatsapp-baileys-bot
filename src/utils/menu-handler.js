@@ -217,21 +217,15 @@ async function sendInteractiveLabFallback(sock, sender, error) {
   console.error("Interactive Messaging Lab native-flow send failed:", error?.stack || error);
   await sock.sendMessage(sender, {
     text: [
-      "🧪 *Interactive Messaging Lab opened*",
+      "🧪 *Interactive Messaging Lab*",
       "",
-      "WhatsApp interactive controls could not be delivered by this connection, so use these text commands:",
-      "• test_quick_a",
-      "• test_quick_b",
-      "• test_list_demo",
-      "• test_location_normal",
-      "• test_location_live",
-      "• test_location_request",
-      "• test_cta_url",
-      "• test_cta_copy",
-      "• test_cta_call",
-      "• test_back",
-      "",
-      "The text menu is available even if native-flow buttons are not supported."
+      "Use these options:",
+      "1 - Location",
+      "2 - Live Location",
+      "3 - Quick Reply (Booking confirmation)",
+      "4 - Single Select List (Booking status)",
+      "5 - CTA Buttons (Map / Copy Booking ID / Call)",
+      "E - Back to Main Menu"
     ].join("\n")
   });
 }
