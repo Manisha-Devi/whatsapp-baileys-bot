@@ -134,7 +134,7 @@ async function showInteractiveTestMenu(sock, sender) {
   return sock.sendMessage(sender, { text: [
     "🧪 *INTERACTIVE MESSAGING LAB*", "",
     "1️⃣ Location", "2️⃣ Live Location", "3️⃣ Quick Reply",
-    "4️⃣ Single Select List", "5️⃣ CTA Buttons", "6️⃣ Back to Main Menu", "",
+    "4️⃣ Single Select List", "5️⃣ CTA Buttons", "6️⃣ E - Back to Main Menu", "",
     "Reply with a number (1–6)."
   ].join("\n") });
 }
@@ -155,19 +155,19 @@ async function showInteractiveLocationRequest(sock, sender) {
 async function showInteractiveCtaTest(sock, sender, type) {
   const tests = {
     test_cta_url: {
-      title: "CTA URL Test",
-      body: "Tap the button to open the sample website. Opening the link does not send a reply to the bot.",
-      button: { name: "cta_url", params: { display_text: "Open Example Website", url: "https://example.com", merchant_url: "https://example.com" } }
+      title: "CTA URL • Route Map",
+      body: "Sukoon use case: let a passenger open a pickup/boarding location in Google Maps. This demo opens a Bhaderwah map search. Replace the URL with the real trip or pickup map link in production.",
+      button: { name: "cta_url", params: { display_text: "Open Route Map", url: "https://maps.google.com/?q=Bhaderwah", merchant_url: "https://maps.google.com/?q=Bhaderwah" } }
     },
     test_cta_copy: {
-      title: "CTA Copy Test",
-      body: "Tap the button to copy the sample test code to your clipboard.",
-      button: { name: "cta_copy", params: { display_text: "Copy Test Code", copy_code: "SUKOON-TEST-123" } }
+      title: "CTA Copy • Booking Reference",
+      body: "Sukoon use case: let a customer copy a booking reference and paste it into a WhatsApp enquiry. This is a demo reference, not a real booking.",
+      button: { name: "cta_copy", params: { display_text: "Copy Booking ID", copy_code: "SUKOON-BK-2026-001" } }
     },
     test_cta_call: {
-      title: "CTA Call Test",
-      body: "Tap the button to open the phone dialler with this sample number. Review it before calling.",
-      button: { name: "cta_call", params: { display_text: "Call Test Number", phone_number: "+911234567890" } }
+      title: "CTA Call • Booking Desk",
+      body: "Sukoon use case: a customer can tap to call the booking desk. This is a placeholder demo number; replace it with your actual business number before production use.",
+      button: { name: "cta_call", params: { display_text: "Call Demo Number", phone_number: "+911234567890" } }
     }
   };
 
@@ -854,6 +854,14 @@ export async function handleMenuNavigation(sock, sender, text) {
     return true;
   }
 
+  // Interactive Lab uses E (or 6) to return to the main menu, not log out.
+  if (interactiveLabSessions.has(sender) && (lowerText === "e" || lowerText === "6" || lowerText === "test_back")) {
+    interactiveLabSessions.delete(sender);
+    locationTestSessions.delete(sender);
+    await showMainMenu(sock, sender);
+    return true;
+  }
+
   // Handle 'exit' and 'home' commands - navigate back
   if (resolvedCommand === 'exit' || resolvedCommand === 'home') {
     const currentMode = state.mode;
@@ -916,26 +924,45 @@ export async function handleMenuNavigation(sock, sender, text) {
     if (interactiveLabSessions.has(sender) && ["1","2","3","4","5","6"].includes(lowerText)) {
       if (lowerText === "1") { await requestUserLocation(sock, sender, false); return true; }
       if (lowerText === "2") { await requestUserLocation(sock, sender, true); return true; }
-      if (lowerText === "3") { await sendLabInteractive(sock, sender, "Tap a quick reply to test the response parser.", [
-        { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Quick Reply A", id: "test_quick_a" }) },
-        { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Quick Reply B", id: "test_quick_b" }) }
-      ]); return true; }
-      if (lowerText === "4") { await sendLabInteractive(sock, sender, "Choose one row from this list.", [
-        { name: "single_select", buttonParamsJson: JSON.stringify({ title: "Select an option", sections: [{ title: "List Demo", rows: [
-          { title: "Option One", id: "test_list_1" }, { title: "Option Two", id: "test_list_2" }
-        ]}]}) }
-      ]); return true; }
-      if (lowerText === "5") {
-        await sendLabInteractive(sock, sender, "Choose a CTA button to test.", [
-          { name: "single_select", buttonParamsJson: JSON.stringify({ title: "CTA Button Tests", sections: [{ title: "Call to Action", rows: [
-            { title: "Open URL", id: "test_cta_url" },
-            { title: "Copy Code", id: "test_cta_copy" },
-            { title: "Call Phone", id: "test_cta_call" }
-          ]}]}) }
-        ]);
+      if (lowerText === "3") {
+        await sendLabInteractive(sock, sender,
+          "🚌 *Booking Confirmation Example*\\n\\nA customer has requested a Sukoon bus booking. Quick replies let the customer answer in one tap. Select a response below:",
+          [
+            { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Confirm Booking", id: "demo_booking_confirm" }) },
+            { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Need Changes", id: "demo_booking_changes" }) },
+            { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Cancel Request", id: "demo_booking_cancel" }) }
+          ], "Quick Reply • Booking");
         return true;
       }
-      if (lowerText === "6") { interactiveLabSessions.delete(sender); locationTestSessions.delete(sender); await showMainMenu(sock, sender); return true; }
+      if (lowerText === "4") {
+        await sendLabInteractive(sock, sender,
+          "📋 *Booking Status Example*\\n\\nSelect the current status of a customer's booking. Your bot receives the selected row ID and can update the booking record accordingly.",
+          [
+            { name: "single_select", buttonParamsJson: JSON.stringify({ title: "Update Booking Status", sections: [
+              { title: "Booking Status", rows: [
+                { title: "Pending", description: "Request received, not confirmed", id: "demo_status_pending" },
+                { title: "Confirmed", description: "Seat/bus booking confirmed", id: "demo_status_confirmed" },
+                { title: "Completed", description: "Journey or booking completed", id: "demo_status_completed" },
+                { title: "Cancelled", description: "Booking cancelled", id: "demo_status_cancelled" }
+              ]}
+            ]}) }
+          ], "Single Select • Booking Status");
+        return true;
+      }
+      if (lowerText === "5") {
+        await sendLabInteractive(sock, sender,
+          "🔗 *CTA Buttons • Sukoon Examples*\\n\\nChoose an action button example. CTA buttons perform an action such as opening a map, copying a booking reference, or starting a phone call. They do not send a reply selection back to the bot.",
+          [
+            { name: "single_select", buttonParamsJson: JSON.stringify({ title: "Choose CTA Example", sections: [
+              { title: "Customer Actions", rows: [
+                { title: "Open Route Map", description: "Open a Google Maps search", id: "test_cta_url" },
+                { title: "Copy Booking Reference", description: "Copy a sample booking ID", id: "test_cta_copy" },
+                { title: "Call Booking Desk", description: "Demo phone number only", id: "test_cta_call" }
+              ]}
+            ]}) }
+          ], "CTA Buttons • Sukoon");
+        return true;
+      }
     }
 
     if (lowerText.startsWith('test_location_received|') && interactiveLabSessions.has(sender)) {
@@ -952,7 +979,14 @@ export async function handleMenuNavigation(sock, sender, text) {
         test_list_demo: "✅ Single Select List selection received successfully.",
         test_quick_demo: "✅ Quick Reply navigation received successfully.",
         test_list_1: "✅ List row 1 received successfully.",
-        test_list_2: "✅ List row 2 received successfully."
+        test_list_2: "✅ List row 2 received successfully.",
+        demo_booking_confirm: "✅ *Booking reply: Confirm Booking*\\n\\nIn your Booking module, map this response ID to booking status *Confirmed* after validating the booking record.",
+        demo_booking_changes: "📝 *Booking reply: Need Changes*\\n\\nYour bot can ask the customer which date, pickup point, or passenger detail needs correction.",
+        demo_booking_cancel: "❌ *Booking reply: Cancel Request*\\n\\nYour bot can start a cancellation confirmation flow before changing the booking status.",
+        demo_status_pending: "📋 Selected *Pending*. Your booking handler can save this status against the selected Booking ID.",
+        demo_status_confirmed: "✅ Selected *Confirmed*. Your booking handler can save this status against the selected Booking ID.",
+        demo_status_completed: "🏁 Selected *Completed*. Your booking handler can save this status against the selected Booking ID.",
+        demo_status_cancelled: "❌ Selected *Cancelled*. Your booking handler can save this status against the selected Booking ID."
       };
 
       if (lowerText === 'test_back') {
