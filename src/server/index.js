@@ -47,7 +47,7 @@ import { handleIncomingMessageFromDaily } from "../features/daily/daily.js";    
 import { handleIncomingMessageFromBooking } from "../features/bookings/booking.js"; // Booking handling
 import { handleIncomingMessageFromCash } from "../features/cash/cash.js";          // Cash management handling
 import { handleIncomingMessageFromReports } from "../features/reports/reports.js";    // Reports feature
-import { handleMenuNavigation, isInteractiveLabActive } from "../utils/menu-handler.js"; // Menu navigation and lab location tests
+import { handleMenuNavigation, isInteractiveLabActive, handleInteractiveLabLocation } from "../utils/menu-handler.js"; // Menu navigation and lab location tests
 import { getMenuState } from "../utils/menu-state.js";                              // User's current menu state
 
 // ========================================
@@ -394,37 +394,38 @@ async function connectToWhatsApp() {
         
         if (msg.key.fromMe) return;   // Own message = ignore
 
-        // Unwrap WhatsApp ephemeral/view-once wrappers before reading responses.
+        // Unwrap common WhatsApp message wrappers (including device-sent wrappers).
         let incomingMessage = msg.message;
         while (incomingMessage) {
           const wrapped = incomingMessage.ephemeralMessage?.message ||
             incomingMessage.viewOnceMessage?.message ||
             incomingMessage.viewOnceMessageV2?.message ||
-            incomingMessage.documentWithCaptionMessage?.message;
+            incomingMessage.viewOnceMessageV2Extension?.message ||
+            incomingMessage.documentWithCaptionMessage?.message ||
+            incomingMessage.deviceSentMessage?.message;
           if (!wrapped) break;
           incomingMessage = wrapped;
         }
 
-        // Sender's WhatsApp ID (needed for interactive-lab location test routing).
         const sender = msg.key.remoteJid;
+
+        // Route actual location payloads directly, before text validation.
+        // Static location messages can have no conversation/text field.
+        const liveLocationPayload = incomingMessage?.liveLocationMessage;
+        const staticLocationPayload = incomingMessage?.locationMessage;
+        const locationPayload = liveLocationPayload || staticLocationPayload;
+        if (locationPayload && isInteractiveLabActive(sender)) {
+          const isLiveLocation = Boolean(liveLocationPayload || locationPayload.isLive);
+          const handledLocation = await handleInteractiveLabLocation(
+            sock, sender, locationPayload, isLiveLocation
+          );
+          if (handledLocation) return;
+        }
 
         // Read normal text, quick-reply buttons, and native list selections.
         let messageContent =
           incomingMessage?.conversation ||
           incomingMessage?.extendedTextMessage?.text;
-
-        // During the Interactive Messaging Lab, convert incoming normal/live
-        // location payloads into a test command so the lab can acknowledge them.
-        const liveLocationPayload = incomingMessage?.liveLocationMessage;
-        const locationPayload = liveLocationPayload || incomingMessage?.locationMessage;
-        if (locationPayload && isInteractiveLabActive(sender)) {
-          const locationType = liveLocationPayload || locationPayload.isLive ? "live" : "normal";
-          const latitude = locationPayload.degreesLatitude ?? "";
-          const longitude = locationPayload.degreesLongitude ?? "";
-          const accuracy = locationPayload.accuracyInMeters ?? "";
-          const speed = locationPayload.speedInMps ?? "";
-          messageContent = `test_location_received|${locationType}|${latitude}|${longitude}|${accuracy}|${speed}`;
-        }
 
         const interactiveResponse = incomingMessage?.interactiveResponseMessage;
         if (interactiveResponse) {
