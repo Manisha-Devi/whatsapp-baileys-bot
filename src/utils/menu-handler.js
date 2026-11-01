@@ -788,7 +788,7 @@ export async function handleMenuNavigation(sock, sender, text) {
 
   // Authenticate on the first incoming private message from any registered number.
   // Unknown numbers are silently ignored (no Access Denied / Entry prompt).
-  if (!state.isAuthenticated || !state.selectedBus || resolvedCommand === "entry") {
+  if (!state.isAuthenticated || resolvedCommand === "entry") {
     const phoneNumber = extractPhoneFromSender(sender);
     const user = getUserByPhone(phoneNumber);
     if (!user) return true;
