@@ -327,20 +327,23 @@ export async function showBusSelectionMenu(sock, sender) {
  * @param {Object} sock - The WhatsApp socket connection
  * @param {string} sender - The WhatsApp sender ID
  */
-export function showDailySubmenu(sock, sender) {
+export async function showDailySubmenu(sock, sender) {
   const state = getMenuState(sender);
   const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
-  
-  const menuText = `📊 *Daily Menu* (*${regNumber}*)
 
-Enter Command or Select Option:
-
-❓ Reply *Help* or *H* - for Help with Commands
-🔙 Reply *Exit* or *E* - to go back to Main Menu
-
-Type your choice:`;
-
-  return sock.sendMessage(sender, { text: menuText });
+  return sendNativeSelectList(sock, sender, {
+    title: "Daily Menu",
+    body: `Select an option for ${regNumber}.`,
+    sectionTitle: "Daily Options",
+    rows: [
+      { title: "Enter / Update", description: "Create a new daily entry or update an existing one", id: "daily:entry" },
+      { title: "Last Entry", description: "View the most recently saved daily entry", id: "daily:last" },
+      { title: "This Month", description: "View this month's daily entries", id: "daily:month" },
+      { title: "Other", description: "Use remaining Daily commands", id: "daily:other" },
+      { title: "Help", description: "View Daily command instructions", id: "daily:help" },
+      { title: "Exit", description: "Return to Main Menu", id: "daily:exit" }
+    ]
+  });
 }
 
 /**
@@ -776,6 +779,12 @@ export async function handleMenuNavigation(sock, sender, text) {
     return true;
   }
   const nativeMenuCommands = {
+    "daily:entry": "daily_entry",
+    "daily:last": "daily_last",
+    "daily:month": "daily_month",
+    "daily:other": "daily_other",
+    "daily:help": "daily_help",
+    "daily:exit": "exit",
     "main:daily": "daily",
     "main:booking": "booking",
     "main:cash": "cash",
@@ -838,6 +847,36 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
     return false;
+  }
+
+  // Handle Daily menu selections from the native Single Select List.
+  if (state.mode === "daily" && resolvedCommand.startsWith("daily_")) {
+    if (resolvedCommand === "daily_entry") {
+      await sock.sendMessage(sender, {
+        text: "📝 *Enter / Update Daily Entry*\\n\\nStart by sending the report date:\\n*Dated DD/MM/YYYY*\\n\\nThen enter Diesel, Adda, Union, Total Cash Collection, Online, employee expenses and Remarks. Send *Submit* when ready.\\n\\nIf an entry already exists for that date, the bot will ask whether you want to load it for updating."
+      });
+      return true;
+    }
+    if (resolvedCommand === "daily_last") {
+      const { handleReportsCommand } = await import("../features/daily/handlers/command-handler.js");
+      await handleReportsCommand(sock, sender, "Last 1 Entries", null);
+      return true;
+    }
+    if (resolvedCommand === "daily_month") {
+      const { handleReportsCommand } = await import("../features/daily/handlers/command-handler.js");
+      await handleReportsCommand(sock, sender, "This Month", null);
+      return true;
+    }
+    if (resolvedCommand === "daily_other") {
+      await sock.sendMessage(sender, {
+        text: "⚙️ *Other Daily Commands*\\n\\nAap yahan baaki Daily commands text mein bhej sakte hain, jaise:\\n• Today / Yesterday\\n• Last 5 Entries / Last 5 Days\\n• DD/MM/YYYY\\n• DD/MM/YYYY to DD/MM/YYYY\\n• Driver 250 / Conductor 150\\n• Clear\\n\\nWapas Daily Menu ke liye *Menu* bhejein. Main Menu ke liye *Exit* bhejein."
+      });
+      return true;
+    }
+    if (resolvedCommand === "daily_help") {
+      await showDailyDataHelp(sock, sender);
+      return true;
+    }
   }
 
   // Handle 'switch' command - change to a different bus
