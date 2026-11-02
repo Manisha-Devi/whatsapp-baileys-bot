@@ -892,9 +892,12 @@ export async function handleMenuNavigation(sock, sender, text) {
   // Handle Daily menu selections from the native Single Select List.
   if (state.mode === "daily" && resolvedCommand.startsWith("daily_")) {
     if (resolvedCommand === "daily_entry") {
-      await sock.sendMessage(sender, {
-        text: "📝 *Enter / Update Daily Entry*\n\nStart by sending the report date:\n*Dated DD/MM/YYYY*\n\nThen enter Diesel, Adda, Union, Total Cash Collection, Online, employee expenses and Remarks. Send *Submit* when ready.\n\nIf an entry already exists for that date, the bot will ask whether you want to load it for updating."
-      });
+      await sendDailyQuickReplyMessage(
+        sock,
+        sender,
+        "📝 *Enter / Update Daily Entry*\n\nStart by sending the report date:\n*Dated DD/MM/YYYY*\n\nThen enter Diesel, Adda, Union, Total Cash Collection, Online, employee expenses and Remarks. Send *Submit* when ready.\n\nIf an entry already exists for that date, the bot will ask whether you want to load it for updating.",
+        "Enter / Update Daily Entry"
+      );
       return true;
     }
     if (resolvedCommand === "daily_last") {
