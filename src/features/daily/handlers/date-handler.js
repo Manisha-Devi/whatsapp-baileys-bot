@@ -31,52 +31,32 @@ import { format, parse, isValid } from "date-fns";
  */
 export function parseDate(value) {
   try {
-    // Remove parentheses, asterisks and normalize whitespace
-    let normalizedValue = value.replace(/^\(*|\)*$/g, "").replace(/\*/g, "").trim().toLowerCase();
-
+    const input = String(value).replace(/^\\(*|\\)*$/g, "").replace(/\\*/g, "").replace(/\\s+/g, " ").trim();
+    if (!input) return null;
     const now = new Date();
-    let targetDate = null;
-
-    // Handle natural language date keywords
-    if (normalizedValue === "today") {
-      targetDate = now;
-    } else if (normalizedValue === "yesterday") {
-      targetDate = new Date(now);
-      targetDate.setDate(now.getDate() - 1);
-    } else if (normalizedValue === "tomorrow") {
-      targetDate = new Date(now);
-      targetDate.setDate(now.getDate() + 1);
+    const lower = input.toLowerCase();
+    const makeDate = (day, monthIndex, year) => {
+      const d = new Date(year, monthIndex, day);
+      return d.getFullYear() === year && d.getMonth() === monthIndex && d.getDate() === day ? d : null;
+    };
+    if (lower === "today") return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (lower === "yesterday" || lower === "tomorrow") {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      d.setDate(d.getDate() + (lower === "yesterday" ? -1 : 1));
+      return d;
     }
-
-    // Try parsing text date format: "15 December 2025"
-    if (!targetDate) {
-      const textDateMatch = normalizedValue.match(/(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/);
-      if (textDateMatch) {
-        const [_, d, monthName, y] = textDateMatch;
-        // Use JavaScript's Date parsing to get month index from name
-        const monthIndex = new Date(`${monthName} 1, ${y}`).getMonth();
-        if (!isNaN(monthIndex)) {
-          targetDate = new Date(y, monthIndex, parseInt(d, 10));
-        }
-      }
+    let m = lower.match(/^(\\d{1,2})[\\/-](\\d{1,2})[\\/-](\\d{4})$/);
+    if (m) return makeDate(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    m = lower.match(/^(\\d{1,2})[\\/-](\\d{1,2})$/);
+    if (m) return makeDate(Number(m[1]), Number(m[2]) - 1, now.getFullYear());
+    m = lower.match(/^(\\d{1,2})$/);
+    if (m) return makeDate(Number(m[1]), now.getMonth(), now.getFullYear());
+    m = lower.match(/^(\\d{1,2})\\s+([a-z]+)(?:\\/[a-z]+)?(?:\\s+(\\d{4}))?$/i);
+    if (m) {
+      const month = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"].indexOf(m[2].slice(0, 3));
+      if (month >= 0) return makeDate(Number(m[1]), month, Number(m[3] || now.getFullYear()));
     }
-
-    // Try parsing numeric date format: "DD/MM/YYYY" or "DD-MM-YYYY"
-    if (!targetDate) {
-      const dateMatch = normalizedValue.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-      if (dateMatch) {
-        const [_, dd, mm, yy] = dateMatch;
-        const parsed = parse(`${dd}/${mm}/${yy}`, "dd/MM/yyyy", new Date());
-        if (isValid(parsed)) targetDate = parsed;
-      }
-    }
-
-    // Validate the resulting date
-    if (!targetDate || !isValid(targetDate)) {
-      return null;
-    }
-
-    return targetDate;
+    return null;
   } catch (err) {
     console.error("❌ Error parsing date:", err);
     return null;
