@@ -853,7 +853,7 @@ export async function handleMenuNavigation(sock, sender, text) {
   if (state.mode === "daily" && resolvedCommand.startsWith("daily_")) {
     if (resolvedCommand === "daily_entry") {
       await sock.sendMessage(sender, {
-        text: "📝 *Enter / Update Daily Entry*\\n\\nStart by sending the report date:\\n*Dated DD/MM/YYYY*\\n\\nThen enter Diesel, Adda, Union, Total Cash Collection, Online, employee expenses and Remarks. Send *Submit* when ready.\\n\\nIf an entry already exists for that date, the bot will ask whether you want to load it for updating."
+        text: "📝 *Enter / Update Daily Entry*\n\nStart by sending the report date:\n*Dated DD/MM/YYYY*\n\nThen enter Diesel, Adda, Union, Total Cash Collection, Online, employee expenses and Remarks. Send *Submit* when ready.\n\nIf an entry already exists for that date, the bot will ask whether you want to load it for updating."
       });
       return true;
     }
@@ -869,7 +869,7 @@ export async function handleMenuNavigation(sock, sender, text) {
     }
     if (resolvedCommand === "daily_other") {
       await sock.sendMessage(sender, {
-        text: "⚙️ *Other Daily Commands*\\n\\nAap yahan baaki Daily commands text mein bhej sakte hain, jaise:\\n• Today / Yesterday\\n• Last 5 Entries / Last 5 Days\\n• DD/MM/YYYY\\n• DD/MM/YYYY to DD/MM/YYYY\\n• Driver 250 / Conductor 150\\n• Clear\\n\\nWapas Daily Menu ke liye *Menu* bhejein. Main Menu ke liye *Exit* bhejein."
+        text: "⚙️ *Other Daily Commands*\n\nAap yahan baaki Daily commands text mein bhej sakte hain, jaise:\n• Today / Yesterday\n• Last 5 Entries / Last 5 Days\n• DD/MM/YYYY\n• DD/MM/YYYY to DD/MM/YYYY\n• Driver 250 / Conductor 150\n• Clear\n\nWapas Daily Menu ke liye *Menu* bhejein. Main Menu ke liye *Exit* bhejein."
       });
       return true;
     }
