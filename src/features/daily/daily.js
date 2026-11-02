@@ -161,8 +161,21 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     const handledClear = await handleClearCommand(sock, sender, text);
     if (handledClear) return;
 
-    // Handle report commands (today, yesterday, last N days, date range)
-    const handledReports = await handleReportsCommand(sock, sender, normalizedText, null);
+    // In Enter / Update mode, interpret a bare date (including "Today") as the entry date.
+    const awaitingEntryDate = Boolean(global.dailyEntryDatePrompt?.[sender]);
+    if (awaitingEntryDate && (
+      /^today$/i.test(normalizedText) ||
+      /^\\d{1,2}(?:[/-]\\d{1,2}(?:[/-]\\d{4})?)?$/.test(normalizedText) ||
+      /^\\d{1,2}\\s+[a-z]+(?:\\/[a-z]+)?(?:\\s+\\d{4})?$/i.test(normalizedText)
+    )) {
+      normalizedText = "Dated " + normalizedText;
+      text = normalizedText.toLowerCase();
+    }
+
+    // Handle report commands unless the user is entering the date for a new/update entry.
+    const handledReports = awaitingEntryDate
+      ? false
+      : await handleReportsCommand(sock, sender, normalizedText, null);
     if (handledReports) return;
 
     // Initialize user session data if not exists
