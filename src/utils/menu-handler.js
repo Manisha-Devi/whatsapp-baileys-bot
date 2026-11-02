@@ -820,6 +820,8 @@ export async function handleMenuNavigation(sock, sender, text) {
   }
   const nativeMenuCommands = {
     "daily:entry": "daily_entry",
+    "daily:new_entry": "daily_new_entry",
+    "daily:menu": "daily_menu",
     "daily:last": "daily_last",
     "daily:month": "daily_month",
     "daily:other": "daily_other",
@@ -891,7 +893,7 @@ export async function handleMenuNavigation(sock, sender, text) {
 
   // Handle Daily menu selections from the native Single Select List.
   if (state.mode === "daily" && resolvedCommand.startsWith("daily_")) {
-    if (resolvedCommand === "daily_entry") {
+    if (resolvedCommand === "daily_entry" || resolvedCommand === "daily_new_entry") {
       if (!global.dailyEntryDatePrompt) global.dailyEntryDatePrompt = {};
       global.dailyEntryDatePrompt[sender] = true;
       await sendDailyQuickReplyMessage(
@@ -900,6 +902,10 @@ export async function handleMenuNavigation(sock, sender, text) {
         "📝 *Enter / Update Daily Entry*\n\nFirst send the report date:\n*Date / Dated __________*\n\nAccepted date commands:\n• Today / Date Today / Dated Today\n• Date / Dated DD/MM/YYYY\n• Date / Dated DD/MM (current year auto)\n• Date / Dated DD (current month and year auto)\n• Date / Dated 01 Nov / 01 November 2026 (year automatic)\n• Date / Dated 01 Nov 2026\n\n",
         "Enter / Update Daily Entry"
       );
+      return true;
+    }
+    if (resolvedCommand === "daily_menu") {
+      await showDailySubmenu(sock, sender);
       return true;
     }
     if (resolvedCommand === "daily_last") {
