@@ -95,7 +95,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
 
             if (!targetDate) {
               await safeSendMessage(sock, sender, {
-                text: "⚠️ Please enter a valid date (e.g. Dated 30/10/2025, or Dated today).",
+                text: "⚠️ Invalid date. Use these formats:\\n• Today / Date Today / Dated Today\\n• Date or Dated DD/MM/YYYY\\n• Date or Dated DD/MM (current year auto)\\n• Date or Dated DD (current month and year auto)\\n• Date or Dated 01 Nov / 01 November (current year auto)\\n• Date or Dated 01 Nov 2026.",
               });
               return { handled: true, anyFieldFound };
             }
