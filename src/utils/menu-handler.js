@@ -126,6 +126,46 @@ async function sendLabInteractive(sock, sender, text, interactiveButtons, title 
   return message;
 }
 
+async function sendDailyQuickReplyMessage(sock, sender, text, title = "Daily") {
+  const userJid = sock.authState?.creds?.me?.id || sock.user?.id;
+  if (!userJid) throw new Error("WhatsApp socket user is not ready for interactive messaging.");
+
+  const message = generateWAMessageFromContent(sender, {
+    interactiveMessage: {
+      header: { title, hasMediaAttachment: false },
+      body: { text },
+      footer: { text: "Sukoon Bot" },
+      nativeFlowMessage: {
+        buttons: [
+          { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Menu", id: "menu" }) },
+          { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Exit", id: "exit" }) }
+        ],
+        messageParamsJson: ""
+      }
+    }
+  }, { userJid, logger: sock.logger });
+
+  const additionalNodes = [{
+    tag: "biz",
+    attrs: {},
+    content: [{
+      tag: "interactive",
+      attrs: { type: "native_flow", v: "1" },
+      content: [{ tag: "native_flow", attrs: { v: "9", name: "mixed" } }]
+    }]
+  }];
+  if (!sender.endsWith("@g.us")) additionalNodes.push({ tag: "bot", attrs: { biz_bot: "1" } });
+
+  message.message = {
+    documentWithCaptionMessage: { message: { ...message.message } }
+  };
+  await sock.relayMessage(sender, message.message, {
+    messageId: message.key.id,
+    additionalNodes
+  });
+  return message;
+}
+
 async function sendNativeSelectList(sock, sender, { title, body, sectionTitle, rows, footer = "Sukoon Bot" }) {
   const userJid = sock.authState?.creds?.me?.id || sock.user?.id;
   if (!userJid) throw new Error("WhatsApp socket user is not ready for interactive messaging.");
@@ -450,7 +490,7 @@ Update:
 • Clear - Clear session
 • Exit - Back to Main Menu`;
 
-  return sock.sendMessage(sender, { text: helpText });
+  return sendDailyQuickReplyMessage(sock, sender, helpText, "Daily Help");
 }
 
 /**
@@ -868,9 +908,12 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
     if (resolvedCommand === "daily_other") {
-      await sock.sendMessage(sender, {
-        text: "⚙️ *Other Daily Commands*\n\nAap yahan baaki Daily commands text mein bhej sakte hain, jaise:\n• Today / Yesterday\n• Last 5 Entries / Last 5 Days\n• DD/MM/YYYY\n• DD/MM/YYYY to DD/MM/YYYY\n• Driver 250 / Conductor 150\n• Clear\n\nWapas Daily Menu ke liye *Menu* bhejein. Main Menu ke liye *Exit* bhejein."
-      });
+      await sendDailyQuickReplyMessage(
+        sock,
+        sender,
+        "⚙️ *Other Daily Commands*\n\nAap yahan baaki Daily commands text mein bhej sakte hain, jaise:\n• Today / Yesterday\n• Last 5 Entries / Last 5 Days\n• DD/MM/YYYY\n• DD/MM/YYYY to DD/MM/YYYY\n• Driver 250 / Conductor 150\n• Clear",
+        "Other Daily Commands"
+      );
       return true;
     }
     if (resolvedCommand === "daily_help") {
