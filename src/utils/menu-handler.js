@@ -892,6 +892,8 @@ export async function handleMenuNavigation(sock, sender, text) {
   // Handle Daily menu selections from the native Single Select List.
   if (state.mode === "daily" && resolvedCommand.startsWith("daily_")) {
     if (resolvedCommand === "daily_entry") {
+      if (!global.dailyEntryDatePrompt) global.dailyEntryDatePrompt = {};
+      global.dailyEntryDatePrompt[sender] = true;
       await sendDailyQuickReplyMessage(
         sock,
         sender,
