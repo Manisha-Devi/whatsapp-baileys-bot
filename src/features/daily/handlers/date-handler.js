@@ -54,7 +54,7 @@ export function parseDate(value) {
     m = lower.match(/^(\\d{1,2})\\s+([a-z]+)(?:\\/[a-z]+)?(?:\\s+(\\d{4}))?$/i);
     if (m) {
       const month = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"].indexOf(m[2].slice(0, 3));
-      if (month >= 0) return makeDate(Number(m[1]), month, Number(m[3] || now.getFullYear()));
+      if (month >= 0) return makeDate(Number(m[1]), month, now.getFullYear());
     }
     return null;
   } catch (err) {
