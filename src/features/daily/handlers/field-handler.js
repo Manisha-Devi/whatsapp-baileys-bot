@@ -106,6 +106,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
 
             user.Dated = formatted;
             user.pendingPrimaryKey = primaryKey;
+            if (global.dailyEntryDatePrompt) delete global.dailyEntryDatePrompt[sender];
 
             // Initialize employee expenses if not set
             if (!user.EmployExpenses || user.EmployExpenses.length === 0) {
