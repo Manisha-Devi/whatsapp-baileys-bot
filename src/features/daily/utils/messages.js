@@ -13,9 +13,43 @@
  */
 
 import { safeSendMessage } from "./helpers.js";
+import { generateWAMessageFromContent } from "@whiskeysockets/baileys";
 import { capitalize } from "./formatters.js";
 
 import { getMenuState } from "../../../utils/menu-state.js";
+
+/** Send a Daily message with WhatsApp native quick-reply buttons. */
+async function sendDailyQuickReplies(sock, jid, text, buttons) {
+  const userJid = sock.authState?.creds?.me?.id || sock.user?.id;
+  if (!userJid) {
+    await safeSendMessage(sock, jid, { text });
+    return;
+  }
+  const message = generateWAMessageFromContent(jid, {
+    interactiveMessage: {
+      header: { title: "Daily", hasMediaAttachment: false },
+      body: { text },
+      footer: { text: "Sukoon Bot" },
+      nativeFlowMessage: {
+        buttons: buttons.map(({ label, id }) => ({
+          name: "quick_reply",
+          buttonParamsJson: JSON.stringify({ display_text: label, id })
+        })),
+        messageParamsJson: ""
+      }
+    }
+  }, { userJid, logger: sock.logger });
+  const additionalNodes = [{
+    tag: "biz", attrs: {}, content: [{
+      tag: "interactive", attrs: { type: "native_flow", v: "1" },
+      content: [{ tag: "native_flow", attrs: { v: "9", name: "mixed" } }]
+    }]
+  }];
+  if (!jid.endsWith("@g.us")) additionalNodes.push({ tag: "bot", attrs: { biz_bot: "1" } });
+  message.message = { documentWithCaptionMessage: { message: { ...message.message } } };
+  await sock.relayMessage(jid, message.message, { messageId: message.key.id, additionalNodes });
+}
+
 
 /**
  * Sends a formatted summary of the user's current data entry progress.
@@ -161,7 +195,14 @@ export async function sendSummary(sock, jid, title, userData = {}) {
       title ? `\n${title}` : "",
     ].filter(line => line !== "").join("\n");
 
-    await safeSendMessage(sock, jid, { text: msg });
+    if (userData.waitingForSubmit) {
+      await sendDailyQuickReplies(sock, jid, msg, [
+        { label: "Yes", id: "daily_submit_yes" },
+        { label: "No", id: "daily_submit_no" }
+      ]);
+    } else {
+      await safeSendMessage(sock, jid, { text: msg });
+    }
   } catch (err) {
     console.error("❌ sendSummary error:", err);
     await safeSendMessage(sock, jid, { text: "❌ Failed to send summary. Try again." });
@@ -295,7 +336,11 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
       `✅ Data Submitted successfully!`,
     ].filter(line => line !== "").join("\n");
 
-    await safeSendMessage(sock, jid, { text: msg });
+    await sendDailyQuickReplies(sock, jid, msg, [
+      { label: "New Entry", id: "daily:new_entry" },
+      { label: "Menu", id: "daily:menu" },
+      { label: "Exit", id: "daily:exit" }
+    ]);
   } catch (err) {
     console.error("❌ sendSubmittedSummary error:", err);
     await safeSendMessage(sock, jid, { text: "❌ Failed to send submitted summary." });
