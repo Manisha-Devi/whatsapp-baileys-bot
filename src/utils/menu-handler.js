@@ -895,7 +895,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       await sendDailyQuickReplyMessage(
         sock,
         sender,
-        "📝 *Enter / Update Daily Entry*\n\nStart by sending the report date:\n*Dated DD/MM/YYYY*\n\nThen enter Diesel, Adda, Union, Total Cash Collection, Online, employee expenses and Remarks. Send *Submit* when ready.\n\nIf an entry already exists for that date, the bot will ask whether you want to load it for updating.",
+        "📝 *Enter / Update Daily Entry*\n\nFirst send the report date:\n*Date / Dated __________*\n\nAccepted date commands:\n• Today / Date Today / Dated Today\n• Date / Dated DD/MM/YYYY\n• Date / Dated DD/MM (current year auto)\n• Date / Dated DD (current month and year auto)\n• Date / Dated 01 Nov / 01 November (current year auto)\n• Date / Dated 01 Nov 2026\n\nNo entry for that date? A new entry will start. If an entry already exists, the bot will ask to load it for updating.\n\nThen enter Diesel, Adda, Union, Total Cash Collection, Online, employee expenses and Remarks. Send *Submit* when ready.",
         "Enter / Update Daily Entry"
       );
       return true;
