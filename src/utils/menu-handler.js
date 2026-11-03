@@ -126,7 +126,10 @@ async function sendLabInteractive(sock, sender, text, interactiveButtons, title 
   return message;
 }
 
-async function sendDailyQuickReplyMessage(sock, sender, text, title = "Daily") {
+export async function sendDailyQuickReplyMessage(sock, sender, text, title = "Daily", buttons = [
+  { display_text: "Menu", id: "menu" },
+  { display_text: "Exit", id: "exit" }
+]) {
   const userJid = sock.authState?.creds?.me?.id || sock.user?.id;
   if (!userJid) throw new Error("WhatsApp socket user is not ready for interactive messaging.");
 
@@ -136,10 +139,10 @@ async function sendDailyQuickReplyMessage(sock, sender, text, title = "Daily") {
       body: { text },
       footer: { text: "Sukoon Bot" },
       nativeFlowMessage: {
-        buttons: [
-          { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Menu", id: "menu" }) },
-          { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Exit", id: "exit" }) }
-        ],
+        buttons: buttons.map(button => ({
+          name: "quick_reply",
+          buttonParamsJson: JSON.stringify(button)
+        })),
         messageParamsJson: ""
       }
     }
@@ -820,6 +823,7 @@ export async function handleMenuNavigation(sock, sender, text) {
   }
   const nativeMenuCommands = {
     "daily:entry": "daily_entry",
+    "daily:new_entry": "daily_new_entry",
     "daily:last": "daily_last",
     "daily:month": "daily_month",
     "daily:other": "daily_other",
@@ -891,9 +895,11 @@ export async function handleMenuNavigation(sock, sender, text) {
 
   // Handle Daily menu selections from the native Single Select List.
   if (state.mode === "daily" && resolvedCommand.startsWith("daily_")) {
-    if (resolvedCommand === "daily_entry") {
+    if (resolvedCommand === "daily_entry" || resolvedCommand === "daily_new_entry") {
+      // New Entry always starts a clean date-first entry session.
       if (!global.dailyEntryDatePrompt) global.dailyEntryDatePrompt = {};
       global.dailyEntryDatePrompt[sender] = true;
+      if (global.userData) delete global.userData[sender];
       await sendDailyQuickReplyMessage(
         sock,
         sender,
