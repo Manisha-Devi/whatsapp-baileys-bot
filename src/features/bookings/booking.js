@@ -25,6 +25,7 @@ import { handleFetchConfirmation } from "./handlers/fetch-handler.js";
 import { handleSubmit } from "./handlers/submit-handler.js";
 import { sendSummary, getCompletionMessage } from "./utils/messages.js";
 import { getMenuState } from "../../utils/menu-state.js";
+import { extractIncomingMessageText } from "../../utils/incoming-message.js";
 
 /**
  * Main handler for incoming WhatsApp messages related to booking functionality.
@@ -68,10 +69,9 @@ export async function handleIncomingMessageFromBooking(sock, msg, skipPrefixStri
       return;
     }
 
-    // Extract message text content
-    const messageContent =
-      msg.message?.conversation || msg.message?.extendedTextMessage?.text;
-    if (!messageContent) return;
+    // Read typed text and interactive replies with the same command parser.
+    const messageContent = extractIncomingMessageText(msg);
+    if (messageContent === null) return;
     
     // Ignore messages sent by the bot itself
     if (msg.key.fromMe) return;
