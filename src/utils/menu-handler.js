@@ -892,9 +892,14 @@ export async function handleMenuNavigation(sock, sender, text) {
   // Handle Daily menu selections from the native Single Select List.
   if (state.mode === "daily" && resolvedCommand.startsWith("daily_")) {
     if (resolvedCommand === "daily_entry") {
-      await sock.sendMessage(sender, {
-        text: "📝 *Enter / Update Daily Entry*\\n\\nStart by sending the report date:\\n*Dated DD/MM/YYYY*\\n\\nThen enter Diesel, Adda, Union, Total Cash Collection, Online, employee expenses and Remarks. Send *Submit* when ready.\\n\\nIf an entry already exists for that date, the bot will ask whether you want to load it for updating."
-      });
+      if (!global.dailyEntryDatePrompt) global.dailyEntryDatePrompt = {};
+      global.dailyEntryDatePrompt[sender] = true;
+      await sendDailyQuickReplyMessage(
+        sock,
+        sender,
+        "📝 *Enter / Update Daily Entry*\\n\\nPehle report ki date bhejein. Aap inmein se koi bhi format use kar sakte hain:\\n\\n• *Today*\\n• *Date Today* / *Dated Today*\\n• *Date/Dated DD/MM/YYYY*\\n• *Date/Dated DD/MM* — current year automatically lagega\\n• *Date/Dated DD* — current month aur year automatically lagenge\\n• *Date/Dated 01 Nov* / *01 November* — current year automatically lagega\\n• *Date/Dated 01 Nov 2026*\\n\\nDate select hone ke baad:\\n• Agar us date ki entry pehle se hai, bot existing data fetch karke update ki confirmation maangega.\\n• Agar entry nahi hai, nayi daily entry shuru ho jayegi.\\n\\nUske baad Diesel, Adda, Union, Total Cash Collection, Online, Driver/Conductor, Extra Expenses aur Remarks enter karein. Complete hone par *Submit* bhejein.",
+        "Enter / Update Daily Entry"
+      );
       return true;
     }
     if (resolvedCommand === "daily_last") {
@@ -908,9 +913,12 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
     if (resolvedCommand === "daily_other") {
-      await sock.sendMessage(sender, {
-        text: "⚙️ *Other Daily Commands*\\n\\nAap yahan baaki Daily commands text mein bhej sakte hain, jaise:\\n• Today / Yesterday\\n• Last 5 Entries / Last 5 Days\\n• DD/MM/YYYY\\n• DD/MM/YYYY to DD/MM/YYYY\\n• Driver 250 / Conductor 150\\n• Clear\\n\\nWapas Daily Menu ke liye *Menu* bhejein. Main Menu ke liye *Exit* bhejein."
-      });
+      await sendDailyQuickReplyMessage(
+        sock,
+        sender,
+        "⚙️ *Other Daily Commands*\\n\\nAap yahan baaki Daily commands text mein bhej sakte hain, jaise:\\n• Today / Yesterday\\n• Last 5 Entries / Last 5 Days\\n• DD/MM/YYYY\\n• DD/MM/YYYY to DD/MM/YYYY\\n• Driver 250 / Conductor 150\\n• Clear\\n\\nNeeche diye gaye buttons se navigation karein.",
+        "Other Daily Commands"
+      );
       return true;
     }
     if (resolvedCommand === "daily_help") {
@@ -929,6 +937,7 @@ export async function handleMenuNavigation(sock, sender, text) {
 
   // Handle 'menu' command - show current menu screen
   if (resolvedCommand === 'menu') {
+    if (global.dailyEntryDatePrompt) delete global.dailyEntryDatePrompt[sender];
     if (!state.mode) {
       await showMainMenu(sock, sender);
     } else if (state.mode === 'daily' && !state.submode) {
@@ -972,6 +981,7 @@ export async function handleMenuNavigation(sock, sender, text) {
 
   // Handle 'exit' and 'home' commands - navigate back
   if (resolvedCommand === 'exit' || resolvedCommand === 'home') {
+    if (global.dailyEntryDatePrompt) delete global.dailyEntryDatePrompt[sender];
     const currentMode = state.mode;
     const currentSubmode = state.submode;
 
