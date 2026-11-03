@@ -195,14 +195,17 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
           ? foundBooking.Date?.Start 
           : `${foundBooking.Date?.Start} to ${foundBooking.Date?.End}`;
         
-        await safeSendMessage(sock, sender, {
-          text: `⚠️ Booking for *${busCode}* found!\n\n` +
-                `📅 Date: ${formatDisplay}\n` +
-                `👤 Customer: ${foundBooking.CustomerName}\n` +
-                `📱 Phone: ${foundBooking.CustomerPhone}\n` +
-                `📊 Status: ${foundBooking.Status}\n\n` +
-                `Do you want to open this booking for updates? (*Yes* or *No*)`
-        });
+        await sendDailyYesNoQuickReplyMessage(
+          sock,
+          sender,
+          `⚠️ Booking for *${busCode}* found!\n\n` +
+            `📅 Date: ${formatDisplay}\n` +
+            `👤 Customer: ${foundBooking.CustomerName}\n` +
+            `📱 Phone: ${foundBooking.CustomerPhone}\n` +
+            `📊 Status: ${foundBooking.Status}\n\n` +
+            `Do you want to open this booking for updates? (Yes/Y or No/N)`,
+          "Open Existing Booking"
+        );
         return { handled: true, anyFieldFound: true };
       } else {
         // No existing booking - proceed with new entry
