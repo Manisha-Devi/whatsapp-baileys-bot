@@ -18,6 +18,7 @@ import { sendSubmittedSummary } from "../utils/messages.js";
 import { resolveCommand } from "../../../utils/menu-handler.js";
 import { getMenuState } from "../../../utils/menu-state.js";
 import { getUserNameByPhone } from "../../../utils/employees.js";
+import { sendDailyYesNoQuickReplyMessage } from "../../../utils/menu-handler.js";
 
 /**
  * Handles the submit confirmation flow for saving a daily record.
@@ -62,9 +63,12 @@ export async function handleSubmit(sock, sender, text, user) {
         user.pendingPrimaryKey = primaryKey;
         user.waitingForSubmit = false;
         user.confirmingUpdate = true;
-        await safeSendMessage(sock, sender, {
-          text: `⚠️ A record for ${user.busCode || 'Unknown Bus'} on ${user.Dated} already exists.\nDo you want to update it? (*Yes* or *Y* / *No* or *N*)`,
-        });
+        await sendDailyYesNoQuickReplyMessage(
+          sock,
+          sender,
+          `⚠️ A record for ${user.busCode || 'Unknown Bus'} on ${user.Dated} already exists.\nDo you want to update it? (*Yes* or *Y* / *No* or *N*)`,
+          "Confirm Existing Record Update"
+        );
         return true;
       }
 
