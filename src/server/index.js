@@ -433,12 +433,7 @@ async function connectToWhatsApp() {
             const params = JSON.parse(
               interactiveResponse.nativeFlowResponseMessage?.paramsJson || "{}"
             );
-            const responseId = params.id || params.display_text;
-            const dailySubmitResponses = {
-              daily_submit_yes: "yes",
-              daily_submit_no: "no"
-            };
-            messageContent = dailySubmitResponses[responseId] || responseId ||
+            messageContent = params.id || params.display_text ||
               interactiveResponse.body?.text || messageContent;
           } catch (error) {
             console.warn("Could not parse interactive response:", error.message);
