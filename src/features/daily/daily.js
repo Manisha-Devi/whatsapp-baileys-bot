@@ -165,8 +165,8 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     const awaitingEntryDate = Boolean(global.dailyEntryDatePrompt?.[sender]);
     if (awaitingEntryDate && (
       /^today$/i.test(normalizedText) ||
-      /^\\d{1,2}(?:[/-]\\d{1,2}(?:[/-]\\d{4})?)?$/.test(normalizedText) ||
-      /^\\d{1,2}\\s+[a-z]+(?:\\/[a-z]+)?(?:\\s+\\d{4})?$/i.test(normalizedText)
+      /^\d{1,2}(?:[/-]\d{1,2}(?:[/-]\d{4})?)?$/.test(normalizedText) ||
+      /^\d{1,2}\s+[a-z]+(?:\/[a-z]+)?(?:\s+\d{4})?$/i.test(normalizedText)
     )) {
       normalizedText = "Dated " + normalizedText;
       text = normalizedText.toLowerCase();
