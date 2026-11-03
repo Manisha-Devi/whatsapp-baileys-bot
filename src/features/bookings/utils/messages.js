@@ -10,6 +10,7 @@
 
 import { safeSendMessage } from "./helpers.js";
 import { getMenuState } from "../../../utils/menu-state.js";
+import { sendDailyYesNoQuickReplyMessage } from "../../../utils/menu-handler.js";
 
 /**
  * Capitalize first letter of a string
@@ -208,7 +209,12 @@ export async function sendSummary(sock, sender, completenessMsg, user) {
     msgParts.push(completenessMsg);
   }
 
-  await safeSendMessage(sock, sender, { text: msgParts.join("\n") });
+  const summaryText = msgParts.join("\n");
+  if (/Do you want to Submit\?|Type Yes to save or No to cancel/i.test(summaryText)) {
+    await sendDailyYesNoQuickReplyMessage(sock, sender, summaryText, "Booking Confirmation");
+  } else {
+    await safeSendMessage(sock, sender, { text: summaryText });
+  }
 }
 
 /**
