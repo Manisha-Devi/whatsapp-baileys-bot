@@ -127,8 +127,8 @@ async function sendLabInteractive(sock, sender, text, interactiveButtons, title 
 }
 
 export async function sendDailyQuickReplyMessage(sock, sender, text, title = "Daily", buttons = [
-  { display_text: "Menu", id: "menu" },
-  { display_text: "Exit", id: "exit" }
+  { display_text: "Menu", id: "daily:quick_menu" },
+  { display_text: "Exit", id: "daily:quick_exit" }
 ]) {
   const userJid = sock.authState?.creds?.me?.id || sock.user?.id;
   if (!userJid) throw new Error("WhatsApp socket user is not ready for interactive messaging.");
@@ -836,6 +836,9 @@ export async function handleMenuNavigation(sock, sender, text) {
     "daily:other": "daily_other",
     "daily:help": "daily_help",
     "daily:exit": "exit",
+    // Dedicated Quick Reply actions; keep Single Select List IDs unchanged.
+    "daily:quick_menu": "daily_quick_menu",
+    "daily:quick_exit": "daily_quick_exit",
     "main:daily": "daily",
     "main:booking": "booking",
     "main:cash": "cash",
@@ -898,6 +901,22 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
     return false;
+  }
+
+  // Handle dedicated Daily Quick Reply navigation actions.
+  // These IDs are separate from Single Select List IDs so list behavior remains unchanged.
+  if (state.mode === "daily" && resolvedCommand === "daily_quick_menu") {
+    if (global.dailyEntryDatePrompt) delete global.dailyEntryDatePrompt[sender];
+    setMenuSubmode(sender, null);
+    await showDailySubmenu(sock, sender);
+    return true;
+  }
+
+  if (state.mode === "daily" && resolvedCommand === "daily_quick_exit") {
+    if (global.dailyEntryDatePrompt) delete global.dailyEntryDatePrompt[sender];
+    exitToHome(sender);
+    await showMainMenu(sock, sender);
+    return true;
   }
 
   // Handle Daily menu selections from the native Single Select List.
