@@ -25,7 +25,7 @@ import { format, parse, isValid } from "date-fns";
  */
 export function parseDate(value) {
   try {
-    const input = String(value)
+    let input = String(value)
       .replace(/^\(*|\)*$/g, "")
       .replace(/\*/g, "")
       .replace(/\s+/g, " ")
@@ -33,6 +33,8 @@ export function parseDate(value) {
 
     if (!input) return null;
 
+    // Accept either a bare date or a date prefixed with Date/Dated.
+    input = input.replace(/^(?:date|dated)\s*[:\-]?\s*/i, "").trim();
     const now = new Date();
     const lower = input.toLowerCase();
 
@@ -49,18 +51,23 @@ export function parseDate(value) {
       return d;
     }
 
+    // DD/MM/YYYY, DD-MM-YYYY, DD/MM and DD-MM.
     let m = lower.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
     if (m) return makeDate(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
 
     m = lower.match(/^(\d{1,2})[\/-](\d{1,2})$/);
     if (m) return makeDate(Number(m[1]), Number(m[2]) - 1, now.getFullYear());
 
+    // DD uses the current month and year.
     m = lower.match(/^(\d{1,2})$/);
     if (m) return makeDate(Number(m[1]), now.getMonth(), now.getFullYear());
 
-    m = lower.match(/^(\d{1,2})\s+([a-z]+)(?:\/[a-z]+)?(?:\s+(\d{4}))?$/i);
+    // DD Mon, DD Month, DD Mon YYYY, DD Month YYYY.
+    // Also tolerate an optional repeated day/month written as "01 Nov / 01 November".
+    m = lower.match(/^(\d{1,2})[\s-]+([a-z]+)(?:\s*\/\s*(?:\d{1,2}[\s-]+)?[a-z]+)?(?:\s+(\d{4}))?$/i);
     if (m) {
-      const month = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(m[2].slice(0, 3));
+      const month = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+        .indexOf(m[2].slice(0, 3).toLowerCase());
       if (month >= 0) return makeDate(Number(m[1]), month, Number(m[3] || now.getFullYear()));
     }
 
