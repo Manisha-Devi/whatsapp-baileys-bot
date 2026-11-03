@@ -169,6 +169,13 @@ export async function sendDailyQuickReplyMessage(sock, sender, text, title = "Da
   return message;
 }
 
+export async function sendDailyYesNoQuickReplyMessage(sock, sender, text, title = "Daily Confirmation") {
+  return sendDailyQuickReplyMessage(sock, sender, text, title, [
+    { display_text: "Yes", id: "yes" },
+    { display_text: "No", id: "no" }
+  ]);
+}
+
 async function sendNativeSelectList(sock, sender, { title, body, sectionTitle, rows, footer = "Sukoon Bot" }) {
   const userJid = sock.authState?.creds?.me?.id || sock.user?.id;
   if (!userJid) throw new Error("WhatsApp socket user is not ready for interactive messaging.");
