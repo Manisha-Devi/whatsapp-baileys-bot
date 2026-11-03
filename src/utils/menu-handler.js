@@ -367,23 +367,20 @@ export async function showBusSelectionMenu(sock, sender) {
  * @param {Object} sock - The WhatsApp socket connection
  * @param {string} sender - The WhatsApp sender ID
  */
-export async function showDailySubmenu(sock, sender) {
+export function showDailySubmenu(sock, sender) {
   const state = getMenuState(sender);
   const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
+  
+  const menuText = `📊 *Daily Menu* (*${regNumber}*)
 
-  return sendNativeSelectList(sock, sender, {
-    title: "Daily Menu",
-    body: `Select an option for ${regNumber}.`,
-    sectionTitle: "Daily Options",
-    rows: [
-      { title: "Enter / Update", description: "Create a new daily entry or update an existing one", id: "daily:entry" },
-      { title: "Last Entry", description: "View the most recently saved daily entry", id: "daily:last" },
-      { title: "This Month", description: "View this month's daily entries", id: "daily:month" },
-      { title: "Other", description: "Use remaining Daily commands", id: "daily:other" },
-      { title: "Help", description: "View Daily command instructions", id: "daily:help" },
-      { title: "Exit", description: "Return to Main Menu", id: "daily:exit" }
-    ]
-  });
+Enter Command or Select Option:
+
+❓ Reply *Help* or *H* - for Help with Commands
+🔙 Reply *Exit* or *E* - to go back to Main Menu
+
+Type your choice:`;
+
+  return sock.sendMessage(sender, { text: menuText });
 }
 
 /**
@@ -819,14 +816,8 @@ export async function handleMenuNavigation(sock, sender, text) {
     return true;
   }
   const nativeMenuCommands = {
-    "daily:entry": "daily_entry",
     "daily:new_entry": "daily_new_entry",
     "daily:menu": "daily_menu",
-    "daily:last": "daily_last",
-    "daily:month": "daily_month",
-    "daily:other": "daily_other",
-    "daily:help": "daily_help",
-    "daily:exit": "exit",
     "main:daily": "daily",
     "main:booking": "booking",
     "main:cash": "cash",
@@ -891,44 +882,21 @@ export async function handleMenuNavigation(sock, sender, text) {
     return false;
   }
 
-  // Handle Daily menu selections from the native Single Select List.
+  // Handle Daily quick-reply navigation actions.
   if (state.mode === "daily" && resolvedCommand.startsWith("daily_")) {
-    if (resolvedCommand === "daily_entry" || resolvedCommand === "daily_new_entry") {
+    if (resolvedCommand === "daily_new_entry") {
       if (!global.dailyEntryDatePrompt) global.dailyEntryDatePrompt = {};
       global.dailyEntryDatePrompt[sender] = true;
       await sendDailyQuickReplyMessage(
         sock,
         sender,
-        "📝 *Enter / Update Daily Entry*\n\nFirst send the report date:\n*Date / Dated __________*\n\nAccepted date commands:\n• Today / Date Today / Dated Today\n• Date / Dated DD/MM/YYYY\n• Date / Dated DD/MM (current year auto)\n• Date / Dated DD (current month and year auto)\n• Date / Dated 01 Nov / 01 November (current year auto)\n• Date / Dated 01 Nov 2026\n\n",
+        "📝 *Enter / Update Daily Entry*\\n\\nFirst send the report date:\\n*Date / Dated __________*\\n\\nAccepted date commands:\\n• Today / Date Today / Dated Today\\n• Date / Dated DD/MM/YYYY\\n• Date / Dated DD/MM (current year auto)\\n• Date / Dated DD (current month and year auto)\\n• Date / Dated 01 Nov / 01 November (current year auto)\\n• Date / Dated 01 Nov 2026\\n\\n",
         "Enter / Update Daily Entry"
       );
       return true;
     }
     if (resolvedCommand === "daily_menu") {
       await showDailySubmenu(sock, sender);
-      return true;
-    }
-    if (resolvedCommand === "daily_last") {
-      const { handleReportsCommand } = await import("../features/daily/handlers/command-handler.js");
-      await handleReportsCommand(sock, sender, "Last 1 Entries", null);
-      return true;
-    }
-    if (resolvedCommand === "daily_month") {
-      const { handleReportsCommand } = await import("../features/daily/handlers/command-handler.js");
-      await handleReportsCommand(sock, sender, "This Month", null);
-      return true;
-    }
-    if (resolvedCommand === "daily_other") {
-      await sendDailyQuickReplyMessage(
-        sock,
-        sender,
-        "⚙️ *Other Daily Commands*\n\nAap yahan baaki Daily commands text mein bhej sakte hain, jaise:\n• Today / Yesterday\n• Last 5 Entries / Last 5 Days\n• DD/MM/YYYY\n• DD/MM/YYYY to DD/MM/YYYY\n• Driver 250 / Conductor 150\n• Clear",
-        "Other Daily Commands"
-      );
-      return true;
-    }
-    if (resolvedCommand === "daily_help") {
-      await showDailyDataHelp(sock, sender);
       return true;
     }
   }
