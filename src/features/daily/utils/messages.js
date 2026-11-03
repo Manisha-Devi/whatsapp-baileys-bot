@@ -307,8 +307,8 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
 
     await sendDailyQuickReplyMessage(sock, jid, msg, "Daily Data Submitted", [
       { display_text: "New Entry", id: "daily:new_entry" },
-      { display_text: "Menu", id: "menu" },
-      { display_text: "Exit", id: "exit" }
+      { display_text: "Menu", id: "daily:quick_menu" },
+      { display_text: "Exit", id: "daily:quick_exit" }
     ]);
   } catch (err) {
     console.error("❌ sendSubmittedSummary error:", err);
