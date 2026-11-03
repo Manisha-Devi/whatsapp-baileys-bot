@@ -170,11 +170,7 @@ export async function sendSummary(sock, jid, title, userData = {}) {
       ]);
     } else {
       // Incomplete-entry summaries remain plain text with no action buttons.
-      await sendDailyQuickReplyMessage(sock, jid, msg, "Daily Data Submitted", [
-      { display_text: "New Entry", id: "daily:new_entry" },
-      { display_text: "Menu", id: "menu" },
-      { display_text: "Exit", id: "exit" }
-    ]);
+      await safeSendMessage(sock, jid, { text: msg });
     }
   } catch (err) {
     console.error("❌ sendSummary error:", err);
@@ -309,7 +305,11 @@ export async function sendSubmittedSummary(sock, jid, userData = {}) {
       `✅ Data Submitted successfully!`,
     ].filter(line => line !== "").join("\n");
 
-    await safeSendMessage(sock, jid, { text: msg });
+    await sendDailyQuickReplyMessage(sock, jid, msg, "Daily Data Submitted", [
+      { display_text: "New Entry", id: "daily:new_entry" },
+      { display_text: "Menu", id: "menu" },
+      { display_text: "Exit", id: "exit" }
+    ]);
   } catch (err) {
     console.error("❌ sendSubmittedSummary error:", err);
     await safeSendMessage(sock, jid, { text: "❌ Failed to send submitted summary." });
