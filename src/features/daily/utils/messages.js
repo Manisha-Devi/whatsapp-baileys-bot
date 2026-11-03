@@ -13,6 +13,7 @@
  */
 
 import { safeSendMessage } from "./helpers.js";
+import { sendDailyQuickReplyMessage } from "../../../utils/menu-handler.js";
 import { generateWAMessageFromContent } from "@whiskeysockets/baileys";
 import { capitalize } from "./formatters.js";
 
@@ -162,7 +163,19 @@ export async function sendSummary(sock, jid, title, userData = {}) {
       title ? `\n${title}` : "",
     ].filter(line => line !== "").join("\n");
 
-    await safeSendMessage(sock, jid, { text: msg });
+    if (/All Data Entered/i.test(title || "")) {
+      await sendDailyQuickReplyMessage(sock, jid, msg, "Daily Entry Confirmation", [
+        { display_text: "Yes", id: "yes" },
+        { display_text: "No", id: "no" }
+      ]);
+    } else {
+      // Incomplete-entry summaries remain plain text with no action buttons.
+      await sendDailyQuickReplyMessage(sock, jid, msg, "Daily Data Submitted", [
+      { display_text: "New Entry", id: "daily:new_entry" },
+      { display_text: "Menu", id: "menu" },
+      { display_text: "Exit", id: "exit" }
+    ]);
+    }
   } catch (err) {
     console.error("❌ sendSummary error:", err);
     await safeSendMessage(sock, jid, { text: "❌ Failed to send summary. Try again." });
