@@ -26,6 +26,7 @@ import { recalculateCashHandover, getCompletionMessage } from "../utils/calculat
 import { sendSummary } from "../utils/messages.js";
 import { getMenuState } from "../../../utils/menu-state.js";
 import { getEmployExpensesForBus } from "../../../utils/employees.js";
+import { sendDailyYesNoQuickReplyMessage } from "../../../utils/menu-handler.js";
 
 /**
  * Extracts and processes multiple data fields from user input text.
@@ -128,9 +129,12 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
               const day = String(targetDate.getDate()).padStart(2, "0");
               const month = String(targetDate.getMonth() + 1).padStart(2, "0");
               const year = targetDate.getFullYear();
-              await safeSendMessage(sock, sender, {
-                text: `⚠️ Data for *${selectedBus}* on ${day}/${month}/${year} already exists.\nDo you want to fetch and update it? (yes/no)`,
-              });
+              await sendDailyYesNoQuickReplyMessage(
+                sock,
+                sender,
+                `⚠️ Data for *${selectedBus}* on ${day}/${month}/${year} already exists.\nDo you want to fetch and update it? (yes/no)`,
+                "Existing Daily Record"
+              );
               return { handled: true, anyFieldFound };
             }
           } catch (err) {
@@ -391,7 +395,7 @@ export async function handleFieldExtraction(sock, sender, normalizedText, user) 
     }
     
     // Always send the update confirmation prompt
-    await safeSendMessage(sock, sender, { text: first.message });
+    await sendDailyYesNoQuickReplyMessage(sock, sender, first.message, "Confirm Field Update");
     return { handled: true, anyFieldFound };
   }
 
@@ -470,7 +474,7 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
           type: next.type || "normal",
           employeeRole: next.employeeRole || null,
         };
-        await safeSendMessage(sock, sender, { text: next.message });
+        await sendDailyYesNoQuickReplyMessage(sock, sender, next.message, "Confirm Field Update");
       } else {
         user.pendingUpdates = null;
         const completenessMsg = getCompletionMessage(user);
@@ -494,7 +498,7 @@ export async function handleFieldUpdateConfirmation(sock, sender, text, user) {
           type: next.type || "normal",
           employeeRole: next.employeeRole || null,
         };
-        await safeSendMessage(sock, sender, { text: next.message });
+        await sendDailyYesNoQuickReplyMessage(sock, sender, next.message, "Confirm Field Update");
       } else {
         user.pendingUpdates = null;
         const completenessMsg = getCompletionMessage(user);
