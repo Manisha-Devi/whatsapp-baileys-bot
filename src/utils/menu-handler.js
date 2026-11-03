@@ -897,7 +897,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       await sendDailyQuickReplyMessage(
         sock,
         sender,
-        "📝 *Enter / Update Daily Entry*\\n\\nPehle report ki date bhejein. Aap inmein se koi bhi format use kar sakte hain:\\n\\n• *Today*\\n• *Date Today* / *Dated Today*\\n• *Date/Dated DD/MM/YYYY*\\n• *Date/Dated DD/MM* — current year automatically lagega\\n• *Date/Dated DD* — current month aur year automatically lagenge\\n• *Date/Dated 01 Nov* / *01 November* — current year automatically lagega\\n• *Date/Dated 01 Nov 2026*\\n\\nDate select hone ke baad:\\n• Agar us date ki entry pehle se hai, bot existing data fetch karke update ki confirmation maangega.\\n• Agar entry nahi hai, nayi daily entry shuru ho jayegi.\\n\\nUske baad Diesel, Adda, Union, Total Cash Collection, Online, Driver/Conductor, Extra Expenses aur Remarks enter karein. Complete hone par *Submit* bhejein.",
+        "📝 *Enter / Update Daily Entry*\n\nPehle report ki date bhejein. Aap inmein se koi bhi format use kar sakte hain:\n\n• *Today*\n• *Date Today* / *Dated Today*\n• *Date/Dated DD/MM/YYYY*\n• *Date/Dated DD/MM* — current year automatically lagega\n• *Date/Dated DD* — current month aur year automatically lagenge\n• *Date/Dated 01 Nov* / *01 November* — current year automatically lagega\n• *Date/Dated 01 Nov 2026*\n\nDate select hone ke baad:\n• Agar us date ki entry pehle se hai, bot existing data fetch karke update ki confirmation maangega.\n• Agar entry nahi hai, nayi daily entry shuru ho jayegi.\n\nUske baad Diesel, Adda, Union, Total Cash Collection, Online, Driver/Conductor, Extra Expenses aur Remarks enter karein. Complete hone par *Submit* bhejein.",
         "Enter / Update Daily Entry"
       );
       return true;
@@ -916,7 +916,7 @@ export async function handleMenuNavigation(sock, sender, text) {
       await sendDailyQuickReplyMessage(
         sock,
         sender,
-        "⚙️ *Other Daily Commands*\\n\\nAap yahan baaki Daily commands text mein bhej sakte hain, jaise:\\n• Today / Yesterday\\n• Last 5 Entries / Last 5 Days\\n• DD/MM/YYYY\\n• DD/MM/YYYY to DD/MM/YYYY\\n• Driver 250 / Conductor 150\\n• Clear\\n\\nNeeche diye gaye buttons se navigation karein.",
+        "⚙️ *Other Daily Commands*\n\nAap yahan baaki Daily commands text mein bhej sakte hain, jaise:\n• Today / Yesterday\n• Last 5 Entries / Last 5 Days\n• DD/MM/YYYY\n• DD/MM/YYYY to DD/MM/YYYY\n• Driver 250 / Conductor 150\n• Clear\n\nNeeche diye gaye buttons se navigation karein.",
         "Other Daily Commands"
       );
       return true;
