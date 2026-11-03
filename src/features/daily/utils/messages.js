@@ -163,7 +163,7 @@ export async function sendSummary(sock, jid, title, userData = {}) {
       title ? `\n${title}` : "",
     ].filter(line => line !== "").join("\n");
 
-    if (/All Data Entered/i.test(title || "")) {
+    if (/All Data Entered|Do you want to Cancel/i.test(title || "")) {
       await sendDailyQuickReplyMessage(sock, jid, msg, "Daily Entry Confirmation", [
         { display_text: "Yes", id: "yes" },
         { display_text: "No", id: "no" }
