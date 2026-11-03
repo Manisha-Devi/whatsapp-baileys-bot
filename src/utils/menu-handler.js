@@ -816,8 +816,6 @@ export async function handleMenuNavigation(sock, sender, text) {
     return true;
   }
   const nativeMenuCommands = {
-    "daily:new_entry": "daily_new_entry",
-    "daily:menu": "daily_menu",
     "main:daily": "daily",
     "main:booking": "booking",
     "main:cash": "cash",
@@ -880,25 +878,6 @@ export async function handleMenuNavigation(sock, sender, text) {
       return true;
     }
     return false;
-  }
-
-  // Handle Daily quick-reply navigation actions.
-  if (state.mode === "daily" && resolvedCommand.startsWith("daily_")) {
-    if (resolvedCommand === "daily_new_entry") {
-      if (!global.dailyEntryDatePrompt) global.dailyEntryDatePrompt = {};
-      global.dailyEntryDatePrompt[sender] = true;
-      await sendDailyQuickReplyMessage(
-        sock,
-        sender,
-        "📝 *Enter / Update Daily Entry*\\n\\nFirst send the report date:\\n*Date / Dated __________*\\n\\nAccepted date commands:\\n• Today / Date Today / Dated Today\\n• Date / Dated DD/MM/YYYY\\n• Date / Dated DD/MM (current year auto)\\n• Date / Dated DD (current month and year auto)\\n• Date / Dated 01 Nov / 01 November (current year auto)\\n• Date / Dated 01 Nov 2026\\n\\n",
-        "Enter / Update Daily Entry"
-      );
-      return true;
-    }
-    if (resolvedCommand === "daily_menu") {
-      await showDailySubmenu(sock, sender);
-      return true;
-    }
   }
 
   // Handle 'switch' command - change to a different bus
