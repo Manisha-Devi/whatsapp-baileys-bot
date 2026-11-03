@@ -23,6 +23,7 @@ import { handleFieldExtraction, handleFieldUpdateConfirmation, handleRemarksComm
 import { recalculateCashHandover, getCompletionMessage } from "./utils/calculations.js";
 import { sendSummary } from "./utils/messages.js";
 import { getMenuState, getSelectedBus } from "../../utils/menu-state.js";
+import { extractIncomingMessageText } from "../../utils/incoming-message.js";
 
 /**
  * Main handler for incoming daily-related messages
@@ -51,58 +52,10 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     // Ignore messages sent by the bot itself
     if (msg.key.fromMe) return;
 
-    // Unwrap WhatsApp message wrappers before reading text or button replies.
-    let incomingMessage = msg.message;
-    while (incomingMessage) {
-      const wrapped =
-        incomingMessage.ephemeralMessage?.message ||
-        incomingMessage.viewOnceMessage?.message ||
-        incomingMessage.viewOnceMessageV2?.message ||
-        incomingMessage.viewOnceMessageV2Extension?.message ||
-        incomingMessage.documentWithCaptionMessage?.message ||
-        incomingMessage.deviceSentMessage?.message;
-      if (!wrapped) break;
-      incomingMessage = wrapped;
-    }
-
-    // Accept normal text, native Quick Reply buttons, legacy buttons and list selections.
-    let messageContent =
-      incomingMessage?.conversation ||
-      incomingMessage?.extendedTextMessage?.text;
-
-    const interactiveResponse = incomingMessage?.interactiveResponseMessage;
-    if (interactiveResponse) {
-      try {
-        const params = JSON.parse(
-          interactiveResponse.nativeFlowResponseMessage?.paramsJson || "{}"
-        );
-        messageContent =
-          params.id ||
-          params.display_text ||
-          interactiveResponse.body?.text ||
-          messageContent;
-      } catch (error) {
-        console.warn("Could not parse Daily Quick Reply:", error.message);
-      }
-    }
-
-    const buttonResponse = incomingMessage?.buttonsResponseMessage;
-    if (buttonResponse) {
-      messageContent =
-        buttonResponse.selectedButtonId ||
-        buttonResponse.selectedDisplayText ||
-        messageContent;
-    }
-
-    const listResponse = incomingMessage?.listResponseMessage;
-    if (listResponse) {
-      messageContent =
-        listResponse.singleSelectReply?.selectedRowId ||
-        listResponse.title ||
-        messageContent;
-    }
-
-    if (messageContent === undefined || messageContent === null || messageContent === "") return;
+    // Normalize text and interactive replies through the shared Baileys parser.
+    // Quick Reply IDs (yes/no/menu/etc.) enter the same path as typed commands.
+    const messageContent = extractIncomingMessageText(msg);
+    if (messageContent === null) return;
 
     // Normalize the input text
     const textRaw = String(messageContent);
