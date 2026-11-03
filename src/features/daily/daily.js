@@ -48,13 +48,61 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
       return;
     }
 
-    // Extract message text content
-    const messageContent =
-      msg.message?.conversation || msg.message?.extendedTextMessage?.text;
-    if (!messageContent) return;
-    
     // Ignore messages sent by the bot itself
     if (msg.key.fromMe) return;
+
+    // Unwrap WhatsApp message wrappers before reading text or button replies.
+    let incomingMessage = msg.message;
+    while (incomingMessage) {
+      const wrapped =
+        incomingMessage.ephemeralMessage?.message ||
+        incomingMessage.viewOnceMessage?.message ||
+        incomingMessage.viewOnceMessageV2?.message ||
+        incomingMessage.viewOnceMessageV2Extension?.message ||
+        incomingMessage.documentWithCaptionMessage?.message ||
+        incomingMessage.deviceSentMessage?.message;
+      if (!wrapped) break;
+      incomingMessage = wrapped;
+    }
+
+    // Accept normal text, native Quick Reply buttons, legacy buttons and list selections.
+    let messageContent =
+      incomingMessage?.conversation ||
+      incomingMessage?.extendedTextMessage?.text;
+
+    const interactiveResponse = incomingMessage?.interactiveResponseMessage;
+    if (interactiveResponse) {
+      try {
+        const params = JSON.parse(
+          interactiveResponse.nativeFlowResponseMessage?.paramsJson || "{}"
+        );
+        messageContent =
+          params.id ||
+          params.display_text ||
+          interactiveResponse.body?.text ||
+          messageContent;
+      } catch (error) {
+        console.warn("Could not parse Daily Quick Reply:", error.message);
+      }
+    }
+
+    const buttonResponse = incomingMessage?.buttonsResponseMessage;
+    if (buttonResponse) {
+      messageContent =
+        buttonResponse.selectedButtonId ||
+        buttonResponse.selectedDisplayText ||
+        messageContent;
+    }
+
+    const listResponse = incomingMessage?.listResponseMessage;
+    if (listResponse) {
+      messageContent =
+        listResponse.singleSelectReply?.selectedRowId ||
+        listResponse.title ||
+        messageContent;
+    }
+
+    if (messageContent === undefined || messageContent === null || messageContent === "") return;
 
     // Normalize the input text
     const textRaw = String(messageContent);
