@@ -48,7 +48,8 @@ import { handleIncomingMessageFromBooking } from "../features/bookings/booking.j
 import { handleIncomingMessageFromCash } from "../features/cash/cash.js";          // Cash management handling
 import { handleIncomingMessageFromReports } from "../features/reports/reports.js";    // Reports feature
 import { handleMenuNavigation, isInteractiveLabActive, handleInteractiveLabLocation } from "../utils/menu-handler.js"; // Menu navigation and lab location tests
-import { getMenuState } from "../utils/menu-state.js";                              // User's current menu state
+import { getMenuState } from "../utils/menu-state.js";
+import { unwrapIncomingMessage, normalizeIncomingMessage } from "../utils/incoming-message.js";                              // User's current menu state
 
 // ========================================
 // CONFIGURATION - Load settings
@@ -394,23 +395,12 @@ async function connectToWhatsApp() {
         
         if (msg.key.fromMe) return;   // Own message = ignore
 
-        // Unwrap common WhatsApp message wrappers (including device-sent wrappers).
-        let incomingMessage = msg.message;
-        while (incomingMessage) {
-          const wrapped = incomingMessage.ephemeralMessage?.message ||
-            incomingMessage.viewOnceMessage?.message ||
-            incomingMessage.viewOnceMessageV2?.message ||
-            incomingMessage.viewOnceMessageV2Extension?.message ||
-            incomingMessage.documentWithCaptionMessage?.message ||
-            incomingMessage.deviceSentMessage?.message;
-          if (!wrapped) break;
-          incomingMessage = wrapped;
-        }
-
+        // Unwrap the message for location handling, then normalize all text,
+        // Quick Reply, legacy button, template button and list responses.
+        const incomingMessage = unwrapIncomingMessage(msg.message);
         const sender = msg.key.remoteJid;
 
         // Route actual location payloads directly, before text validation.
-        // Static location messages can have no conversation/text field.
         const liveLocationPayload = incomingMessage?.liveLocationMessage;
         const staticLocationPayload = incomingMessage?.locationMessage;
         const locationPayload = liveLocationPayload || staticLocationPayload;
@@ -422,34 +412,9 @@ async function connectToWhatsApp() {
           if (handledLocation) return;
         }
 
-        // Read normal text, quick-reply buttons, and native list selections.
-        let messageContent =
-          incomingMessage?.conversation ||
-          incomingMessage?.extendedTextMessage?.text;
-
-        const interactiveResponse = incomingMessage?.interactiveResponseMessage;
-        if (interactiveResponse) {
-          try {
-            const params = JSON.parse(
-              interactiveResponse.nativeFlowResponseMessage?.paramsJson || "{}"
-            );
-            messageContent = params.id || params.display_text ||
-              interactiveResponse.body?.text || messageContent;
-          } catch (error) {
-            console.warn("Could not parse interactive response:", error.message);
-          }
-        }
-
-        const buttonResponse = incomingMessage?.buttonsResponseMessage;
-        if (buttonResponse) {
-          messageContent = buttonResponse.selectedButtonId || buttonResponse.selectedDisplayText || messageContent;
-        }
-
-        const listResponse = incomingMessage?.listResponseMessage;
-        if (listResponse) {
-          messageContent = listResponse.singleSelectReply?.selectedRowId || listResponse.title || messageContent;
-        }
-
+        const normalizedMsg = normalizeIncomingMessage(msg);
+        if (!normalizedMsg) return;
+        const messageContent = normalizedMsg.message.conversation;
         if (!messageContent) return;  // No supported text/interactive response
         
         // Ignore group messages (only handle personal chats)
@@ -493,15 +458,15 @@ async function connectToWhatsApp() {
         
         // Daily mode - Send to daily report handler
         if (menuState.mode === 'daily') {
-          await handleIncomingMessageFromDaily(sock, msg, true);
+          await handleIncomingMessageFromDaily(sock, normalizedMsg, true);
         } 
         // Booking mode - Send to booking handler
         else if (menuState.mode === 'booking') {
-          await handleIncomingMessageFromBooking(sock, msg, true);
+          await handleIncomingMessageFromBooking(sock, normalizedMsg, true);
         }
         // Cash mode - Send to cash management handler
         else if (menuState.mode === 'cash') {
-          const handled = await handleIncomingMessageFromCash(sock, msg);
+          const handled = await handleIncomingMessageFromCash(sock, normalizedMsg);
           if (handled === false) {
             const { exitToHome } = await import("../utils/menu-state.js");
             const { showMainMenu } = await import("../utils/menu-handler.js");
@@ -511,7 +476,7 @@ async function connectToWhatsApp() {
         }
         // Reports mode - Send to reports feature handler
         else if (menuState.mode === 'report') {
-          await handleIncomingMessageFromReports(sock, msg);
+          await handleIncomingMessageFromReports(sock, normalizedMsg);
         }
         // No mode selected - Error message
         else {
