@@ -214,7 +214,7 @@ export async function handleIncomingMessageFromDaily(sock, msg, skipPrefixStripp
     if (awaitingEntryDate && (
       /^today$/i.test(normalizedText) ||
       /^\d{1,2}(?:[/-]\d{1,2}(?:[/-]\d{4})?)?$/.test(normalizedText) ||
-      /^\d{1,2}\s+[a-z]+(?:\/[a-z]+)?(?:\s+\d{4})?$/i.test(normalizedText)
+      /^\d{1,2}[\s-]+[a-z]+(?:\s*\/\s*(?:\d{1,2}[\s-]+)?[a-z]+)?(?:\s+\d{4})?$/i.test(normalizedText)
     )) {
       normalizedText = "Dated " + normalizedText;
       text = normalizedText.toLowerCase();
