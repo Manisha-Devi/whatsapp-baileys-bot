@@ -411,6 +411,9 @@ async function connectToWhatsApp() {
         // Quick Reply, legacy button, template button and list responses.
         const incomingMessage = unwrapIncomingMessage(msg.message);
         const sender = msg.key.remoteJid;
+        const senderMetadata = {
+          alternateSender: msg.key.remoteJidAlt || msg.key.participantAlt || null
+        };
 
         // Route actual location payloads directly, before text validation.
         const liveLocationPayload = incomingMessage?.liveLocationMessage;
@@ -425,9 +428,16 @@ async function connectToWhatsApp() {
         }
 
         const normalizedMsg = normalizeIncomingMessage(msg);
-        if (!normalizedMsg) return;
+        if (!normalizedMsg) {
+          // Still audit unknown senders even when they send media or unsupported message types.
+          await handleMenuNavigation(sock, sender, "", senderMetadata);
+          return;
+        }
         const messageContent = normalizedMsg.message.conversation;
-        if (!messageContent) return;  // No supported text/interactive response
+        if (!messageContent) {
+          await handleMenuNavigation(sock, sender, "", senderMetadata);
+          return;
+        }
         
         // Ignore group messages (only handle personal chats)
         if (sender && sender.endsWith("@g.us")) return;
@@ -441,9 +451,7 @@ async function connectToWhatsApp() {
         // ----------------------------------------
         
         // Handle Entry, cancel, etc. commands
-        const menuHandled = await handleMenuNavigation(sock, sender, text, {
-          alternateSender: msg.key.remoteJidAlt || msg.key.participantAlt || null
-        });
+        const menuHandled = await handleMenuNavigation(sock, sender, text, senderMetadata);
         if (menuHandled) return; // Menu handled it
 
         // Get user's current menu state
