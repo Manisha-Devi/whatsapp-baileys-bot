@@ -802,7 +802,7 @@ export function resolveCommand(input, menuState = null) {
 function extractPhoneFromSender(sender, alternateSender = null) {
   for (const candidate of [sender, alternateSender]) {
     if (!candidate || typeof candidate !== "string") continue;
-    const match = candidate.match(/^(\\d+)@/);
+    const match = candidate.match(/^(\d+)@/);
     if (match) return match[1];
   }
   return null;
