@@ -329,6 +329,13 @@ function startLiveLocationScheduler(sock, sender, session) {
     }
 
     session.cycleCount += 1;
+    console.log("[Live Location Test] 5-second cycle", {
+      sender,
+      cycle: session.cycleCount,
+      status: !hasNewUpdate ? "Same Coordinate" : sameCoordinates ? "New Update - Same Coordinates" : "New Coordinate",
+      latitude: location.latitude,
+      longitude: location.longitude
+    });
     try {
       await sock.sendMessage(sender, {
         text: [
@@ -391,10 +398,11 @@ export async function handleInteractiveLabLocation(sock, sender, payload, live =
   const location = {
     latitude,
     longitude,
-    accuracyInMeters: Number.isFinite(Number(payload.accuracyInMeters))
+    accuracyInMeters: payload.accuracyInMeters != null && Number.isFinite(Number(payload.accuracyInMeters))
       ? Number(payload.accuracyInMeters) : null,
-    speedInMps: Number.isFinite(Number(payload.speedInMps))
+    speedInMps: payload.speedInMps != null && Number.isFinite(Number(payload.speedInMps))
       ? Number(payload.speedInMps) : null,
+    sequenceNumber: payload.sequenceNumber ?? null,
     receivedAt: new Date().toISOString(),
     messageId: metadata.messageId || null,
     messageTimestamp: metadata.messageTimestamp || null
@@ -404,11 +412,22 @@ export async function handleInteractiveLabLocation(sock, sender, payload, live =
     const fingerprint = [
       location.messageId || "",
       location.messageTimestamp || "",
+      location.sequenceNumber ?? "",
       location.latitude,
       location.longitude
     ].join("|");
     const firstLocation = !session.latestLocation;
     const isNewEvent = fingerprint !== session.latestFingerprint;
+
+    console.log("[Live Location Test] Incoming location payload", {
+      sender,
+      messageId: location.messageId,
+      messageTimestamp: location.messageTimestamp,
+      sequenceNumber: location.sequenceNumber,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      firstLocation
+    });
 
     session.latestLocation = location;
     if (isNewEvent && !firstLocation) session.pendingUpdate = true;
