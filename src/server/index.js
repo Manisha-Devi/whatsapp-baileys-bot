@@ -319,7 +319,7 @@ async function connectToWhatsApp() {
     // ----------------------------------------
     
     const currentSocket = makeWASocket({
-      version                                    // WhatsApp Web version
+      version,                                   // WhatsApp Web version
       auth: {
         creds: state.creds,                       // Login credentials
         keys: makeCacheableSignalKeyStore(        // Encryption keys (cached for speed)
