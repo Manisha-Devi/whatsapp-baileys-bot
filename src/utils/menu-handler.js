@@ -226,7 +226,7 @@ async function sendNativeSelectList(sock, sender, { title, body, sectionTitle, r
 async function showInteractiveTestMenu(sock, sender) {
   return sock.sendMessage(sender, { text: [
     "🧪 *INTERACTIVE MESSAGING LAB*", "",
-    "1️⃣ Location", "2️⃣ Live Location", "3️⃣ Quick Reply",
+    "1️⃣ Location", "2️⃣ Live Location Test (5 sec)", "3️⃣ Quick Reply",
     "4️⃣ Single Select List", "5️⃣ CTA Buttons", "6️⃣ E - Back to Main Menu", "",
     "Reply with a number (1–6)."
   ].join("\n") });
@@ -281,28 +281,164 @@ async function showInteractiveCtaTest(sock, sender, type) {
 
 const locationTestSessions = new Map();
 
+function stopLocationTestSession(sender) {
+  const session = locationTestSessions.get(sender);
+  if (session?.timer) clearInterval(session.timer);
+  locationTestSessions.delete(sender);
+}
+
+function formatLocationForReply(location) {
+  const lines = [
+    "Latitude: " + location.latitude,
+    "Longitude: " + location.longitude
+  ];
+  if (Number.isFinite(location.accuracyInMeters)) {
+    lines.push("Accuracy: " + location.accuracyInMeters + " metres");
+  }
+  if (Number.isFinite(location.speedInMps)) {
+    lines.push("Speed: " + location.speedInMps + " m/s");
+  }
+  lines.push("Google Maps: https://maps.google.com/?q=" + location.latitude + "," + location.longitude);
+  return lines;
+}
+
+function startLiveLocationScheduler(sock, sender, session) {
+  if (session.timer) clearInterval(session.timer);
+
+  session.timer = setInterval(async () => {
+    if (session.sending || locationTestSessions.get(sender) !== session) return;
+    if (!session.latestLocation) return;
+
+    session.sending = true;
+    const location = session.latestLocation;
+    const hasNewUpdate = session.pendingUpdate;
+    session.pendingUpdate = false;
+
+    const sameCoordinates =
+      session.lastReportedLocation &&
+      session.lastReportedLocation.latitude === location.latitude &&
+      session.lastReportedLocation.longitude === location.longitude;
+
+    let status;
+    if (!hasNewUpdate) {
+      status = "🟡 *Same Coordinate*";
+    } else if (sameCoordinates) {
+      status = "🔵 *New Update – Same Coordinates*";
+    } else {
+      status = "🟢 *New Coordinate*";
+    }
+
+    session.cycleCount += 1;
+    try {
+      await sock.sendMessage(sender, {
+        text: [
+          "📍 *Live Location Test*",
+          "",
+          status,
+          "Cycle: " + session.cycleCount,
+          ...formatLocationForReply(location),
+          "",
+          "No new WhatsApp update in this cycle means the last received coordinate is being repeated.",
+          "Send *STOP* to end tracking."
+        ].join("\n")
+      });
+      session.lastReportedLocation = {
+        latitude: location.latitude,
+        longitude: location.longitude
+      };
+    } catch (error) {
+      console.error("Live Location Test reply failed:", error?.stack || error);
+    } finally {
+      session.sending = false;
+    }
+  }, 5000);
+}
+
 async function requestUserLocation(sock, sender, live = false) {
-  locationTestSessions.set(sender, live ? "live" : "normal");
+  stopLocationTestSession(sender);
+
+  if (live) {
+    locationTestSessions.set(sender, {
+      mode: "live",
+      latestLocation: null,
+      latestFingerprint: null,
+      pendingUpdate: false,
+      lastReportedLocation: null,
+      cycleCount: 0,
+      sending: false,
+      timer: null
+    });
+  } else {
+    locationTestSessions.set(sender, { mode: "normal" });
+  }
+
   await sock.sendMessage(sender, { text: live
-    ? "📍 *Live Location Test*\n\nWhatsApp mein 📎 > Location > Share Live Location select karke apni location share karein. Har naya update milne par main Latitude aur Longitude reply karunga.\n\nBand karne ke liye *Stop Live Location* bhejein."
+    ? "📍 *Live Location Test – 5 Second Interval*\n\nWhatsApp mein 📎 > Location > Share Live Location select karke apni location share karein.\n\nPehla coordinate receive hote hi tracking start hogi. Uske baad bot har 5 seconds mein status bhejega:\n• New Coordinate – naya coordinate receive hua\n• New Update – Same Coordinates – naya update aaya, coordinate same hai\n• Same Coordinate – is 5-second cycle mein koi naya update receive nahi hua\n\nBand karne ke liye *STOP* bhejein."
     : "📍 *Location Test*\n\nWhatsApp mein 📎 > Location > Send Your Current Location select karke apni location bhejein. Main received Latitude aur Longitude aapko wapas message karunga."
   });
 }
 
-export async function handleInteractiveLabLocation(sock, sender, payload, live = false) {
-  const mode = locationTestSessions.get(sender);
-  if (!mode || !payload) return false;
-  if (mode === "normal" && live) return false;
-  const latitude = payload.degreesLatitude;
-  const longitude = payload.degreesLongitude;
+export async function handleInteractiveLabLocation(sock, sender, payload, live = false, metadata = {}) {
+  const session = locationTestSessions.get(sender);
+  if (!session || !payload) return false;
+  if (session.mode === "normal" && live) return false;
+  if (session.mode === "live" && !live) return false;
+
+  const latitude = Number(payload.degreesLatitude);
+  const longitude = Number(payload.degreesLongitude);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+
+  const location = {
+    latitude,
+    longitude,
+    accuracyInMeters: Number.isFinite(Number(payload.accuracyInMeters))
+      ? Number(payload.accuracyInMeters) : null,
+    speedInMps: Number.isFinite(Number(payload.speedInMps))
+      ? Number(payload.speedInMps) : null,
+    receivedAt: new Date().toISOString(),
+    messageId: metadata.messageId || null,
+    messageTimestamp: metadata.messageTimestamp || null
+  };
+
+  if (session.mode === "live") {
+    const fingerprint = [
+      location.messageId || "",
+      location.messageTimestamp || "",
+      location.latitude,
+      location.longitude
+    ].join("|");
+    const firstLocation = !session.latestLocation;
+    const isNewEvent = fingerprint !== session.latestFingerprint;
+
+    session.latestLocation = location;
+    if (isNewEvent && !firstLocation) session.pendingUpdate = true;
+    session.latestFingerprint = fingerprint;
+
+    if (firstLocation) {
+      await sock.sendMessage(sender, {
+        text: [
+          "🟢 *Live Location Tracking Started*",
+          "",
+          ...formatLocationForReply(location),
+          "",
+          "Interval: 5 seconds",
+          "Next status update will be sent after 5 seconds.",
+          "Send *STOP* to end tracking."
+        ].join("\n")
+      });
+      session.lastReportedLocation = { latitude, longitude };
+      startLiveLocationScheduler(sock, sender, session);
+    }
+    return true;
+  }
+
   await sock.sendMessage(sender, { text: [
-    live ? "📍 *Live Location Update Received*" : "📍 *Your Location Received*", "",
-    "Latitude: " + latitude, "Longitude: " + longitude,
-    "Google Maps: https://maps.google.com/?q=" + latitude + "," + longitude, "",
-    live ? "Send *Stop Live Location* to end this test." : "✅ Location test completed."
+    "📍 *Your Location Received*", "",
+    ...formatLocationForReply(location),
+    "",
+    "✅ Location test completed."
   ].join("\n") });
-  if (!live) locationTestSessions.delete(sender);
+  stopLocationTestSession(sender);
   return true;
 }
 
@@ -828,8 +964,12 @@ export async function handleMenuNavigation(sock, sender, text, metadata = {}) {
   const lowerText = text.toLowerCase().trim();
 
   if (interactiveLabSessions.has(sender) && /^(stop live location|stop live|stop)$/i.test(lowerText)) {
-    locationTestSessions.delete(sender);
-    await sock.sendMessage(sender, { text: "🛑 Live Location test stopped." });
+    const hadLocationSession = locationTestSessions.has(sender);
+    stopLocationTestSession(sender);
+    await sock.sendMessage(sender, { text: hadLocationSession
+      ? "🛑 Live Location test stopped. The 5-second scheduler has been cleared."
+      : "ℹ️ No active Live Location test was running."
+    });
     await showInteractiveTestMenu(sock, sender);
     return true;
   }
@@ -1063,7 +1203,7 @@ export async function handleMenuNavigation(sock, sender, text, metadata = {}) {
   // Interactive Lab uses E (or 6) to return to the main menu, not log out.
   if (interactiveLabSessions.has(sender) && (lowerText === "e" || lowerText === "6" || lowerText === "test_back")) {
     interactiveLabSessions.delete(sender);
-    locationTestSessions.delete(sender);
+    stopLocationTestSession(sender);
     await showMainMenu(sock, sender);
     return true;
   }
@@ -1198,6 +1338,7 @@ export async function handleMenuNavigation(sock, sender, text, metadata = {}) {
 
       if (lowerText === 'test_back') {
         interactiveLabSessions.delete(sender);
+        stopLocationTestSession(sender);
         await showMainMenu(sock, sender);
         return true;
       }
