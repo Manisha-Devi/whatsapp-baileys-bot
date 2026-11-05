@@ -859,11 +859,11 @@ export async function handleMenuNavigation(sock, sender, text, metadata = {}) {
     const phoneNumber = extractPhoneFromSender(sender, metadata.alternateSender);
     const user = getUserByPhone(phoneNumber);
     if (!user) {
-      console.log("\\n========== UNREGISTERED WHATSAPP USER ==========");
+      console.log("\n========== UNREGISTERED WHATSAPP USER ==========");
       console.log("Received At:", new Date().toISOString());
       console.log("WhatsApp ID:", sender || "Unavailable");
       console.log("Mobile Number:", phoneNumber || "Unavailable (WhatsApp did not expose a phone-number JID)");
-      console.log("================================================\\n");
+      console.log("================================================\n");
       // Do not send any WhatsApp reply to unregistered users.
       return true;
     }
