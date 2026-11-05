@@ -799,9 +799,13 @@ export function resolveCommand(input, menuState = null) {
  * @param {string} sender - The WhatsApp sender ID
  * @returns {string|null} The phone number portion or null
  */
-function extractPhoneFromSender(sender) {
-  const match = sender.match(/^(\d+)@/);
-  return match ? match[1] : null;
+function extractPhoneFromSender(sender, alternateSender = null) {
+  for (const candidate of [sender, alternateSender]) {
+    if (!candidate || typeof candidate !== "string") continue;
+    const match = candidate.match(/^(\\d+)@/);
+    if (match) return match[1];
+  }
+  return null;
 }
 
 /**
@@ -813,7 +817,7 @@ function extractPhoneFromSender(sender) {
  * @param {string} text - The user's message text
  * @returns {Promise<boolean>} True if the message was handled by menu system, false otherwise
  */
-export async function handleMenuNavigation(sock, sender, text) {
+export async function handleMenuNavigation(sock, sender, text, metadata = {}) {
   // Ignore group messages and broadcast lists
   if (!sender || sender.endsWith("@g.us") || sender.endsWith("@broadcast")) {
     return false;
@@ -852,9 +856,17 @@ export async function handleMenuNavigation(sock, sender, text) {
   // Authenticate on the first incoming private message from any registered number.
   // Unknown numbers are silently ignored (no Access Denied / Entry prompt).
   if (!state.isAuthenticated || resolvedCommand === "entry") {
-    const phoneNumber = extractPhoneFromSender(sender);
+    const phoneNumber = extractPhoneFromSender(sender, metadata.alternateSender);
     const user = getUserByPhone(phoneNumber);
-    if (!user) return true;
+    if (!user) {
+      console.log("\\n========== UNREGISTERED WHATSAPP USER ==========");
+      console.log("Received At:", new Date().toISOString());
+      console.log("WhatsApp ID:", sender || "Unavailable");
+      console.log("Mobile Number:", phoneNumber || "Unavailable (WhatsApp did not expose a phone-number JID)");
+      console.log("================================================\\n");
+      // Do not send any WhatsApp reply to unregistered users.
+      return true;
+    }
 
     const buses = getBusesForUser(user);
     if (!buses.length) {
