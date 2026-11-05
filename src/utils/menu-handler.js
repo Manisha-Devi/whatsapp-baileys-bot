@@ -867,7 +867,7 @@ export async function handleMenuNavigation(sock, sender, text, metadata = {}) {
         sender
       ].filter((jid) => typeof jid === "string" && jid.length > 0);
       const pnJid = jidCandidates.find((jid) =>
-        /^\d+(?::\\d+)?@(s\.whatsapp\\.net|c\\.us)$/.test(jid)
+        /^\d+(?::\d+)?@(s\.whatsapp\.net|c\.us)$/.test(jid)
       ) || null;
       const lidJid = jidCandidates.find((jid) => /^\d+@lid$/.test(jid)) || null;
       const senderDetails = {
