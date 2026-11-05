@@ -802,7 +802,8 @@ export function resolveCommand(input, menuState = null) {
 function extractPhoneFromSender(sender, alternateSender = null) {
   for (const candidate of [sender, alternateSender]) {
     if (!candidate || typeof candidate !== "string") continue;
-    const match = candidate.match(/^(\d+)@/);
+    // Only phone-number JIDs identify a phone number; never treat a LID as one.
+    const match = candidate.match(/^(\d+)(?::\d+)?@(s\.whatsapp\.net|c\.us)$/);
     if (match) return match[1];
   }
   return null;
