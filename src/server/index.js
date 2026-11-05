@@ -440,7 +440,14 @@ async function connectToWhatsApp() {
         if (locationPayload && isInteractiveLabActive(sender)) {
           const isLiveLocation = Boolean(liveLocationPayload || locationPayload.isLive);
           const handledLocation = await handleInteractiveLabLocation(
-            sock, sender, locationPayload, isLiveLocation
+            sock,
+            sender,
+            locationPayload,
+            isLiveLocation,
+            {
+              messageId: msg.key.id || null,
+              messageTimestamp: msg.messageTimestamp ? Number(msg.messageTimestamp) : null
+            }
           );
           if (handledLocation) return;
         }
