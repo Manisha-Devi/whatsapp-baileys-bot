@@ -296,7 +296,7 @@ function logIncomingSenderDetails(msg) {
   };
 
   const phoneJid = [jids.remoteJid, jids.remoteJidAlt, jids.participant, jids.participantAlt]
-    .find((jid) => typeof jid === "string" && /^\\d+(?::\\d+)?@(s\\.whatsapp\\.net|c\\.us)$/.test(jid));
+    .find((jid) => typeof jid === "string" && /^\d+(?::\d+)?@(s\.whatsapp\.net|c\.us)$/.test(jid));
   const phoneNumber = phoneJid
     ? phoneJid.split("@")[0].split(":")[0]
     : null;
@@ -334,11 +334,11 @@ function logIncomingSenderDetails(msg) {
     rawMessageKey: key,
   };
 
-  console.log("\\n========== INCOMING SENDER DETAILS ==========\\n");
+  console.log("\n========== INCOMING SENDER DETAILS ==========\n");
   console.log(JSON.stringify(report, (_, value) =>
     typeof value === "bigint" ? value.toString() : value, 2
   ));
-  console.log("\\n=============================================\\n");
+  console.log("\n=============================================\n");
 }
 
 function scheduleReconnect(reason, requestedDelay = null) {
