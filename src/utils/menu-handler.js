@@ -867,9 +867,9 @@ export async function handleMenuNavigation(sock, sender, text, metadata = {}) {
         sender
       ].filter((jid) => typeof jid === "string" && jid.length > 0);
       const pnJid = jidCandidates.find((jid) =>
-        /^\\d+(?::\\d+)?@(s\\.whatsapp\\.net|c\\.us)$/.test(jid)
+        /^\d+(?::\\d+)?@(s\.whatsapp\\.net|c\\.us)$/.test(jid)
       ) || null;
-      const lidJid = jidCandidates.find((jid) => /^\\d+@lid$/.test(jid)) || null;
+      const lidJid = jidCandidates.find((jid) => /^\d+@lid$/.test(jid)) || null;
       const senderDetails = {
         receivedAt: new Date().toISOString(),
         registration: {
@@ -903,11 +903,11 @@ export async function handleMenuNavigation(sock, sender, text, metadata = {}) {
         note: "Fields not provided by Baileys are shown as null; phone number is not inferred from a LID."
       };
 
-      console.log("\\n========== UNREGISTERED WHATSAPP USER ==========");
+      console.log("\n========== UNREGISTERED WHATSAPP USER ==========");
       console.log(JSON.stringify(senderDetails, (_, value) =>
         typeof value === "bigint" ? value.toString() : value, 2
       ));
-      console.log("================================================\\n");
+      console.log("================================================\n");
       // Do not send any WhatsApp reply to unregistered users.
       return true;
     }
