@@ -72,12 +72,15 @@ const PORT = process.env.PORT || 3000;
 // GLOBAL STATE - Server's current state
 // ========================================
 
-let sock;                    // WhatsApp socket connection
-let qrCodeData = "";         // QR code image (Base64 data URL)
-let pairingCode = "";        // Pairing code (for phone number login)
-let isRestarting = false;    // Flag: reconnection in progress
-let isLoggedIn = false;      // Flag: WhatsApp connected or not
-let pairingRequested = false; // Flag: pairing already requested
+let sock;                       // Current WhatsApp socket connection
+let qrCodeData = "";            // QR code image (Base64 data URL)
+let pairingCode = "";           // Pairing code (for phone number login)
+let isLoggedIn = false;         // WhatsApp connected or not
+let pairingRequested = false;   // Prevent duplicate pairing-code requests
+let reconnectTimer = null;      // Only one reconnect timer may exist
+let connectionAttemptInProgress = false;
+let reconnectAttempts = 0;
+let suppressReconnect = false;  // Used during an intentional logout
 
 // ========================================
 // MIDDLEWARE: API Key Authentication
@@ -279,7 +282,26 @@ const htmlTemplate = (qr) => `
  * - Stored in auth_info/ folder
  * - Deleting this folder logs you out
  */
+function scheduleReconnect(reason, requestedDelay = null) {
+  if (suppressReconnect || reconnectTimer) return;
+
+  const delay = requestedDelay ?? Math.min(3000 * (2 ** reconnectAttempts), 30000);
+  reconnectAttempts += 1;
+  console.log(`WhatsApp reconnect scheduled in ${Math.round(delay / 1000)}s. Reason: ${reason}`);
+
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    connectToWhatsApp();
+  }, delay);
+}
+
 async function connectToWhatsApp() {
+  if (connectionAttemptInProgress) {
+    console.log("WhatsApp connection attempt already in progress; skipping duplicate start.");
+    return;
+  }
+  connectionAttemptInProgress = true;
+
   try {
     // ----------------------------------------
     // Load Auth State
@@ -296,8 +318,8 @@ async function connectToWhatsApp() {
     // Create WhatsApp Socket
     // ----------------------------------------
     
-    sock = makeWASocket({
-      version,                                    // WhatsApp Web version
+    const currentSocket = makeWASocket({
+      version                                    // WhatsApp Web version
       auth: {
         creds: state.creds,                       // Login credentials
         keys: makeCacheableSignalKeyStore(        // Encryption keys (cached for speed)
@@ -315,7 +337,8 @@ async function connectToWhatsApp() {
     // Handle CONNECTION EVENTS
     // ----------------------------------------
     
-    sock.ev.on("connection.update", async (update) => {
+    sock = currentSocket;
+    currentSocket.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
       // QR Code generated
@@ -332,47 +355,36 @@ async function connectToWhatsApp() {
         pairingCode = "";          // Clear pairing code too
         pairingRequested = false;
         isLoggedIn = true;         // Set logged in flag
+        reconnectAttempts = 0;
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
       } 
       // Connection CLOSE - Disconnected
       else if (connection === "close") {
-        // Find out why disconnected
+        // Ignore events from an old socket after a newer socket has started.
+        if (sock !== currentSocket) return;
+
         const reason = lastDisconnect?.error?.output?.statusCode;
         console.log(`Connection closed. Reason: ${reason}`);
         isLoggedIn = false;
+        pairingRequested = false;
+        pairingCode = "";
+        sock = undefined;
 
-        // CASE 1: Logged out (user manually logged out or session invalid)
+        // Intentional logout is handled by the logout API route.
+        if (suppressReconnect) return;
+
         if (reason === DisconnectReason.loggedOut) {
-          console.log("Logged out. Clearing old session...");
-          
-          // Delete auth files (for fresh login)
+          console.log("WhatsApp session logged out. Clearing saved credentials.");
           fs.rmSync("auth_info", { recursive: true, force: true });
-          pairingRequested = false;
-
-          // Reconnect (after 5 seconds)
-          if (!isRestarting) {
-            isRestarting = true;
-            console.log("Restarting for re-login in 5 seconds...");
-            setTimeout(() => {
-              isRestarting = false;
-              connectToWhatsApp();
-            }, 5000);
-          }
-        } 
-        // CASE 2: Timeout (408 error)
-        else if (reason === 408) {
-          console.log("Connection timeout. Retrying in 10 seconds...");
-          pairingRequested = false;
-          setTimeout(() => {
-            connectToWhatsApp();
-          }, 10000); // Wait 10 seconds
-        } 
-        // CASE 3: Other reasons (network issue, etc.)
-        else {
-          console.log("Attempting reconnect in 3 seconds...");
-          pairingRequested = false;
-          setTimeout(() => {
-            connectToWhatsApp();
-          }, 3000); // Retry after 3 seconds
+          qrCodeData = "";
+          scheduleReconnect("WhatsApp logged out; fresh login required", 5000);
+        } else if (reason === 408) {
+          scheduleReconnect("WhatsApp connection timeout", 10000);
+        } else {
+          scheduleReconnect(`WhatsApp disconnected (reason: ${reason})`);
         }
       }
     });
@@ -382,13 +394,13 @@ async function connectToWhatsApp() {
     // ----------------------------------------
     
     // Whenever credentials update, save to file
-    sock.ev.on("creds.update", saveCreds);
+    currentSocket.ev.on("creds.update", saveCreds);
 
     // ----------------------------------------
     // Handle INCOMING MESSAGES
     // ----------------------------------------
     
-    sock.ev.on("messages.upsert", async (m) => {
+    currentSocket.ev.on("messages.upsert", async (m) => {
       try {
         const msg = m.messages[0];
         if (!msg || !msg.key) return; // Invalid message
@@ -429,7 +441,9 @@ async function connectToWhatsApp() {
         // ----------------------------------------
         
         // Handle Entry, cancel, etc. commands
-        const menuHandled = await handleMenuNavigation(sock, sender, text);
+        const menuHandled = await handleMenuNavigation(sock, sender, text, {
+          alternateSender: msg.key.remoteJidAlt || msg.key.participantAlt || null
+        });
         if (menuHandled) return; // Menu handled it
 
         // Get user's current menu state
@@ -491,9 +505,10 @@ async function connectToWhatsApp() {
       }
     });
   } catch (err) {
-    // Connection error - retry after 5 seconds
     console.error("WhatsApp connection error:", err);
-    setTimeout(connectToWhatsApp, 5000);
+    scheduleReconnect("connection setup error", 5000);
+  } finally {
+    connectionAttemptInProgress = false;
   }
 }
 
@@ -647,6 +662,13 @@ app.get("/pairing-code", verifyApiKey, async (req, res) => {
       });
     }
 
+    if (pairingRequested && pairingCode) {
+      return res.json({ loggedIn: false, pairingCode, message: "A pairing code has already been generated. Use the existing code." });
+    }
+    if (pairingRequested) {
+      return res.status(409).json({ loggedIn: false, message: "Pairing code request is already in progress. Please wait." });
+    }
+
     // Get phone number from secret
     const phoneNumber = process.env.PHONE_NUMBER;
     
@@ -669,7 +691,8 @@ app.get("/pairing-code", verifyApiKey, async (req, res) => {
       });
     }
 
-    // Request pairing code
+    // Request one pairing code for this connection attempt.
+    pairingRequested = true;
     const code = await sock.requestPairingCode(cleanPhone);
     pairingCode = code;
     
@@ -683,6 +706,8 @@ app.get("/pairing-code", verifyApiKey, async (req, res) => {
       message: `Enter code ${code} in WhatsApp > Linked Devices > Link with phone number`
     });
   } catch (err) {
+    pairingRequested = false;
+    pairingCode = "";
     console.error("Pairing code error:", err.message);
     res.status(500).json({ 
       loggedIn: false,
@@ -706,27 +731,32 @@ app.get("/pairing-code", verifyApiKey, async (req, res) => {
  * - Ready for fresh login
  */
 app.get("/logout", verifyApiKey, async (req, res) => {
+  const socketToLogout = sock;
+  if (!socketToLogout) return res.status(400).json({ error: "Not connected." });
+
   try {
-    if (sock) {
-      // Logout from WhatsApp
-      await sock.logout();
-      
-      // Delete auth files
-      fs.rmSync("auth_info", { recursive: true, force: true });
-      
-      // Reset state
-      qrCodeData = "";
-      isLoggedIn = false;
-      
-      res.json({ message: "Logged out successfully." });
-      
-      // Reconnect (for new QR)
-      connectToWhatsApp();
-    } else {
-      res.status(400).json({ error: "Not connected." });
+    suppressReconnect = true;
+    await socketToLogout.logout();
+
+    if (sock === socketToLogout) sock = undefined;
+    fs.rmSync("auth_info", { recursive: true, force: true });
+    qrCodeData = "";
+    pairingCode = "";
+    pairingRequested = false;
+    isLoggedIn = false;
+
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
     }
+
+    suppressReconnect = false;
+    scheduleReconnect("admin requested logout; fresh login required", 1000);
+    return res.json({ message: "Logged out. A fresh WhatsApp login is now available." });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    suppressReconnect = false;
+    console.error("WhatsApp logout error:", err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
