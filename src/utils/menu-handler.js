@@ -859,11 +859,55 @@ export async function handleMenuNavigation(sock, sender, text, metadata = {}) {
     const phoneNumber = extractPhoneFromSender(sender, metadata.alternateSender);
     const user = getUserByPhone(phoneNumber);
     if (!user) {
-      console.log("\n========== UNREGISTERED WHATSAPP USER ==========");
-      console.log("Received At:", new Date().toISOString());
-      console.log("WhatsApp ID:", sender || "Unavailable");
-      console.log("Mobile Number:", phoneNumber || "Unavailable (WhatsApp did not expose a phone-number JID)");
-      console.log("================================================\n");
+      const jidCandidates = [
+        metadata.remoteJid,
+        metadata.remoteJidAlt,
+        metadata.participant,
+        metadata.participantAlt,
+        sender
+      ].filter((jid) => typeof jid === "string" && jid.length > 0);
+      const pnJid = jidCandidates.find((jid) =>
+        /^\\d+(?::\\d+)?@(s\\.whatsapp\\.net|c\\.us)$/.test(jid)
+      ) || null;
+      const lidJid = jidCandidates.find((jid) => /^\\d+@lid$/.test(jid)) || null;
+      const senderDetails = {
+        receivedAt: new Date().toISOString(),
+        registration: {
+          status: "UNREGISTERED",
+          userFound: false
+        },
+        sender: {
+          pushName: metadata.pushName || null,
+          verifiedBizName: metadata.verifiedBizName || null,
+          phoneNumber: phoneNumber || (pnJid ? pnJid.split("@")[0].split(":")[0] : null),
+          PNJID: pnJid,
+          LIDJID: lidJid,
+          remoteJid: metadata.remoteJid || sender || null,
+          remoteJidAlt: metadata.remoteJidAlt || null,
+          participant: metadata.participant || null,
+          participantAlt: metadata.participantAlt || null,
+          addressingMode: metadata.addressingMode || null
+        },
+        message: {
+          messageId: metadata.messageId || null,
+          timestamp: metadata.messageTimestamp || null,
+          messageTypes: metadata.messageTypes || [],
+          textOrCaption: metadata.messageText || null,
+          chatType: String(sender || "").endsWith("@g.us")
+            ? "group"
+            : String(sender || "").endsWith("@broadcast")
+              ? "broadcast"
+              : "individual-or-other"
+        },
+        rawMessageKey: metadata.rawMessageKey || null,
+        note: "Fields not provided by Baileys are shown as null; phone number is not inferred from a LID."
+      };
+
+      console.log("\\n========== UNREGISTERED WHATSAPP USER ==========");
+      console.log(JSON.stringify(senderDetails, (_, value) =>
+        typeof value === "bigint" ? value.toString() : value, 2
+      ));
+      console.log("================================================\\n");
       // Do not send any WhatsApp reply to unregistered users.
       return true;
     }
