@@ -282,6 +282,65 @@ const htmlTemplate = (qr) => `
  * - Stored in auth_info/ folder
  * - Deleting this folder logs you out
  */
+/**
+ * Logs all sender identity fields exposed by the incoming Baileys message.
+ * Baileys does not guarantee a phone number or an internalId for every sender.
+ */
+function logIncomingSenderDetails(msg) {
+  const key = msg?.key || {};
+  const jids = {
+    remoteJid: key.remoteJid || null,
+    remoteJidAlt: key.remoteJidAlt || null,
+    participant: key.participant || null,
+    participantAlt: key.participantAlt || null,
+  };
+
+  const phoneJid = [jids.remoteJid, jids.remoteJidAlt, jids.participant, jids.participantAlt]
+    .find((jid) => typeof jid === "string" && /^\\d+(?::\\d+)?@(s\\.whatsapp\\.net|c\\.us)$/.test(jid));
+  const phoneNumber = phoneJid
+    ? phoneJid.split("@")[0].split(":")[0]
+    : null;
+
+  const messagePayload = unwrapIncomingMessage(msg?.message);
+  const messageTypes = Object.keys(messagePayload || {});
+  const senderContact = msg?.sender || msg?.contact || {};
+
+  const report = {
+    receivedAt: new Date().toISOString(),
+    sender: {
+      pushName: msg?.pushName || null,
+      verifiedBizName: msg?.verifiedBizName || null,
+      phoneNumber,
+      phoneNumberSourceJid: phoneJid,
+      remoteJid: jids.remoteJid,
+      remoteJidAlt: jids.remoteJidAlt,
+      participant: jids.participant,
+      participantAlt: jids.participantAlt,
+      addressingMode: key.addressingMode || msg?.addressingMode || null,
+      internalId: key.internalId ?? msg?.internalId ?? senderContact?.internalId ?? senderContact?.id ?? null,
+      senderContactMetadata: senderContact && Object.keys(senderContact).length ? senderContact : null,
+    },
+    message: {
+      messageId: key.id || null,
+      timestamp: msg?.messageTimestamp ? Number(msg.messageTimestamp) : null,
+      fromMe: Boolean(key.fromMe),
+      chatType: String(key.remoteJid || "").endsWith("@g.us")
+        ? "group"
+        : String(key.remoteJid || "").endsWith("@broadcast")
+          ? "broadcast"
+          : "individual-or-other",
+      messageTypes,
+    },
+    rawMessageKey: key,
+  };
+
+  console.log("\\n========== INCOMING SENDER DETAILS ==========\\n");
+  console.log(JSON.stringify(report, (_, value) =>
+    typeof value === "bigint" ? value.toString() : value, 2
+  ));
+  console.log("\\n=============================================\\n");
+}
+
 function scheduleReconnect(reason, requestedDelay = null) {
   if (suppressReconnect || reconnectTimer) return;
 
@@ -402,6 +461,12 @@ async function connectToWhatsApp() {
     
     currentSocket.ev.on("messages.upsert", async (m) => {
       try {
+        // Log sender details for every incoming message in this event.
+        for (const incomingMsg of m.messages || []) {
+          if (!incomingMsg?.key || incomingMsg.key.fromMe) continue;
+          logIncomingSenderDetails(incomingMsg);
+        }
+
         const msg = m.messages[0];
         if (!msg || !msg.key) return; // Invalid message
         
