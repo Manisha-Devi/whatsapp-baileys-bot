@@ -334,7 +334,7 @@ function startLiveLocationScheduler(sock, sender, session) {
             "",
             "WhatsApp/Baileys has not delivered another live-location event in this cycle.",
             "Send *STOP* to end tracking."
-          ].join("\\n")
+          ].join("\n")
         });
       } catch (error) {
         console.error("Live Location Test status reply failed:", error?.stack || error);
@@ -370,7 +370,7 @@ function startLiveLocationScheduler(sock, sender, session) {
           "",
           "This coordinate came from a newly received WhatsApp location event.",
           "Send *STOP* to end tracking."
-        ].join("\\n")
+        ].join("\n")
       });
       session.lastReportedLocation = {
         latitude: location.latitude,
