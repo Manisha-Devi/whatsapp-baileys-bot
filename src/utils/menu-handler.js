@@ -313,26 +313,49 @@ function startLiveLocationScheduler(sock, sender, session) {
     const location = session.latestLocation;
     const hasNewUpdate = session.pendingUpdate;
     session.pendingUpdate = false;
+    session.cycleCount += 1;
+
+    // Never resend a cached coordinate as if it were a fresh GPS update.
+    if (!hasNewUpdate) {
+      console.log("[Live Location Test] No fresh location event in 5-second cycle", {
+        sender,
+        cycle: session.cycleCount,
+        lastKnownLatitude: location.latitude,
+        lastKnownLongitude: location.longitude
+      });
+      try {
+        await sock.sendMessage(sender, {
+          text: [
+            "📍 *Live Location Test*",
+            "",
+            "⚠️ *No New Coordinate Update Received*",
+            "Cycle: " + session.cycleCount,
+            "Last known coordinate is kept internally, but it is NOT being resent as a fresh update.",
+            "",
+            "WhatsApp/Baileys has not delivered another live-location event in this cycle.",
+            "Send *STOP* to end tracking."
+          ].join("\\n")
+        });
+      } catch (error) {
+        console.error("Live Location Test status reply failed:", error?.stack || error);
+      } finally {
+        session.sending = false;
+      }
+      return;
+    }
 
     const sameCoordinates =
       session.lastReportedLocation &&
       session.lastReportedLocation.latitude === location.latitude &&
       session.lastReportedLocation.longitude === location.longitude;
+    const status = sameCoordinates
+      ? "🔵 *New Update – Same Coordinates*"
+      : "🟢 *New Coordinate*";
 
-    let status;
-    if (!hasNewUpdate) {
-      status = "🟡 *Same Coordinate*";
-    } else if (sameCoordinates) {
-      status = "🔵 *New Update – Same Coordinates*";
-    } else {
-      status = "🟢 *New Coordinate*";
-    }
-
-    session.cycleCount += 1;
-    console.log("[Live Location Test] 5-second cycle", {
+    console.log("[Live Location Test] Fresh 5-second location update", {
       sender,
       cycle: session.cycleCount,
-      status: !hasNewUpdate ? "Same Coordinate" : sameCoordinates ? "New Update - Same Coordinates" : "New Coordinate",
+      status,
       latitude: location.latitude,
       longitude: location.longitude
     });
@@ -345,9 +368,9 @@ function startLiveLocationScheduler(sock, sender, session) {
           "Cycle: " + session.cycleCount,
           ...formatLocationForReply(location),
           "",
-          "No new WhatsApp update in this cycle means the last received coordinate is being repeated.",
+          "This coordinate came from a newly received WhatsApp location event.",
           "Send *STOP* to end tracking."
-        ].join("\n")
+        ].join("\\n")
       });
       session.lastReportedLocation = {
         latitude: location.latitude,
