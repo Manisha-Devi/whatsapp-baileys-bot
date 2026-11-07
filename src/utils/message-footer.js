@@ -26,7 +26,7 @@ export function buildMessageFooter(sender, now = new Date()) {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true
-  }).format(now).replace(",", ",");
+  }).format(now).replace(/\b(am|pm)\b/i, match => match.toUpperCase());
 
   // Keep a fixed-width footer line so the timestamp sits toward the right edge.
   const spacing = " ".repeat(Math.max(2, 48 - leftLabel.length - rightLabel.length));
