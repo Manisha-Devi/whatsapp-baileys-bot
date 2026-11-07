@@ -2,8 +2,51 @@
  * reports.js - Reports Feature Entry Point
  */
 import dailyDb, { bookingsDb } from "../../utils/db.js";
-import { format, subDays, startOfWeek, startOfMonth, startOfYear, isWithinInterval, parse, endOfMonth, differenceInDays } from "date-fns";
+import { generateWAMessageFromContent } from "@whiskeysockets/baileys";
+import { format, subDays, startOfWeek, startOfMonth, startOfYear, endOfYear, isWithinInterval, parse, endOfMonth, differenceInDays } from "date-fns";
 import { parseDate } from "../daily/handlers/date-handler.js";
+
+async function sendReportWithNavigation(sock, sender, text) {
+  const userJid = sock.authState?.creds?.me?.id || sock.user?.id;
+  if (!userJid) {
+    await sock.sendMessage(sender, { text: text + "\\n\\nReply *Menu* or *Exit* to navigate." });
+    return;
+  }
+
+  const message = generateWAMessageFromContent(sender, {
+    interactiveMessage: {
+      header: { title: "Average Profit Report", hasMediaAttachment: false },
+      body: { text },
+      footer: { text: "Sukoon Bot" },
+      nativeFlowMessage: {
+        buttons: [
+          { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Menu", id: "reports:quick_menu" }) },
+          { name: "quick_reply", buttonParamsJson: JSON.stringify({ display_text: "Exit", id: "reports:quick_exit" }) }
+        ],
+        messageParamsJson: ""
+      }
+    }
+  }, { userJid, logger: sock.logger });
+
+  const additionalNodes = [{
+    tag: "biz",
+    attrs: {},
+    content: [{
+      tag: "interactive",
+      attrs: { type: "native_flow", v: "1" },
+      content: [{ tag: "native_flow", attrs: { v: "9", name: "mixed" } }]
+    }]
+  }];
+  if (!sender.endsWith("@g.us")) additionalNodes.push({ tag: "bot", attrs: { biz_bot: "1" } });
+
+  message.message = {
+    documentWithCaptionMessage: { message: { ...message.message } }
+  };
+  await sock.relayMessage(sender, message.message, {
+    messageId: message.key.id,
+    additionalNodes
+  });
+}
 
 export async function handleIncomingMessageFromReports(sock, msg) {
   const sender = msg.key.remoteJid;
@@ -65,10 +108,27 @@ async function handleAverageReport(sock, sender, text, state) {
     periodName = "This Week";
   } else if (text === 'average this month') {
     startDate = startOfMonth(now);
+    endDate = endOfMonth(now);
     periodName = "This Month";
+  } else if (text === 'average last month') {
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    startDate = startOfMonth(lastMonth);
+    endDate = endOfMonth(lastMonth);
+    periodName = "Last Month";
   } else if (text === 'average this year') {
     startDate = startOfYear(now);
+    endDate = endOfYear(now);
     periodName = "This Year";
+  } else if (text === 'average last year') {
+    const lastYear = new Date(now.getFullYear() - 1, 0, 1);
+    startDate = startOfYear(lastYear);
+    endDate = endOfYear(lastYear);
+    periodName = "Last Year";
+  } else if (text === 'average complete' || text === 'average all time') {
+    startDate = new Date(0);
+    endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
+    periodName = "Complete";
   } else {
     const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
     const words = text.split(' ');
@@ -213,5 +273,5 @@ async function handleAverageReport(sock, sender, text, state) {
 
   const reportText = reportHeader + dailySection + bookingSection + overallSection;
 
-  await sock.sendMessage(sender, { text: reportText });
+  await sendReportWithNavigation(sock, sender, reportText);
 }
