@@ -19,9 +19,15 @@ export function buildMessageFooter(sender, now = new Date()) {
     ? `Sukoon ${registrationNumber}`
     : "Sukoon";
 
-  // Keep only the Sukoon label here. WhatsApp adds its own message timestamp
-  // below the bubble, so a second custom date/time would appear duplicated.
-  return leftLabel;
+  // Show the date on the right; WhatsApp already shows the message time below.
+  const rightDate = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIME_ZONE,
+    day: "2-digit",
+    month: "short"
+  }).format(now);
+
+  const spacing = " ".repeat(Math.max(2, 48 - leftLabel.length - rightDate.length));
+  return `${leftLabel}${spacing}${rightDate}`;
 }
 
 function addTextFooter(content, sender) {
