@@ -31,16 +31,28 @@ function addTextFooter(content, sender) {
   if (!content || typeof content !== "object") return content;
 
   const next = { ...content };
+  const header = buildMessageHeader(sender);
   const footer = buildMessageFooter(sender);
 
   for (const key of ["text", "caption"]) {
-    if (typeof next[key] === "string") {
-      const lines = next[key].trimEnd().split("\n");
-      const lastLine = lines[lines.length - 1] || "";
-      if (!lastLine.startsWith(FOOTER_MARKER)) {
-        next[key] = `${next[key].trimEnd()}\n\n${footer}`;
-      }
+    if (typeof next[key] !== "string") continue;
+
+    let messageText = next[key].trimEnd();
+    const lines = messageText.split("\n");
+    const firstLine = lines[0] || "";
+    const lastLine = lines[lines.length - 1] || "";
+
+    // Add the same branded header to ordinary text/caption replies as well
+    // as native-flow cards. Preserve existing content and avoid duplicates.
+    if (firstLine !== header) {
+      messageText = `${header}\n\n${messageText}`;
     }
+
+    if (!lastLine.startsWith(FOOTER_MARKER)) {
+      messageText = `${messageText}\n\n${footer}`;
+    }
+
+    next[key] = messageText;
   }
 
   return next;
