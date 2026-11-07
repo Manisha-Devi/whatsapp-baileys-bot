@@ -119,16 +119,9 @@ export function installMessageFooter(sock) {
     const outgoing = structuredClone(message);
     addInteractiveBranding(outgoing, jid);
 
-    // The WhatsApp "AI" attribution label is associated with the bot biz node.
-    // Keep native-flow metadata intact while omitting that extra attribution node.
-    const relayOptions = options?.additionalNodes
-      ? {
-          ...options,
-          additionalNodes: options.additionalNodes.filter(node => node?.tag !== "bot")
-        }
-      : options;
-
-    return originalRelayMessage(jid, outgoing, relayOptions);
+    // Preserve all Baileys native-flow relay nodes. WhatsApp uses these
+    // protocol nodes for interactive menus and quick-reply compatibility.
+    return originalRelayMessage(jid, outgoing, options);
   };
 
   Object.defineProperty(sock, "__sukoonMessageFooterInstalled", {
