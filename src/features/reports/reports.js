@@ -9,7 +9,7 @@ import { parseDate } from "../daily/handlers/date-handler.js";
 async function sendReportWithNavigation(sock, sender, text) {
   const userJid = sock.authState?.creds?.me?.id || sock.user?.id;
   if (!userJid) {
-    await sock.sendMessage(sender, { text: text + "\\n\\nReply *Menu* or *Exit* to navigate." });
+    await sock.sendMessage(sender, { text: text + "\n\nReply *Menu* or *Exit* to navigate." });
     return;
   }
 
