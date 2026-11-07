@@ -60,7 +60,7 @@ function buildMessageHeader(sender) {
   const brand = "✨ SUKOON";
   // WhatsApp native-flow headers expose one title field. Use spacing to keep
   // the bus registration on the right; do not add divider lines below it.
-  if (!registrationNumber) return brand;
+  if (!registrationNumber) return `*${brand}*`;
 
   const gap = Math.max(2, 34 - brand.length - String(registrationNumber).length);
   return `${brand}${" ".repeat(gap)}${registrationNumber}`;
