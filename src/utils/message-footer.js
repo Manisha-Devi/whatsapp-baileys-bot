@@ -19,15 +19,14 @@ export function buildMessageFooter(sender, now = new Date()) {
     ? `Sukoon ${registrationNumber}`
     : "Sukoon";
 
-  const rightLabel = new Intl.DateTimeFormat("en-IN", {
+  const rightLabel = new Intl.DateTimeFormat("en-GB", {
     timeZone: TIME_ZONE,
     day: "2-digit",
     month: "short",
-    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     hour12: true
-  }).format(now);
+  }).format(now).replace(",", ",");
 
   // Keep a fixed-width footer line so the timestamp sits toward the right edge.
   const spacing = " ".repeat(Math.max(2, 48 - leftLabel.length - rightLabel.length));
@@ -87,7 +86,17 @@ export function installMessageFooter(sock) {
   sock.relayMessage = (jid, message, options) => {
     const outgoing = structuredClone(message);
     addInteractiveFooter(outgoing, jid);
-    return originalRelayMessage(jid, outgoing, options);
+
+    // The WhatsApp "AI" attribution label is associated with the bot biz node.
+    // Keep native-flow metadata intact while omitting that extra attribution node.
+    const relayOptions = options?.additionalNodes
+      ? {
+          ...options,
+          additionalNodes: options.additionalNodes.filter(node => node?.tag !== "bot")
+        }
+      : options;
+
+    return originalRelayMessage(jid, outgoing, relayOptions);
   };
 
   Object.defineProperty(sock, "__sukoonMessageFooterInstalled", {
