@@ -5,26 +5,17 @@ const FOOTER_MARKER = "XploreJK";
 
 /**
  * Builds the common WhatsApp footer for every outgoing bot message.
- * The date and time are always shown in Indian Standard Time.
+ * WhatsApp already displays the message time automatically, so only the
+ * brand and date are included in the custom footer.
  */
 export function buildMessageFooter(_sender, now = new Date()) {
   const date = new Intl.DateTimeFormat("en-GB", {
     timeZone: TIME_ZONE,
-    day: "2-digit",
+    day: "numeric",
     month: "short"
   }).format(now);
 
-  const time = new Intl.DateTimeFormat("en-US", {
-    timeZone: TIME_ZONE,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true
-  }).format(now).toUpperCase();
-
-  const leftLabel = "XploreJK";
-  const rightLabel = `${date}, ${time}`;
-  const spacing = " ".repeat(Math.max(2, 48 - leftLabel.length - rightLabel.length));
-  return `${leftLabel}${spacing}${rightLabel}`;
+  return `XploreJK | ${date}`;
 }
 
 function addTextFooter(content, sender) {
