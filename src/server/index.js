@@ -49,6 +49,7 @@ import { handleIncomingMessageFromCash } from "../features/cash/cash.js";       
 import { handleIncomingMessageFromReports } from "../features/reports/reports.js";    // Reports feature
 import { handleMenuNavigation, isInteractiveLabActive, handleInteractiveLabLocation } from "../utils/menu-handler.js"; // Menu navigation and lab location tests
 import { getMenuState } from "../utils/menu-state.js";
+import { installMessageFooter } from "../utils/message-footer.js";
 import { unwrapIncomingMessage, normalizeIncomingMessage } from "../utils/incoming-message.js";                              // User's current menu state
 
 // ========================================
@@ -337,6 +338,7 @@ async function connectToWhatsApp() {
     // Handle CONNECTION EVENTS
     // ----------------------------------------
     
+    installMessageFooter(currentSocket);
     sock = currentSocket;
     currentSocket.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
