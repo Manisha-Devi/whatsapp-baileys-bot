@@ -49,22 +49,56 @@ function addTextFooter(content, sender) {
   return next;
 }
 
-function addInteractiveFooter(message, sender) {
+function buildMessageHeader(sender) {
+  const state = getMenuState(sender);
+  const registrationNumber =
+    state.selectedBusInfo?.registrationNumber ||
+    state.selectedBusInfo?.registration_number ||
+    state.selectedBus ||
+    null;
+
+  const brand = "✨ SUKOON";
+  if (!registrationNumber) return brand;
+
+  // Interactive headers are a single title field in WhatsApp's native-flow
+  // schema, so spacing is used to place the bus registration on the right.
+  const gap = Math.max(2, 34 - brand.length - String(registrationNumber).length);
+  return `${brand}${" ".repeat(gap)}${registrationNumber}`;
+}
+
+function addInteractiveBranding(message, sender) {
   if (!message || typeof message !== "object") return;
   if (Array.isArray(message)) {
-    for (const item of message) addInteractiveFooter(item, sender);
+    for (const item of message) addInteractiveBranding(item, sender);
     return;
   }
 
   if (message.interactiveMessage && typeof message.interactiveMessage === "object") {
-    message.interactiveMessage.footer = {
-      ...(message.interactiveMessage.footer || {}),
+    const interactive = message.interactiveMessage;
+    const previousTitle = interactive.header?.title?.trim();
+
+    interactive.header = {
+      ...(interactive.header || {}),
+      title: buildMessageHeader(sender),
+      hasMediaAttachment: interactive.header?.hasMediaAttachment ?? false
+    };
+
+    // Keep the original menu/report title visible in the message body.
+    if (previousTitle && typeof interactive.body?.text === "string") {
+      const bodyText = interactive.body.text.trimStart();
+      if (!bodyText.toLowerCase().startsWith(previousTitle.toLowerCase())) {
+        interactive.body.text = `* ${previousTitle} *\n\n${interactive.body.text}`;
+      }
+    }
+
+    interactive.footer = {
+      ...(interactive.footer || {}),
       text: buildMessageFooter(sender)
     };
   }
 
   for (const [key, value] of Object.entries(message)) {
-    if (value && typeof value === "object") addInteractiveFooter(value, sender);
+    if (value && typeof value === "object") addInteractiveBranding(value, sender);
   }
 }
 
@@ -82,7 +116,7 @@ export function installMessageFooter(sock) {
   const originalRelayMessage = sock.relayMessage.bind(sock);
   sock.relayMessage = (jid, message, options) => {
     const outgoing = structuredClone(message);
-    addInteractiveFooter(outgoing, jid);
+    addInteractiveBranding(outgoing, jid);
 
     // The WhatsApp "AI" attribution label is associated with the bot biz node.
     // Keep native-flow metadata intact while omitting that extra attribution node.
