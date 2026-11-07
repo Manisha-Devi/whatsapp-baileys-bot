@@ -555,6 +555,26 @@ export async function showBusSelectionMenu(sock, sender) {
  * @param {Object} sock - The WhatsApp socket connection
  * @param {string} sender - The WhatsApp sender ID
  */
+export async function showReportsMenu(sock, sender) {
+  const state = getMenuState(sender);
+  const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || "N/A";
+  return sendNativeSelectList(sock, sender, {
+    title: "Reports",
+    body: `Select a report period for ${regNumber}.`,
+    sectionTitle: "Average Profit Report",
+    rows: [
+      { title: "This Month", description: "Current calendar month", id: "reports:this_month" },
+      { title: "Last Month", description: "Previous calendar month", id: "reports:last_month" },
+      { title: "This Year", description: "Current calendar year", id: "reports:this_year" },
+      { title: "Last Year", description: "Previous calendar year", id: "reports:last_year" },
+      { title: "Complete", description: "All available records", id: "reports:complete" },
+      { title: "Other", description: "Choose a custom date range", id: "reports:other" },
+      { title: "Help", description: "View report options and date format", id: "reports:help" },
+      { title: "Exit", description: "Return to Main Menu", id: "reports:exit" }
+    ]
+  });
+}
+
 export async function showDailySubmenu(sock, sender) {
   const state = getMenuState(sender);
   const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
@@ -1030,6 +1050,16 @@ export async function handleMenuNavigation(sock, sender, text, metadata = {}) {
     "main:booking": "booking",
     "main:cash": "cash",
     "main:reports": "reports",
+    "reports:this_month": "reports_this_month",
+    "reports:last_month": "reports_last_month",
+    "reports:this_year": "reports_this_year",
+    "reports:last_year": "reports_last_year",
+    "reports:complete": "reports_complete",
+    "reports:other": "reports_other",
+    "reports:help": "reports_help",
+    "reports:exit": "reports_exit",
+    "reports:quick_menu": "reports_quick_menu",
+    "reports:quick_exit": "reports_quick_exit",
     "main:switch": "switch",
     "main:test": "test",
     "main:exit": "exit"
@@ -1140,6 +1170,67 @@ export async function handleMenuNavigation(sock, sender, text, metadata = {}) {
       return true;
     }
     return false;
+  }
+
+  // Reports Single Select and Quick Reply navigation.
+  if (state.mode === "report") {
+    if (resolvedCommand === "reports_quick_menu" || resolvedCommand === "menu") {
+      await showReportsMenu(sock, sender);
+      return true;
+    }
+    if (resolvedCommand === "reports_quick_exit" || resolvedCommand === "reports_exit" || resolvedCommand === "exit" || resolvedCommand === "home") {
+      exitToHome(sender);
+      await showMainMenu(sock, sender);
+      return true;
+    }
+    const reportCommands = {
+      reports_this_month: "Average This Month",
+      reports_last_month: "Average Last Month",
+      reports_this_year: "Average This Year",
+      reports_last_year: "Average Last Year",
+      reports_complete: "Average Complete"
+    };
+    if (reportCommands[resolvedCommand]) {
+      await handleIncomingMessageFromReports(sock, {
+        key: { remoteJid: sender },
+        message: { conversation: reportCommands[resolvedCommand] }
+      });
+      return true;
+    }
+    if (resolvedCommand === "reports_other") {
+      await sendDailyQuickReplyMessage(
+        sock,
+        sender,
+        "📅 *Custom Average Profit Report*\\n\\nSend your date range in this format:\\n*Average From DD/MM/YYYY to DD/MM/YYYY*\\n\\nExample: Average From 01/10/2026 to 31/10/2026",
+        "Custom Report",
+        [
+          { display_text: "Menu", id: "reports:quick_menu" },
+          { display_text: "Exit", id: "reports:quick_exit" }
+        ]
+      );
+      return true;
+    }
+    if (resolvedCommand === "reports_help" || resolvedCommand === "help") {
+      await sendDailyQuickReplyMessage(
+        sock,
+        sender,
+        "📊 *Reports Help*\\n\\n• This Month – current month\\n• Last Month – previous month\\n• This Year – current year\\n• Last Year – previous year\\n• Complete – all saved records\\n• Other – custom date range\\n\\nCustom format: *Average From DD/MM/YYYY to DD/MM/YYYY*",
+        "Reports Help",
+        [
+          { display_text: "Menu", id: "reports:quick_menu" },
+          { display_text: "Exit", id: "reports:quick_exit" }
+        ]
+      );
+      return true;
+    }
+
+    if (lowerText.startsWith("average ")) {
+      await handleIncomingMessageFromReports(sock, {
+        key: { remoteJid: sender },
+        message: { conversation: text }
+      });
+      return true;
+    }
   }
 
   // Handle dedicated Daily Quick Reply navigation actions.
@@ -1420,15 +1511,7 @@ export async function handleMenuNavigation(sock, sender, text, metadata = {}) {
     if (resolvedCommand === 'reports') {
       const { setMenuMode } = await import('./menu-state.js');
       setMenuMode(sender, 'report');
-      const regNumber = state.selectedBusInfo?.registrationNumber || state.selectedBus || 'N/A';
-      const menuText = `📈 *Reports* (*${regNumber}*)
-
-Enter Average Command (e.g., Average Today, Average Nov, Average From 15/09/2026 to 20/09/2026):
-
-🔙 Reply *Exit* or *E* - to go back to Main Menu
-
-Type your choice:`;
-      await sock.sendMessage(sender, { text: menuText });
+      await showReportsMenu(sock, sender);
       return true;
     }
   } else if (state.mode && !state.submode) {
