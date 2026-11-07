@@ -83,14 +83,6 @@ function addInteractiveBranding(message, sender) {
       hasMediaAttachment: interactive.header?.hasMediaAttachment ?? false
     };
 
-    // Keep the original menu/report title visible in the message body.
-    if (previousTitle && typeof interactive.body?.text === "string") {
-      const bodyText = interactive.body.text.trimStart();
-      if (!bodyText.toLowerCase().startsWith(previousTitle.toLowerCase())) {
-        interactive.body.text = `* ${previousTitle} *\n\n${interactive.body.text}`;
-      }
-    }
-
     interactive.footer = {
       ...(interactive.footer || {}),
       text: buildMessageFooter(sender)
